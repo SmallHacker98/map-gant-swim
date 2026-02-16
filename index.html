@@ -5,22 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v4.7</title>
+<title>Pro Map Suite v5.0</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
     body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:sans-serif;user-select:none;}
     
-    /* Layout */
+    /* Map */
     #viewport{width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:20px 20px;}
     #viewport:active{cursor:grabbing;}
     #canvas{transform-origin:0 0;position:absolute;top:0;left:0;}
     .smooth{transition:transform 0.4s cubic-bezier(0.25,1,0.5,1);}
+    
+    /* SVG */
+    svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
+    path{fill:none;stroke:var(--line);stroke-width:2px;stroke-linecap:round;transition:stroke 0.2s;}
+    path.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:5,3;animation:dash 1s linear infinite;}
+    @keyframes dash{to{stroke-dashoffset:-8;}}
 
     /* Node */
     .node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:1;display:flex;flex-direction:column;overflow:hidden;}
     .node:hover{box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:10;}
     .node.sel{border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(52,152,219,0.3);}
+    .node.src{border:2px solid var(--high);box-shadow:0 0 0 4px rgba(230,126,34,0.4);} /* Source Node for Link */
     .node.hit{border:3px solid var(--high);transform:scale(1.05);z-index:20;}
     .node.err{border:3px solid var(--crit);}
     .node.phy{transition:left 0.1s linear, top 0.1s linear;}
@@ -38,12 +45,6 @@
     .n-add{text-align:center;color:#bdc3c7;cursor:pointer;background:#fafafa;}
     .n-add:hover{color:var(--accent);background:#f0f0f0;}
     .np{height:4px;background:#eee;} .np-bar{height:100%;background:#2ecc71;transition:width 0.3s;}
-
-    /* SVG */
-    svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
-    path{fill:none;stroke:var(--line);stroke-width:2px;stroke-linecap:round;transition:stroke 0.2s;}
-    path.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:5,3;animation:dash 1s linear infinite;}
-    @keyframes dash{to{stroke-dashoffset:-8;}}
 
     /* Panels */
     .pnl{position:fixed;background:white;padding:6px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;gap:5px;z-index:2000;cursor:move;align-items:center;}
@@ -75,7 +76,6 @@
     .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
     .g-row:hover{background:#f0f8ff;}
     .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;cursor:move;}
-    .g-grp.all{background:#34495e;color:white;}
     .g-lbl{width:200px;min-width:200px;padding:0 10px;border-right:1px solid #ddd;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:white;position:sticky;left:0;z-index:10;height:40px;display:flex;align-items:center;}
     .g-lbl.err{color:var(--crit);}
     .g-area{flex-grow:1;position:relative;height:100%;}
@@ -94,9 +94,7 @@
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
-
     .dept-arr{cursor:pointer;opacity:0.6;padding:0 8px;font-size:12px;user-select:none;color:white;}
-    .dept-arr:hover{opacity:1;transform:scale(1.2);}
     .g-arr-btn{cursor:pointer;opacity:0.6;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;}
 
     /* Modal */
@@ -112,146 +110,100 @@
 
     #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:5000;}
     #loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9999;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
-    .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
-    .sc-mode .view{margin-top:0;}
-    .sc-mode .view-header{padding-top:10px;}
+    .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;} .sc-mode .view{margin-top:0;} .sc-mode .view-header{padding-top:10px;}
 </style>
 </head>
 <body>
-
-    <div id="pres-indicator">🔴 PRESENTATION MODE</div>
-    <div id="save-toast">保存しました</div>
-    <div id="loupe"><div id="loupe-content"></div></div>
+    <div id="pres-ind">🔴 PRESENTATION MODE</div>
+    <div id="toast">保存しました</div>
+    <div id="loupe"><div id="l-cnt" style="transform-origin:0 0;"></div></div>
 
     <div id="modal">
         <div class="m-cnt">
-            <h3 style="margin-top:0; color:#2c3e50;">タスク詳細</h3>
+            <h3>タスク詳細</h3>
             <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
             <div class="m-row"><label>担当部署 (カンマ区切)</label><input type="text" id="m-dep" list="dl-dept"></div><datalist id="dl-dept"></datalist>
             <div style="display:flex;gap:10px;"><div class="m-row" style="flex:1"><label>予定開始</label><input type="date" id="m-s" onchange="syncD('s')"></div><div class="m-row" style="flex:1"><label>期間(日)</label><input type="number" id="m-d" onchange="syncD('d')"></div></div>
             <div class="m-row"><label>予定終了</label><input type="date" id="m-e" onchange="syncD('e')"></div>
             <div style="display:flex;gap:10px;"><div class="m-row" style="flex:1"><label>ステータス</label><select id="m-st"><option value="todo">未着手</option><option value="doing">進行中</option><option value="done">完了</option><option value="wait">保留</option></select></div><div class="m-row" style="flex:1"><label>進捗: <span id="m-pv">0%</span></label><input type="range" id="m-p" min="0" max="100" step="5" oninput="document.getElementById('m-pv').innerText=this.value+'%'"></div></div>
-            <hr style="border:0; border-top:1px dashed #ddd; margin: 15px 0;">
+            <hr>
             <div style="display:flex;gap:10px;"><div class="m-row" style="flex:1"><label>実績開始</label><input type="date" id="m-as"></div><div class="m-row" style="flex:1"><label>実績終了</label><input type="date" id="m-ae"></div></div>
             <div class="m-act"><button class="btn-c" onclick="closeM()">Cancel</button><button class="btn-s" onclick="saveM()">Save (Ent)</button></div>
         </div>
     </div>
 
     <div id="menu" class="pnl">
-        <button onclick="newF()" title="新規">📄</button>
-        <button onclick="saveO()" title="上書き(Ctrl+S)">💾</button>
-        <button onclick="saveA()" title="名前付">📑</button>
-        <button onclick="openF()" title="開く(Ctrl+O)">📂</button>
-        <button onclick="togSS()" title="撮影">📷</button>
-        <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div>
-        <input type="file" id="f-in" style="display:none" accept=".json" onchange="loadF(this)">
+        <button onclick="newF()" title="新規">📄</button><button onclick="saveO()" title="上書き(Ctrl+S)">💾</button><button onclick="saveA()" title="名前付">📑</button><button onclick="openF()" title="開く(Ctrl+O)">📂</button><button onclick="togSS()" title="撮影">📷</button><div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div><input type="file" id="f-in" style="display:none" accept=".json" onchange="loadF(this)">
     </div>
-
     <div id="search" class="pnl">
         <span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索..."><span id="q-cnt" style="font-size:11px;color:#888;"></span><button onclick="nextQ()" style="font-size:12px;">▼</button>
     </div>
-
     <div id="views" class="pnl">
-        <button id="b-map" onclick="swView('map')" class="act">🗺</button><div class="sep"></div>
-        <button id="b-gantt" onclick="swView('gantt')">📊</button><div class="sep"></div>
-        <button id="b-swim" onclick="swView('swim')">🏊</button>
+        <button id="b-map" onclick="swView('map')" class="act">🗺</button><div class="sep"></div><button id="b-gantt" onclick="swView('gantt')">📊</button><div class="sep"></div><button id="b-swim" onclick="swView('swim')">🏊</button>
     </div>
-
     <div id="map-con" style="display:block;">
         <div id="viewport">
             <div id="canvas"><svg id="svg-lay"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs><g id="p-grp"></g></svg></div>
         </div>
         <div id="zoom" class="pnl"><button onclick="align()">✨</button><div class="sep-h"></div><button onclick="fit()">◎</button><div class="sep-h"></div><button onclick="zIn()">＋</button><button onclick="zOut()">－</button></div>
         <div id="edit" class="pnl">
-            <button onclick="addN('child')" title="子(Tab)">＋子</button><button onclick="addN('sib')" title="兄(Ent)">＋兄</button><button onclick="addFree()" title="独">＋独</button>
-            <div class="sep"></div><button id="b-lnk" onclick="togLnk()" title="接続(Alt)">🔗</button>
-            <div class="sep"></div><button onclick="delSel()" style="color:var(--crit)" title="削除(Del)">🗑</button>
+            <button onclick="addN('child')" title="子(Tab)">＋子</button><button onclick="addN('sib')" title="兄(Ent)">＋兄</button><button onclick="addFree()" title="独">＋独</button><div class="sep"></div><button id="b-lnk" onclick="togLnk()" title="接続(Alt)">🔗</button><div class="sep"></div><button onclick="delSel()" style="color:var(--crit)" title="削除(Del)">🗑</button>
         </div>
     </div>
-
     <div id="g-view" class="view"><div class="v-head"><h2 style="font-size:16px;color:#333;margin:0;">工程表 (Gantt)</h2></div><div id="g-cnt" class="v-body"></div></div>
     <div id="s-view" class="view"><div class="v-head"><h2 style="font-size:16px;color:#333;margin:0;">フロー (Swimlane)</h2></div><div id="s-cnt" class="v-body"></div></div>
-
     <div id="pres" class="pnl"><button onclick="startP()">▶</button><div id="p-nav" style="display:none;align-items:center;"><button onclick="prevS()">◀</button><span id="s-num" style="font-size:12px;margin:0 5px;"></span><button onclick="nextS()">▶</button><button onclick="stopP()">■</button></div></div>
 
 <script>
     const today = new Date().toISOString().slice(0, 10);
     const dCols = [{bg:'#ebf5fb',bd:'#3498db'},{bg:'#fef9e7',bd:'#f39c12'},{bg:'#eafaf1',bd:'#2ecc71'},{bg:'#fdedec',bd:'#e74c3c'},{bg:'#f4ecf7',bd:'#9b59b6'},{bg:'#e8f8f5',bd:'#1abc9c'}];
     let st = { sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: today}, {l: "期間", v: "1日"}, {l: "予定終了", v: today}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], sel: new Set([1]) };
-    let pre = { act: false, idx: 0 };
-    let lnk = { act: false, src: null };
-    let phy = { act: false };
-    let clip = null, curEd = null, mode = 'map';
-    let qRes = [], qIdx = -1;
-    let panD = { act: false, el: null, ox: 0, oy: 0 };
-    let fH = null, mapD = null;
-
+    let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
+    let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null;
     const cvs = document.getElementById('canvas'), vp = document.getElementById('viewport');
 
-    // -- Panels Drag --
-    document.querySelectorAll('.pnl').forEach(p => {
-        const start = (e, cx, cy) => {
-            if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;
-            panD = { act:true, el:p, ox:cx-p.getBoundingClientRect().left, oy:cy-p.getBoundingClientRect().top };
-            p.style.right='auto'; p.style.bottom='auto';
-            // Fix: set initial position explicit
-            p.style.left = (cx - panD.ox) + 'px'; p.style.top = (cy - panD.oy) + 'px';
-            e.preventDefault();
+    function init() {
+        document.querySelectorAll('.pnl').forEach(p => {
+            p.onmousedown = e => { if(e.target.tagName!=='BUTTON' && e.target.tagName!=='INPUT'){ panD={act:true,el:p,ox:e.clientX-p.getBoundingClientRect().left, oy:e.clientY-p.getBoundingClientRect().top}; p.style.right='auto';p.style.bottom='auto'; }};
+        });
+        window.onmousemove = e => {
+            if(panD.act && panD.el){ panD.el.style.left=(e.clientX-panD.ox)+'px'; panD.el.style.top=(e.clientY-panD.oy)+'px'; return; }
+            if(mapD){
+                if(mapD.t==='pan'){ st.x+=e.clientX-mapD.x; st.y+=e.clientY-mapD.y; }
+                else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id===id); if(n){n.x+=(e.clientX-mapD.x)/st.sc; n.y+=(e.clientY-mapD.y)/st.sc;} }); }
+                mapD.x=e.clientX; mapD.y=e.clientY; ren(); return;
+            }
+            if(mode==='map' && e.shiftKey && st.sc<0.6){
+                const lp=document.getElementById('loupe'); lp.style.display='block'; lp.style.left=(e.clientX+20)+'px'; lp.style.top=(e.clientY+20)+'px';
+                document.getElementById('l-cnt').innerHTML=cvs.innerHTML;
+            } else document.getElementById('loupe').style.display='none';
         };
-        p.addEventListener('mousedown', e => start(e, e.clientX, e.clientY));
-        p.addEventListener('touchstart', e => start(e, e.touches[0].clientX, e.touches[0].clientY), {passive:false});
-    });
+        window.onmouseup = () => { panD.act=false; if(mapD && mapD.t==='node' && phy.act) runPhy(); mapD=null; };
+        vp.onmousedown = e => { if(e.target===vp||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; if(pre.act)stopP(); }};
+        vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); const os=st.sc; st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/os*st.sc; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/os*st.sc; ren(); };
+        
+        document.onkeydown = e => {
+            const act=document.activeElement; if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
+            if(document.getElementById('modal').style.display!=='none'){ if(e.key==='Enter')saveM(); return; }
+            if(e.ctrlKey||e.metaKey){
+                if(e.key==='c'){ e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
+                if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
+                if(e.key==='s'){ e.preventDefault(); saveO(); }
+                if(e.key==='o'){ e.preventDefault(); openF(); }
+            }
+            if(st.sel.size>0){
+                if(e.key==='Tab'){e.preventDefault(); addN('child');}
+                if(e.key==='Enter'){e.preventDefault(); addN('sib');}
+                if(e.key==='Delete'||e.key==='Backspace'){delSel();}
+            }
+        };
+        document.getElementById('q-in').oninput = e => {
+            const v=e.target.value.toLowerCase(); if(!v){qRes=[];qIdx=-1;document.getElementById('q-cnt').innerText="";ren();return;}
+            qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id); qIdx=0; nextQ(false);
+        };
+        ren(); setTimeout(fit,100);
+    }
 
-    // -- Global Mouse --
-    window.addEventListener('mousemove', e => {
-        if(panD.act && panD.el){ panD.el.style.left=(e.clientX-panD.ox)+'px'; panD.el.style.top=(e.clientY-panD.oy)+'px'; return; }
-        if(mapD){
-            const dx = e.clientX - mapD.x, dy = e.clientY - mapD.y;
-            if(mapD.t==='pan'){ st.x+=dx; st.y+=dy; ren(); }
-            else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id==id); if(n){n.x+=dx/st.sc; n.y+=dy/st.sc;} }); ren(); }
-            mapD.x=e.clientX; mapD.y=e.clientY; return;
-        }
-        if(mode==='map' && e.shiftKey && st.sc<0.6){
-            const lp=document.getElementById('loupe'); lp.style.display='block'; lp.style.left=(e.clientX+20)+'px'; lp.style.top=(e.clientY+20)+'px';
-            document.getElementById('l-cnt').innerHTML=cvs.innerHTML;
-        } else document.getElementById('loupe').style.display='none';
-    });
-    window.addEventListener('touchmove', e => {
-        const t = e.touches[0];
-        if(panD.act && panD.el){ panD.el.style.left=(t.clientX-panD.ox)+'px'; panD.el.style.top=(t.clientY-panD.oy)+'px'; e.preventDefault(); }
-    }, {passive:false});
-    
-    window.addEventListener('mouseup', () => { panD.act=false; if(mapD && mapD.t==='node' && phy.act) runPhy(); mapD=null; });
-    window.addEventListener('touchend', () => { panD.act=false; mapD=null; });
-
-    vp.addEventListener('mousedown', e => {
-        if(e.target===vp||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; if(pre.act)stopP(); }
-    });
-    vp.addEventListener('wheel', e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); const os=st.sc; st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/os*st.sc; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/os*st.sc; ren(); }, {passive:false});
-
-    // -- Keys --
-    document.addEventListener('keydown', e => {
-        const act=document.activeElement; if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
-        if(document.getElementById('modal').style.display!=='none'){ if(e.key==='Enter')saveM(); return; }
-        if(e.ctrlKey||e.metaKey){
-            if(e.key==='c'){ e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
-            if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
-            if(e.key==='s'){ e.preventDefault(); saveO(); }
-            if(e.key==='o'){ e.preventDefault(); openF(); }
-        }
-        if(st.sel.size>0){
-            if(e.key==='Tab'){e.preventDefault(); addN('child');}
-            if(e.key==='Enter'){e.preventDefault(); addN('sib');}
-            if(e.key==='Delete'||e.key==='Backspace'){delSel();}
-        }
-    });
-
-    document.getElementById('q-in').oninput = e => {
-        const v=e.target.value.toLowerCase(); if(!v){qRes=[];qIdx=-1;document.getElementById('q-cnt').innerText="";ren();return;}
-        qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id); qIdx=0; nextQ(false);
-    };
-
-    // -- Logic --
     function gf(n,l){const f=n.f.find(x=>x.l===l);return f?f.v:null;}
     function sf(n,l,v){let f=n.f.find(x=>x.l===l); if(f)f.v=v; else n.f.push({l:l,v:v});}
     function pD(s){if(!s)return null;const d=new Date(s);return isNaN(d)?null:d;}
@@ -277,18 +229,22 @@
                     else if(e.shiftKey||e.ctrlKey) sel(d.id, true);
                     mapD={t:'node',x:e.clientX,y:e.clientY,ids:Array.from(st.sel)};
                 };
-                el.onmousedown=e=>{e.stopPropagation(); if(e.altKey){togCn(d.id);return;} sel(d.id,e.ctrlKey||e.metaKey||e.shiftKey);};
+                // Connection Logic Fix
+                el.onmousedown=e=>{
+                    e.stopPropagation(); 
+                    if(e.altKey){ togCn(d.id, true); return; }
+                    if(lnk.act){ togCn(d.id, false); return; } // Button mode logic
+                    sel(d.id, e.ctrlKey||e.metaKey||e.shiftKey);
+                };
                 el.ondblclick=e=>{e.stopPropagation();openM(d.id);};
                 el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();};
                 c.appendChild(el);
             }
-            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'');
+            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src===d.id?' src':'');
             if(!mapD||mapD.t!=='node') el.classList.add('phy'); else el.classList.remove('phy');
-            
             const stt=gf(d,"ステータス")||"todo";
             const hd=el.querySelector('.nt'); hd.className=`nt h-${stt}`; hd.innerText=d.title;
             el.querySelector('.np-bar').style.width=(gf(d,"進捗")||0)+'%';
-            
             const nf=el.querySelector('.nf'); nf.innerHTML='';
             d.f.forEach(f=>{
                 const r=document.createElement('div'); r.className='fr';
@@ -302,7 +258,6 @@
             });
             el.style.left=d.x+'px'; el.style.top=d.y+'px';
         });
-
         const pg=document.getElementById('p-grp'); pg.innerHTML=''; let h='';
         st.nodes.forEach(n=>{
             n.pIds.forEach(pid=>{
@@ -327,18 +282,15 @@
             if(s<mn)mn=s; if(e>mx)mx=e; if(as&&as<mn)mn=as; if(ae&&ae>mx)mx=ae;
         });
         mn=aD(mn,-2); mx=aD(mx,10); const days=Math.ceil((mx-mn)/86400000), px=40;
-        
         const hd=document.createElement('div'); hd.className='g-hdr';
         for(let i=0;i<=days;i++){const d=aD(mn,i),ce=document.createElement('div');ce.className='g-cell';ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;hd.appendChild(ce);}
         c.appendChild(hd);
-
         const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
         const gb=document.createElement('div'); gb.className='g-area'; gb.style.position='absolute'; gb.style.width='100%';
         for(let i=0;i<=days;i++){const l=document.createElement('div');l.className='g-grid';l.style.left=`${i*px}px`;gb.appendChild(l);}
         wp.appendChild(gb);
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.style.zIndex=5;
         svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
-
         let items=[];
         st.nodes.forEach(n=>{
             const ds=(gf(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
@@ -471,7 +423,9 @@
     }
     function addFree(){
         const id=Date.now();
-        const cx=(-st.x+innerWidth/2)/st.sc, cy=(-st.y+innerHeight/2)/st.sc;
+        // Viewport Center
+        const cx = (-st.x + window.innerWidth/2)/st.sc;
+        const cy = (-st.y + window.innerHeight/2)/st.sc;
         st.nodes.push({id, title:"Task", f:[{l:"予定開始",v:today},{l:"期間",v:"1日"},{l:"予定終了",v:today},{l:"担当部署",v:"全体"},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], x:cx-120, y:cy-40, pIds:[]});
         sel(id,false); phy.act=true; runPhy();
         setTimeout(()=>openM(id),50); ren();
@@ -483,18 +437,37 @@
         st.sel.clear(); ren();
     }
     function togLnk(){
-        if(st.sel.size!==1){alert("1つ選択してください");return;}
-        lnk.act=!lnk.act; lnk.src=Array.from(st.sel)[0];
-        document.getElementById('b-lnk').className=lnk.act?'lnk':'';
-    }
-    function togCn(tid){
-        const t=st.nodes.find(n=>n.id===tid); if(!lnk.act||!t)return;
-        if(t.id!==lnk.src){
-            const idx=t.pIds.indexOf(lnk.src);
-            if(idx>=0) t.pIds.splice(idx,1); else t.pIds.push(lnk.src);
-            ren();
+        if(st.sel.size!==1 && !lnk.act){alert("親ノードを選択してください");return;}
+        lnk.act=!lnk.act; 
+        if(lnk.act) {
+            lnk.src=Array.from(st.sel)[0]; // Set source
+        } else {
+            lnk.src=null;
         }
-        togLnk();
+        document.getElementById('b-lnk').className=lnk.act?'lnk':'';
+        ren(); // update style
+    }
+    // Updated Connection Logic (Alt or Button)
+    function togCn(tid, isAlt){
+        // isAlt means single-shot connect
+        if(isAlt) {
+            if(st.sel.size!==1) return;
+            const srcId = Array.from(st.sel)[0];
+            if(srcId === tid) return;
+            // Connect src -> tid
+            connectNodes(srcId, tid);
+        } else {
+            // Button mode
+            if(!lnk.act || !lnk.src) return;
+            if(lnk.src !== tid) connectNodes(lnk.src, tid);
+        }
+    }
+    function connectNodes(srcId, tgtId) {
+        const t = st.nodes.find(n=>n.id===tgtId);
+        if(!t) return;
+        const idx = t.pIds.indexOf(srcId);
+        if(idx>=0) t.pIds.splice(idx,1); else t.pIds.push(srcId);
+        ren();
     }
     
     function openM(id){
@@ -639,8 +612,7 @@
         st.sc=1.5; st.x=-n.x*st.sc; st.y=-n.y*st.sc; ren();
     }
 
-    if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
-    ren(); setTimeout(fit,100);
+    init();
 </script>
 </body>
 </html>
