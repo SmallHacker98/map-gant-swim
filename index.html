@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v4.6</title>
+<title>Pro Map Suite v4.7</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -75,6 +75,7 @@
     .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
     .g-row:hover{background:#f0f8ff;}
     .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;cursor:move;}
+    .g-grp.all{background:#34495e;color:white;}
     .g-lbl{width:200px;min-width:200px;padding:0 10px;border-right:1px solid #ddd;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:white;position:sticky;left:0;z-index:10;height:40px;display:flex;align-items:center;}
     .g-lbl.err{color:var(--crit);}
     .g-area{flex-grow:1;position:relative;height:100%;}
@@ -122,582 +123,524 @@
     <div id="save-toast">保存しました</div>
     <div id="loupe"><div id="loupe-content"></div></div>
 
-    <div id="edit-modal">
-        <div class="modal-content">
+    <div id="modal">
+        <div class="m-cnt">
             <h3 style="margin-top:0; color:#2c3e50;">タスク詳細</h3>
-            <div class="modal-row"><label>タイトル</label><input type="text" id="modal-title" autofocus></div>
-            <div class="modal-row">
-                <label>担当部署 (カンマ区切り)</label>
-                <input type="text" id="modal-dept" list="dept-list" placeholder="例: 営業, 開発">
-                <datalist id="dept-list"></datalist>
-            </div>
-            <div style="display:flex; gap:10px;">
-                <div class="modal-row" style="flex:1;"><label>予定開始</label><input type="date" id="modal-start" onchange="syncDate('start')"></div>
-                <div class="modal-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="modal-dur" min="0" onchange="syncDate('dur')"></div>
-            </div>
-            <div class="modal-row"><label>予定終了</label><input type="date" id="modal-end" onchange="syncDate('end')"></div>
-            <div style="display:flex; gap:15px;">
-                 <div class="modal-row" style="flex:1;"><label>ステータス</label><select id="modal-status"><option value="todo">未着手</option><option value="doing">進行中</option><option value="done">完了</option><option value="wait">保留</option></select></div>
-                 <div class="modal-row" style="flex:1;"><label>進捗率: <span id="modal-prog-val">0%</span></label><input type="range" id="modal-prog" min="0" max="100" step="5" oninput="document.getElementById('modal-prog-val').innerText=this.value+'%'"></div>
-            </div>
+            <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
+            <div class="m-row"><label>担当部署 (カンマ区切)</label><input type="text" id="m-dep" list="dl-dept"></div><datalist id="dl-dept"></datalist>
+            <div style="display:flex;gap:10px;"><div class="m-row" style="flex:1"><label>予定開始</label><input type="date" id="m-s" onchange="syncD('s')"></div><div class="m-row" style="flex:1"><label>期間(日)</label><input type="number" id="m-d" onchange="syncD('d')"></div></div>
+            <div class="m-row"><label>予定終了</label><input type="date" id="m-e" onchange="syncD('e')"></div>
+            <div style="display:flex;gap:10px;"><div class="m-row" style="flex:1"><label>ステータス</label><select id="m-st"><option value="todo">未着手</option><option value="doing">進行中</option><option value="done">完了</option><option value="wait">保留</option></select></div><div class="m-row" style="flex:1"><label>進捗: <span id="m-pv">0%</span></label><input type="range" id="m-p" min="0" max="100" step="5" oninput="document.getElementById('m-pv').innerText=this.value+'%'"></div></div>
             <hr style="border:0; border-top:1px dashed #ddd; margin: 15px 0;">
-            <div style="display:flex; gap:10px;">
-                <div class="modal-row" style="flex:1;"><label>実績開始</label><input type="date" id="modal-act-start"></div>
-                <div class="modal-row" style="flex:1;"><label>実績終了</label><input type="date" id="modal-act-end"></div>
-            </div>
-            <div class="modal-actions">
-                <button class="modal-btn btn-c" onclick="closeModal()">キャンセル</button>
-                <button class="modal-btn btn-s" onclick="saveModal()">保存 (Enter)</button>
-            </div>
+            <div style="display:flex;gap:10px;"><div class="m-row" style="flex:1"><label>実績開始</label><input type="date" id="m-as"></div><div class="m-row" style="flex:1"><label>実績終了</label><input type="date" id="m-ae"></div></div>
+            <div class="m-act"><button class="btn-c" onclick="closeM()">Cancel</button><button class="btn-s" onclick="saveM()">Save (Ent)</button></div>
         </div>
     </div>
 
-    <div id="file-menu" class="ui-panel">
-        <button onclick="newFile()" title="新規作成">📄</button>
-        <button onclick="saveOver()" title="上書き保存 (Ctrl+S)">💾</button>
-        <button onclick="saveAs()" title="名前を付けて保存">📑</button>
-        <button onclick="openFile()" title="開く (Ctrl+O)">📂</button>
-        <button onclick="toggleScreenshotMode()" title="スクリーンショットモード">📷</button>
-        <div id="file-info">(未保存)</div>
-        <input type="file" id="file-input" style="display: none;" accept=".json" onchange="loadFileFallback(this)">
+    <div id="menu" class="pnl">
+        <button onclick="newF()" title="新規">📄</button>
+        <button onclick="saveO()" title="上書き(Ctrl+S)">💾</button>
+        <button onclick="saveA()" title="名前付">📑</button>
+        <button onclick="openF()" title="開く(Ctrl+O)">📂</button>
+        <button onclick="togSS()" title="撮影">📷</button>
+        <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div>
+        <input type="file" id="f-in" style="display:none" accept=".json" onchange="loadF(this)">
     </div>
 
-    <div id="search-panel" class="ui-panel">
-        <span style="font-size:16px;">🔍</span>
-        <input type="text" id="search-input" placeholder="検索..." autocomplete="off" oninput="handleSearch(this.value)" onkeydown="handleSearchKey(event)">
-        <span id="search-count"></span>
-        <button onclick="jumpToNextMatch()" title="次へ (Enter)">▼</button>
+    <div id="search" class="pnl">
+        <span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索..."><span id="q-cnt" style="font-size:11px;color:#888;"></span><button onclick="nextQ()" style="font-size:12px;">▼</button>
     </div>
 
-    <div id="view-switcher" class="ui-panel">
-        <button id="btn-mode-map" onclick="switchView('map')" class="active" title="Map">🗺</button>
-        <div class="ui-sep"></div>
-        <button id="btn-mode-gantt" onclick="switchView('gantt')" title="Gantt Chart">📊</button>
-        <div class="ui-sep"></div>
-        <button id="btn-mode-swim" onclick="switchView('swimlane')" title="Swimlane">🏊</button>
+    <div id="views" class="pnl">
+        <button id="b-map" onclick="swView('map')" class="act">🗺</button><div class="sep"></div>
+        <button id="b-gantt" onclick="swView('gantt')">📊</button><div class="sep"></div>
+        <button id="b-swim" onclick="swView('swim')">🏊</button>
     </div>
 
-    <div id="map-container" style="display:block;">
+    <div id="map-con" style="display:block;">
         <div id="viewport">
-            <div id="canvas">
-                <svg id="svg-layer"><defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d" /></marker></defs><g id="paths-group"></g></svg>
-            </div>
+            <div id="canvas"><svg id="svg-lay"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs><g id="p-grp"></g></svg></div>
         </div>
-        <div id="zoom-controls" class="ui-panel">
-            <button onclick="autoAlign()" title="自動整列">✨</button>
-            <div class="ui-sep-h"></div>
-            <button onclick="fitToScreen()" title="全体表示">◎</button>
-            <div class="ui-sep-h"></div>
-            <button onclick="zoomIn()">＋</button>
-            <button onclick="zoomReset()">1:1</button>
-            <button onclick="zoomOut()">－</button>
-        </div>
-        <div id="edit-controls" class="ui-panel">
-            <button onclick="addNode('child')" title="子ノード (Tab)">＋子</button>
-            <button onclick="addNode('sibling')" title="兄弟ノード (Enter)">＋兄</button>
-            <button onclick="addFreeNode()" title="独立ノード">＋独</button>
-            <div class="ui-sep"></div>
-            <button id="b-lnk" onclick="toggleLinkMode()" title="接続 (Alt+Click)">🔗</button>
-            <div class="ui-sep"></div>
-            <button onclick="deleteSelected()" style="color:var(--crit)" title="削除 (Del)">🗑</button>
+        <div id="zoom" class="pnl"><button onclick="align()">✨</button><div class="sep-h"></div><button onclick="fit()">◎</button><div class="sep-h"></div><button onclick="zIn()">＋</button><button onclick="zOut()">－</button></div>
+        <div id="edit" class="pnl">
+            <button onclick="addN('child')" title="子(Tab)">＋子</button><button onclick="addN('sib')" title="兄(Ent)">＋兄</button><button onclick="addFree()" title="独">＋独</button>
+            <div class="sep"></div><button id="b-lnk" onclick="togLnk()" title="接続(Alt)">🔗</button>
+            <div class="sep"></div><button onclick="delSel()" style="color:var(--crit)" title="削除(Del)">🗑</button>
         </div>
     </div>
 
-    <div id="g-view" class="fullscreen-view">
-        <div class="view-header">
-            <h2 class="view-title">プロジェクト工程表 (Gantt)</h2>
-        </div>
-        <div id="gantt-content" class="view-content"></div>
-    </div>
-    <div id="swimlane-view" class="fullscreen-view">
-        <div class="view-header">
-            <h2 class="view-title">部署別フローチャート (Swimlane)</h2>
-        </div>
-        <div id="swimlane-content" class="view-content"></div>
-    </div>
+    <div id="g-view" class="view"><div class="v-head"><h2 style="font-size:16px;color:#333;margin:0;">工程表 (Gantt)</h2></div><div id="g-cnt" class="v-body"></div></div>
+    <div id="s-view" class="view"><div class="v-head"><h2 style="font-size:16px;color:#333;margin:0;">フロー (Swimlane)</h2></div><div id="s-cnt" class="v-body"></div></div>
 
-    <div id="pres-controls" class="ui-panel">
-        <button onclick="startPresentation()" id="btn-play" title="プレゼン開始">▶</button>
-        <div id="pres-nav"><button onclick="prevSlide()">◀</button><span id="slide-num" style="min-width:40px; text-align:center; font-size:12px; color:#555;">1 / 5</span><button onclick="nextSlide()">▶</button><div style="width:1px; background:#ddd; margin:0 5px;"></div><button onclick="stopPresentation()" title="終了 (Esc)">■</button></div>
-    </div>
+    <div id="pres" class="pnl"><button onclick="startP()">▶</button><div id="p-nav" style="display:none;align-items:center;"><button onclick="prevS()">◀</button><span id="s-num" style="font-size:12px;margin:0 5px;"></span><button onclick="nextS()">▶</button><button onclick="stopP()">■</button></div></div>
 
 <script>
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const deptColors = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
+    const today = new Date().toISOString().slice(0, 10);
+    const dCols = [{bg:'#ebf5fb',bd:'#3498db'},{bg:'#fef9e7',bd:'#f39c12'},{bg:'#eafaf1',bd:'#2ecc71'},{bg:'#fdedec',bd:'#e74c3c'},{bg:'#f4ecf7',bd:'#9b59b6'},{bg:'#e8f8f5',bd:'#1abc9c'}];
+    let st = { sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: today}, {l: "期間", v: "1日"}, {l: "予定終了", v: today}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], sel: new Set([1]) };
+    let pre = { act: false, idx: 0 };
+    let lnk = { act: false, src: null };
+    let phy = { act: false };
+    let clip = null, curEd = null, mode = 'map';
+    let qRes = [], qIdx = -1;
+    let panD = { act: false, el: null, ox: 0, oy: 0 };
+    let fH = null, mapD = null;
 
-    let state = { 
-        scale: 1, x: 0, y: 0, isDirected: true, 
-        swimlaneDeptOrder: [], ganttDeptOrder: [],
-        nodes: [{ id: 1, title: "開始", fields: [{label: "予定開始", value: todayStr}, {label: "期間", value: "1日"}, {label: "予定終了", value: todayStr}, {label: "担当部署", value: "全体"}, {label:"ステータス", value:"todo"}, {label:"進捗", value:"0"}], x: 0, y: 0, parentIds: [] }], 
-        selectedId: 1, selectedIds: new Set([1])
-    };
-    
-    let presState = { active: false, index: 0 };
-    let linkState = { active: false, sourceId: null };
-    let physicsState = { active: false, nodes: [] };
-    let clipboard = null;
-    let currentEditId = null;
-    let currentViewMode = 'map';
-    let searchMatches = []; let currentMatchIndex = -1;
-    let fileHandle = null; 
-    let panelDrag = { active: false, el: null, offX: 0, offY: 0 };
+    const cvs = document.getElementById('canvas'), vp = document.getElementById('viewport');
 
-    const canvas = document.getElementById('canvas');
-    const pathsGroup = document.getElementById('paths-group');
-    const viewport = document.getElementById('viewport');
-    const loupe = document.getElementById('loupe');
-    const loupeContent = document.getElementById('loupe-content');
-
-    // --- UI Panel Drag (Fixed) ---
-    function setupPanelDrag() {
-        document.querySelectorAll('.ui-panel').forEach(p => {
-            const startDrag = (e, clientX, clientY) => {
-                if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return; 
-                panelDrag.active = true; panelDrag.el = p;
-                const rect = p.getBoundingClientRect();
-                // Fix: Calculate offset and Set explicit left/top BEFORE resetting right/bottom
-                panelDrag.offX = clientX - rect.left; 
-                panelDrag.offY = clientY - rect.top;
-                
-                p.style.left = rect.left + 'px'; 
-                p.style.top = rect.top + 'px';
-                p.style.right = 'auto'; 
-                p.style.bottom = 'auto';
-                
-                e.preventDefault();
-            };
-            p.addEventListener('mousedown', e => startDrag(e, e.clientX, e.clientY));
-            p.addEventListener('touchstart', e => startDrag(e, e.touches[0].clientX, e.touches[0].clientY), {passive:false});
-        });
-    }
-    const movePanel = (x, y) => {
-        if(panelDrag.active && panelDrag.el) {
-            panelDrag.el.style.left = (x - panelDrag.offX) + 'px';
-            panelDrag.el.style.top = (y - panelDrag.offY) + 'px';
-        }
-    };
-    // Global mousemove handles panel drag
-    
-    // --- Global Mouse Logic (Unified) ---
-    let mapDrag = null;
-    
-    viewport.addEventListener('mousedown', e => {
-        if(panelDrag.active) return;
-        if(e.target === viewport || e.target.id === 'canvas') {
-            mapDrag = { type: 'pan', x: e.clientX, y: e.clientY };
-            if(presState.active) stopPresentation();
-        } 
-    });
-
-    window.addEventListener('mousemove', e => {
-        if(panelDrag.active && panelDrag.el) { movePanel(e.clientX, e.clientY); return; }
-        if(mapDrag) {
-            const dx = e.clientX - mapDrag.x;
-            const dy = e.clientY - mapDrag.y;
-            if(mapDrag.type === 'pan') {
-                state.x += dx; state.y += dy;
-                render();
-            } else if(mapDrag.type === 'node') {
-                mapDrag.ids.forEach(id => {
-                    const n = state.nodes.find(node => node.id === id);
-                    if(n) { n.x += dx / state.scale; n.y += dy / state.scale; }
-                });
-                render();
-            }
-            mapDrag.x = e.clientX; mapDrag.y = e.clientY;
-            return;
-        }
-        // Loupe
-        if(currentViewMode==='map' && state.scale < 0.6 && e.shiftKey) {
-            loupe.style.display = 'block';
-            loupe.style.left = (e.clientX + 20) + 'px';
-            loupe.style.top = (e.clientY + 20) + 'px';
-            loupeContent.innerHTML = canvas.innerHTML; 
-        } else { loupe.style.display = 'none'; }
-    });
-
-    window.addEventListener('mouseup', () => { 
-        panelDrag.active = false; 
-        if(mapDrag && mapDrag.type==='node' && physicsState.active) startPhysics(); 
-        mapDrag = null; 
-    });
-    
-    window.addEventListener('touchmove', e => {
-         const t = e.touches[0];
-         if(panelDrag.active && panelDrag.el) { movePanel(t.clientX, t.clientY); e.preventDefault(); }
-    }, {passive:false});
-    window.addEventListener('touchend', () => { panelDrag.active = false; mapDrag = null; });
-
-    // --- Helpers ---
-    function triggerSmoothTransition() { canvas.classList.add('smooth-move'); setTimeout(() => { canvas.classList.remove('smooth-move'); }, 400); }
-    function getField(n, lbl) { const f = n.fields.find(x => x.label === lbl); return f ? f.value : null; }
-    function setField(n, lbl, val) { let f = n.fields.find(x => x.label === lbl); if(!f) n.fields.push({label: lbl, value: val}); else f.value = val; }
-    function parseDate(str) { if(!str) return null; const d = new Date(str); return isNaN(d.getTime()) ? null : d; }
-    function addDays(date, days) { if(!date) return null; const r = new Date(date); r.setDate(r.getDate() + (days - (days===0?0:1))); return r; }
-    function addRealDays(date, days) { const r = new Date(date); r.setDate(r.getDate() + days); return r; }
-    function diffDays(d1, d2) { if(!d1 || !d2) return 0; const t1 = new Date(d1).setHours(0,0,0,0); const t2 = new Date(d2).setHours(0,0,0,0); return Math.round((t2 - t1) / (1000*60*60*24)) + 1; }
-    function showToast(msg) { const t=document.getElementById('save-toast'); t.innerText=msg; t.style.opacity=1; setTimeout(()=>t.style.opacity=0, 2000); }
-    function updateFileNameUI(name) { document.getElementById('file-info').innerText = name; }
-    
-    // --- Physics / Auto Layout ---
-    function autoAlign() {
-        const levels = {};
-        const queue = state.nodes.filter(n => n.parentIds.length === 0).map(n => ({id: n.id, lvl: 0}));
-        const visited = new Set();
-        while(queue.length > 0) {
-            const {id, lvl} = queue.shift();
-            if(visited.has(id)) continue;
-            visited.add(id);
-            levels[id] = Math.max(levels[id] || 0, lvl);
-            state.nodes.filter(n => n.parentIds.includes(id)).forEach(c => queue.push({id: c.id, lvl: lvl + 1}));
-        }
-        const levelGroups = {};
-        state.nodes.forEach(n => {
-            const l = levels[n.id] || 0;
-            if(!levelGroups[l]) levelGroups[l] = [];
-            levelGroups[l].push(n);
-        });
-        triggerSmoothTransition();
-        Object.keys(levelGroups).forEach(l => {
-            const nodes = levelGroups[l];
-            const startY = -((nodes.length - 1) * 160) / 2;
-            nodes.forEach((n, i) => { n.x = l * 320; n.y = startY + i * 160; });
-        });
-        render(); startPhysics();
-    }
-
-    function startPhysics() {
-        physicsState.active = true;
-        let iter = 0;
-        const tick = () => {
-            if(!physicsState.active || iter > 100) return;
-            let moved = false;
-            for(let i=0; i<state.nodes.length; i++) {
-                for(let j=i+1; j<state.nodes.length; j++) {
-                    const a = state.nodes[i]; const b = state.nodes[j];
-                    const dx = a.x - b.x; const dy = a.y - b.y;
-                    const dist = Math.sqrt(dx*dx + dy*dy);
-                    if(dist < 260) {
-                        const angle = Math.atan2(dy, dx);
-                        const mx = Math.cos(angle) * 5; const my = Math.sin(angle) * 5;
-                        a.x += mx; a.y += my; b.x -= mx; b.y -= my;
-                        moved = true;
-                    }
-                }
-            }
-            if(moved) render();
-            iter++;
-            requestAnimationFrame(tick);
+    // -- Panels Drag --
+    document.querySelectorAll('.pnl').forEach(p => {
+        const start = (e, cx, cy) => {
+            if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;
+            panD = { act:true, el:p, ox:cx-p.getBoundingClientRect().left, oy:cy-p.getBoundingClientRect().top };
+            p.style.right='auto'; p.style.bottom='auto';
+            // Fix: set initial position explicit
+            p.style.left = (cx - panD.ox) + 'px'; p.style.top = (cy - panD.oy) + 'px';
+            e.preventDefault();
         };
-        tick();
-    }
+        p.addEventListener('mousedown', e => start(e, e.clientX, e.clientY));
+        p.addEventListener('touchstart', e => start(e, e.touches[0].clientX, e.touches[0].clientY), {passive:false});
+    });
 
-    // --- Critical Path ---
-    function analyzeSchedule() {
-        const tasks = {};
-        state.nodes.forEach(n => {
-            tasks[n.id] = { start: parseDate(getField(n,"予定開始")), end: parseDate(getField(n,"予定終了")) };
-        });
-        const contradictions = new Set();
-        const criticalEdges = new Set();
-        state.nodes.forEach(n => {
-            const myStart = tasks[n.id].start;
-            n.parentIds.forEach(pid => {
-                const p = tasks[pid];
-                if(p.end && myStart && p.end > myStart) { contradictions.add(n.id); contradictions.add(pid); }
-                if(p.end && myStart && diffDays(p.end, myStart) <= 1) criticalEdges.add(`${pid}-${n.id}`);
-            });
-        });
-        return { contradictions, criticalEdges };
-    }
-
-    // --- Render ---
-    function render() {
-        if(currentViewMode !== 'map') return;
-        const analysis = analyzeSchedule();
-        const canvasEl = document.getElementById('canvas');
-        canvasEl.style.transform = `translate(${state.x + window.innerWidth/2}px, ${state.y + window.innerHeight/2}px) scale(${state.scale})`;
-        document.getElementById('viewport').style.backgroundPosition = `${state.x + window.innerWidth/2}px ${state.y + window.innerHeight/2}px`;
-        document.getElementById('viewport').style.backgroundSize = `${20*state.scale}px ${20*state.scale}px`;
-
-        const existing = canvasEl.querySelectorAll('.node.map-node'); 
-        existing.forEach(n => { if(!state.nodes.find(d => d.id == n.dataset.id)) n.remove(); });
-        
-        state.nodes.forEach(d => {
-            let el = canvasEl.querySelector(`.node.map-node[data-id="${d.id}"]`);
-            if (!el) {
-                el = document.createElement('div'); el.className = 'node map-node'; el.dataset.id = d.id; el.setAttribute('tabindex', '0');
-                el.innerHTML = `<div class="node-handle"></div><div class="node-header"></div><div class="node-progress"><div class="node-progress-fill"></div></div><div class="node-fields"></div><div class="add-field-btn">＋</div>`;
-                
-                el.querySelector('.node-handle').onmousedown = e => { 
-                    e.stopPropagation(); 
-                    // Shift for multi select, No key for single
-                    if(!e.ctrlKey && !e.shiftKey && !state.selectedIds.has(d.id)) selectNode(d.id, false);
-                    else if(e.shiftKey) selectNode(d.id, true);
-                    else if(e.ctrlKey) selectNode(d.id, true); // toggle
-
-                    mapDrag = { type: 'node', x: e.clientX, y: e.clientY, ids: Array.from(state.selectedIds) };
-                };
-                
-                el.querySelector('.add-field-btn').onclick = e => { e.stopPropagation(); d.fields.push({label:"項目",value:""}); render(); };
-                
-                el.onmousedown = e => { 
-                    e.stopPropagation(); 
-                    if(e.altKey || linkState.active) { toggleConnection(d.id); return; } 
-                    selectNode(d.id, e.ctrlKey || e.metaKey || e.shiftKey); 
-                };
-                
-                el.querySelector('.node-header').ondblclick = e => { e.stopPropagation(); openEditModal(d.id); };
-                el.querySelector('.node-fields').ondblclick = e => { e.stopPropagation(); openEditModal(d.id); };
-
-                canvasEl.appendChild(el);
-            }
-            
-            el.className = 'node map-node' + (state.selectedIds.has(d.id) ? ' selected' : '') + (searchMatches.includes(d.id) ? ' search-hit' : '') + (analysis.contradictions.has(d.id) ? ' contradiction' : '');
-            
-            if(!mapDrag || mapDrag.type!=='node') el.classList.add('physics-move'); else el.classList.remove('physics-move'); 
-            
-            const st = getField(d, "ステータス") || "todo";
-            const header = el.querySelector('.node-header'); header.className=`node-header header-${st}`; header.innerText = d.title;
-            
-            el.querySelector('.node-progress-fill').style.width = (getField(d,"進捗")||0) + "%";
-
-            const fc = el.querySelector('.node-fields'); fc.innerHTML='';
-            d.fields.forEach(f => {
-                const row = document.createElement('div'); row.className='field-row';
-                row.innerHTML = `<div class="field-label" contenteditable>${f.label}</div><div class="field-value" contenteditable>${f.value}</div>`;
-                row.querySelector('.field-label').oninput = e => f.label = e.target.innerText;
-                row.querySelector('.field-value').oninput = e => f.value = e.target.innerText;
-                if(['予定開始','予定終了','実績開始','実績終了','期間','担当部署','ステータス','進捗'].includes(f.label)) {
-                    const v = row.querySelector('.field-value');
-                    v.onclick = e => { e.stopPropagation(); openEditModal(d.id); };
-                    v.removeAttribute('contenteditable'); v.style.cursor = 'pointer'; v.style.background = '#f9f9f9';
-                }
-                fc.appendChild(row);
-            });
-            el.style.left = `${d.x}px`; el.style.top = `${d.y}px`;
-        });
-
-        const pathsGroup = document.getElementById('paths-group'); pathsGroup.innerHTML = '';
-        let svgHtml = '';
-        state.nodes.forEach(n => {
-            n.parentIds.forEach(pid => {
-                const p = state.nodes.find(x => x.id === pid);
-                if (p) {
-                    const isCrit = analysis.criticalEdges.has(`${pid}-${n.id}`);
-                    const startX = p.x + 240; const startY = p.y + 30; const endX = n.x; const endY = n.y + 30;
-                    const cpDist = Math.max(Math.abs(endX - startX) * 0.5, 80);
-                    const d = `M ${startX} ${startY} C ${startX+cpDist} ${startY}, ${endX-cpDist} ${endY}, ${endX} ${endY}`;
-                    svgHtml += `<path d="${d}" class="${isCrit?'critical-path':''}" marker-end="url(#arrowhead)"/>`;
-                }
-            });
-        });
-        pathsGroup.innerHTML = svgHtml;
-    }
-
-    // --- Charts ---
-    function renderGantt() {
-        const cont = document.getElementById('gantt-content'); cont.innerHTML = '';
-        const deptOrder = getOrderedDepts('gantt');
-        const tasks={}; let minD=new Date("2100-01-01"), maxD=new Date("2000-01-01");
-        state.nodes.forEach(n=>{
-            tasks[n.id]={ node:n, start:parseDate(getField(n,"予定開始")), end:parseDate(getField(n,"予定終了")), actStart:parseDate(getField(n,"実績開始")), actEnd:parseDate(getField(n,"実績終了")), dur:parseInt(getField(n,"期間")||0), status:getField(n,"ステータス")||"todo", prog:parseInt(getField(n,"進捗")||0) };
-            if(!tasks[n.id].start) tasks[n.id].start=new Date(todayStr);
-            tasks[n.id].end = (tasks[n.id].dur===0) ? tasks[n.id].start : addDays(tasks[n.id].start, tasks[n.id].dur);
-            if(tasks[n.id].start<minD)minD=tasks[n.id].start; if(tasks[n.id].end>maxD)maxD=tasks[n.id].end;
-            if(tasks[n.id].actStart && tasks[n.id].actStart<minD)minD=tasks[n.id].actStart; if(tasks[n.id].actEnd && tasks[n.id].actEnd>maxD)maxD=tasks[n.id].actEnd;
-        });
-        minD=addRealDays(minD,-2); maxD=addRealDays(maxD,10);
-        const totalDays = Math.max(10, Math.ceil((maxD-minD)/86400000)); const px=40;
-        
-        const hRow=document.createElement('div'); hRow.className='gantt-date-header';
-        for(let i=0;i<=totalDays;i++){const d=addRealDays(minD,i);const c=document.createElement('div');c.className='gantt-date-cell';c.innerText=`${d.getMonth()+1}/${d.getDate()}`;hRow.appendChild(c);}
-        cont.appendChild(hRow);
-        const wrap=document.createElement('div'); wrap.className='gantt-timeline-wrapper'; wrap.style.minWidth=`${220+totalDays*px}px`;
-        const gridBg=document.createElement('div'); gridBg.style.position='absolute'; gridBg.style.left='220px'; gridBg.style.width='100%'; gridBg.style.height='100%';
-        for(let i=0;i<=totalDays;i++){const l=document.createElement('div');l.className='gantt-grid-line';l.style.left=`${i*px}px`;gridBg.appendChild(l);}
-        wrap.appendChild(gridBg);
-        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
-        svg.innerHTML='<defs><marker id="g-arrow" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
-
-        let displayItems = [];
-        state.nodes.forEach(n => {
-            const raw = getField(n, "担当部署") || "未配属";
-            const myDepts = raw.split(/[,、]/).map(s => s.trim()).filter(s=>s);
-            let targetDept = (myDepts.length > 1) ? "全体" : (myDepts.length === 1 ? myDepts[0] : "未配属");
-            displayItems.push({ node: n, dept: targetDept });
-        });
-        displayItems.sort((a,b)=>{
-            if(a.dept==="全体" && b.dept!=="全体") return -1; if(a.dept!=="全体" && b.dept==="全体") return 1;
-            const ia=deptOrder.indexOf(a.dept), ib=deptOrder.indexOf(b.dept);
-            if(ia!==ib) return (ia<0?999:ia) - (ib<0?999:ib);
-            return tasks[a.node.id].start - tasks[b.node.id].start;
-        });
-
-        let y=0; let lastDept=null;
-        displayItems.forEach(item => {
-            const t = tasks[item.node.id];
-            if(item.dept !== lastDept) {
-                const gr=document.createElement('div'); gr.className='gantt-group-row';
-                if(item.dept==="全体") gr.classList.add('gantt-group-overall');
-                const arrows = item.dept !== '全体' ? `<span class="gantt-arrow-btn" onclick="moveGanttDept('${item.dept}',-1)">▲</span><span class="gantt-arrow-btn" onclick="moveGanttDept('${item.dept}',1)">▼</span>` : '';
-                gr.innerHTML = `<div style="width:200px; padding-left:10px; cursor:move;" draggable="true" ondragstart="startGanttHeaderDrag(event, '${item.dept}')" ondrop="dropGanttHeader(event, '${item.dept}')" ondragover="event.preventDefault()">${arrows} 📂 ${item.dept}</div>`;
-                wrap.appendChild(gr); y+=30; lastDept=item.dept;
-            }
-            const r=document.createElement('div'); r.className='gantt-row';
-            const isContra = item.node.parentIds.some(pid => tasks[pid] && tasks[pid].end > t.start);
-            r.innerHTML=`<div class="gantt-label ${isContra?'contradiction':''}">${item.node.title}</div>`;
-            const area=document.createElement('div'); area.className='gantt-chart-area';
-            const startOff = Math.max(0, diffDays(minD, t.start)-1);
-
-            const isMile = t.dur === 0;
-            const pEl = document.createElement('div'); pEl.className = isMile?'gantt-milestone-plan':'gantt-bar-plan';
-            pEl.style.left = isMile ? `${startOff*px-7}px` : `${startOff*px}px`;
-            if(!isMile) pEl.style.width = `${Math.max(1,t.dur)*px}px`;
-            area.appendChild(pEl);
-            t.ui={startX:220+startOff*px, endX:220+(startOff+t.dur)*px, y:y+20};
-
-            if(t.actStart) {
-                const aOff = Math.max(0, diffDays(minD, t.actStart)-1);
-                const aEl = document.createElement('div'); aEl.className = isMile?'gantt-milestone-act':'gantt-bar-act';
-                aEl.style.left = isMile ? `${aOff*px-8}px` : `${aOff*px}px`;
-                if(!isMile) {
-                    const aDur = t.actEnd ? diffDays(t.actStart, t.actEnd) : Math.max(1, diffDays(t.actStart, new Date(todayStr)));
-                    aEl.style.width = `${Math.max(1,aDur)*px}px`;
-                }
-                let c = `var(--st-${t.status})`;
-                aEl.style.background = isMile ? c : `linear-gradient(to right, ${c} ${t.prog}%, #bdc3c7 ${t.prog}%)`;
-                if(!isMile) aEl.innerText = `${t.prog}%`;
-                if(isContra) aEl.classList.add('gantt-bar-critical');
-                aEl.onclick = e => { e.stopPropagation(); openEditModal(item.node.id); };
-                area.appendChild(aEl);
-            }
-            r.onclick = () => openEditModal(item.node.id); r.appendChild(area); wrap.appendChild(r); y+=40;
-        });
-        
-        displayItems.forEach(item => {
-            item.node.parentIds.forEach(pid => {
-                const p=tasks[pid], c=tasks[item.node.id];
-                if(p && c && p.ui && c.ui) {
-                    const sx=p.ui.endX, sy=p.ui.y, ex=c.ui.startX, ey=c.ui.y;
-                    const midX=sx+15; let d;
-                    if(midX<ex-5) d=`M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${ey} L ${ex} ${ey}`;
-                    else { const mY=sy+(ey>sy?15:-15); d=`M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${mY} L ${ex-10} ${mY} L ${ex-10} ${ey} L ${ex} ${ey}`; }
-                    const pth=document.createElementNS("http://www.w3.org/2000/svg","path"); pth.setAttribute('d',d); pth.setAttribute('class','chart-arrow'); pth.setAttribute('marker-end','url(#g-arrow)'); svg.appendChild(pth);
-                }
-            });
-        });
-        wrap.appendChild(svg); cont.appendChild(wrap);
-    }
-    
-    function renderSwimlane() {
-        const cont = document.getElementById('swimlane-content'); cont.innerHTML = '';
-        const deptArr = getOrderedDepts('swim');
-        const levels = {};
-        state.nodes.forEach(n=>levels[n.id]=0);
-        let changed=true; for(let i=0; i<50&&changed; i++) {
-            changed=false;
-            state.nodes.forEach(n => {
-                let maxP = -1;
-                n.parentIds.forEach(pid => { if(levels[pid]!==undefined && levels[pid]>maxP) maxP = levels[pid]; });
-                if(maxP !== -1 && levels[n.id] !== maxP+1) { levels[n.id] = maxP+1; changed=true; }
-            });
+    // -- Global Mouse --
+    window.addEventListener('mousemove', e => {
+        if(panD.act && panD.el){ panD.el.style.left=(e.clientX-panD.ox)+'px'; panD.el.style.top=(e.clientY-panD.oy)+'px'; return; }
+        if(mapD){
+            const dx = e.clientX - mapD.x, dy = e.clientY - mapD.y;
+            if(mapD.t==='pan'){ st.x+=dx; st.y+=dy; ren(); }
+            else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id==id); if(n){n.x+=dx/st.sc; n.y+=dy/st.sc;} }); ren(); }
+            mapD.x=e.clientX; mapD.y=e.clientY; return;
         }
-        
-        const colW=300; const container=document.createElement('div'); container.className='swimlane-container'; container.style.width=`${deptArr.length*colW}px`;
-        deptArr.forEach((d,i)=>{
-            const col=document.createElement('div'); col.className='swimlane-col'; col.style.backgroundColor=deptColors[i%deptColors.length].bg;
-            const hdr=document.createElement('div'); hdr.className='swimlane-header'; hdr.style.left=`${i*colW}px`; hdr.style.backgroundColor=deptColors[i%deptColors.length].border;
-            hdr.draggable=true; hdr.ondragstart=e=>e.dataTransfer.setData('text',d); hdr.ondrop=e=>{e.preventDefault();const src=e.dataTransfer.getData('text');moveSwimlaneDeptDrag(src,d);}; hdr.ondragover=e=>e.preventDefault();
-            hdr.innerHTML=`<span class="dept-arrow" onclick="moveSwimlaneDept('${d}', -1)">◀</span> ${d} <span class="dept-arrow" onclick="moveSwimlaneDept('${d}', 1)">▶</span>`;
-            container.appendChild(hdr); container.appendChild(col);
+        if(mode==='map' && e.shiftKey && st.sc<0.6){
+            const lp=document.getElementById('loupe'); lp.style.display='block'; lp.style.left=(e.clientX+20)+'px'; lp.style.top=(e.clientY+20)+'px';
+            document.getElementById('l-cnt').innerHTML=cvs.innerHTML;
+        } else document.getElementById('loupe').style.display='none';
+    });
+    window.addEventListener('touchmove', e => {
+        const t = e.touches[0];
+        if(panD.act && panD.el){ panD.el.style.left=(t.clientX-panD.ox)+'px'; panD.el.style.top=(t.clientY-panD.oy)+'px'; e.preventDefault(); }
+    }, {passive:false});
+    
+    window.addEventListener('mouseup', () => { panD.act=false; if(mapD && mapD.t==='node' && phy.act) runPhy(); mapD=null; });
+    window.addEventListener('touchend', () => { panD.act=false; mapD=null; });
+
+    vp.addEventListener('mousedown', e => {
+        if(e.target===vp||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; if(pre.act)stopP(); }
+    });
+    vp.addEventListener('wheel', e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); const os=st.sc; st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/os*st.sc; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/os*st.sc; ren(); }, {passive:false});
+
+    // -- Keys --
+    document.addEventListener('keydown', e => {
+        const act=document.activeElement; if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
+        if(document.getElementById('modal').style.display!=='none'){ if(e.key==='Enter')saveM(); return; }
+        if(e.ctrlKey||e.metaKey){
+            if(e.key==='c'){ e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
+            if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
+            if(e.key==='s'){ e.preventDefault(); saveO(); }
+            if(e.key==='o'){ e.preventDefault(); openF(); }
+        }
+        if(st.sel.size>0){
+            if(e.key==='Tab'){e.preventDefault(); addN('child');}
+            if(e.key==='Enter'){e.preventDefault(); addN('sib');}
+            if(e.key==='Delete'||e.key==='Backspace'){delSel();}
+        }
+    });
+
+    document.getElementById('q-in').oninput = e => {
+        const v=e.target.value.toLowerCase(); if(!v){qRes=[];qIdx=-1;document.getElementById('q-cnt').innerText="";ren();return;}
+        qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id); qIdx=0; nextQ(false);
+    };
+
+    // -- Logic --
+    function gf(n,l){const f=n.f.find(x=>x.l===l);return f?f.v:null;}
+    function sf(n,l,v){let f=n.f.find(x=>x.l===l); if(f)f.v=v; else n.f.push({l:l,v:v});}
+    function pD(s){if(!s)return null;const d=new Date(s);return isNaN(d)?null:d;}
+    function aD(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+    function diff(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
+
+    function ren(){
+        if(mode!=='map')return;
+        const an=ana(); const c=document.getElementById('canvas');
+        c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
+        vp.style.backgroundSize=`${20*st.sc}px ${20*st.sc}px`; 
+        vp.style.backgroundPosition=`${st.x+innerWidth/2}px ${st.y+innerHeight/2}px`;
+
+        const ex=c.querySelectorAll('.node'); ex.forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
+        st.nodes.forEach(d=>{
+            let el=c.querySelector(`.node[data-id="${d.id}"]`);
+            if(!el){
+                el=document.createElement('div'); el.className='node'; el.dataset.id=d.id;
+                el.innerHTML=`<div class="nh"></div><div class="nt"></div><div class="np"><div class="np-bar"></div></div><div class="nf"></div><div class="n-add">＋</div>`;
+                el.querySelector('.nh').onmousedown=e=>{
+                    e.stopPropagation();
+                    if(!e.ctrlKey && !e.shiftKey && !st.sel.has(d.id)) sel(d.id,false);
+                    else if(e.shiftKey||e.ctrlKey) sel(d.id, true);
+                    mapD={t:'node',x:e.clientX,y:e.clientY,ids:Array.from(st.sel)};
+                };
+                el.onmousedown=e=>{e.stopPropagation(); if(e.altKey){togCn(d.id);return;} sel(d.id,e.ctrlKey||e.metaKey||e.shiftKey);};
+                el.ondblclick=e=>{e.stopPropagation();openM(d.id);};
+                el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();};
+                c.appendChild(el);
+            }
+            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'');
+            if(!mapD||mapD.t!=='node') el.classList.add('phy'); else el.classList.remove('phy');
+            
+            const stt=gf(d,"ステータス")||"todo";
+            const hd=el.querySelector('.nt'); hd.className=`nt h-${stt}`; hd.innerText=d.title;
+            el.querySelector('.np-bar').style.width=(gf(d,"進捗")||0)+'%';
+            
+            const nf=el.querySelector('.nf'); nf.innerHTML='';
+            d.f.forEach(f=>{
+                const r=document.createElement('div'); r.className='fr';
+                r.innerHTML=`<div class="fl" contenteditable>${f.l}</div><div class="fv" contenteditable>${f.v}</div>`;
+                r.querySelector('.fl').oninput=e=>f.l=e.target.innerText;
+                r.querySelector('.fv').oninput=e=>f.v=e.target.innerText;
+                if(['予定開始','予定終了','期間','担当部署','ステータス','進捗'].includes(f.l)){
+                    const v=r.querySelector('.fv'); v.classList.add('link'); v.onclick=e=>{e.stopPropagation();openM(d.id);}; v.removeAttribute('contenteditable');
+                }
+                nf.appendChild(r);
+            });
+            el.style.left=d.x+'px'; el.style.top=d.y+'px';
         });
 
-        const uiData={};
-        state.nodes.forEach(n=>{
-            const raw=getField(n,"担当部署")||"未配属"; const myDepts=raw.split(/[,、]/).map(s=>s.trim());
-            let minI=deptArr.length, maxI=-1;
-            myDepts.forEach(d=>{const idx=deptArr.indexOf(d); if(idx>=0){if(idx<minI)minI=idx; if(idx>maxI)maxI=idx;}});
-            if(maxI===-1){minI=0; maxI=0;}
-            
-            const nel=document.createElement('div'); nel.className='node swimlane-node';
-            nel.style.width=`${(maxI-minI+1)*colW-40}px`; nel.style.left=`${minI*colW+20}px`; nel.style.top=`${levels[n.id]*180+60}px`;
-            const st=getField(n,"ステータス")||"todo"; const pg=getField(n,"進捗")||0;
-            nel.innerHTML=`<div class="node-header header-${st}">${n.title}</div><div style="padding:5px;font-size:11px;">${getField(n,"期間")}</div><div class="node-progress"><div class="node-progress-bar" style="width:${pg}%"></div></div>`;
-            nel.onclick=()=>openEditModal(n.id);
-            container.appendChild(nel);
-            uiData[n.id]={l:minI*colW+20, r:(maxI+1)*colW-20, t:levels[n.id]*180+60, b:levels[n.id]*180+60+60};
+        const pg=document.getElementById('p-grp'); pg.innerHTML=''; let h='';
+        st.nodes.forEach(n=>{
+            n.pIds.forEach(pid=>{
+                const p=st.nodes.find(x=>x.id==pid);
+                if(p){
+                    const cr=an.crt.has(`${pid}-${n.id}`);
+                    const sx=p.x+240, sy=p.y+30, ex=n.x, ey=n.y+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
+                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="${cr?'crit':''}" marker-end="url(#ah)"/>`;
+                }
+            });
         });
+        pg.innerHTML=h;
+    }
+
+    function renG(){
+        const c=document.getElementById('g-cnt'); c.innerHTML='';
+        const ord=getOrd('g'); const ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
+        st.nodes.forEach(n=>{
+            const s=pD(gf(n,"予定開始"))||new Date(today), dur=parseInt(gf(n,"期間")||0);
+            const e=dur===0?s:aD(s,dur); const as=pD(gf(n,"実績開始")), ae=pD(gf(n,"実績終了"));
+            ts[n.id]={n,s,e,as,ae,dur,st:gf(n,"ステータス")||"todo",pg:gf(n,"進捗")||0};
+            if(s<mn)mn=s; if(e>mx)mx=e; if(as&&as<mn)mn=as; if(ae&&ae>mx)mx=ae;
+        });
+        mn=aD(mn,-2); mx=aD(mx,10); const days=Math.ceil((mx-mn)/86400000), px=40;
         
-        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.setAttribute("class","overlay-svg");
-        svg.innerHTML='<defs><marker id="sl-arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs>';
-        state.nodes.forEach(n=>{
-            n.parentIds.forEach(pid=>{
-                const p=uiData[pid], c=uiData[n.id];
+        const hd=document.createElement('div'); hd.className='g-hdr';
+        for(let i=0;i<=days;i++){const d=aD(mn,i),ce=document.createElement('div');ce.className='g-cell';ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;hd.appendChild(ce);}
+        c.appendChild(hd);
+
+        const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
+        const gb=document.createElement('div'); gb.className='g-area'; gb.style.position='absolute'; gb.style.width='100%';
+        for(let i=0;i<=days;i++){const l=document.createElement('div');l.className='g-grid';l.style.left=`${i*px}px`;gb.appendChild(l);}
+        wp.appendChild(gb);
+        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.style.zIndex=5;
+        svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
+
+        let items=[];
+        st.nodes.forEach(n=>{
+            const ds=(gf(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
+            let d=ds.length>1?"全体":(ds[0]||"未配属"); items.push({n,d});
+        });
+        items.sort((a,b)=>{
+            if(a.d==="全体")return -1; if(b.d==="全体")return 1;
+            const ia=ord.indexOf(a.d), ib=ord.indexOf(b.d); if(ia!==ib)return (ia<0?999:ia)-(ib<0?999:ib);
+            return ts[a.n.id].s-ts[b.n.id].s;
+        });
+        let y=0, ld=null;
+        items.forEach(it=>{
+            const t=ts[it.n.id];
+            if(it.d!==ld){
+                const gr=document.createElement('div'); gr.className='g-grp'+(it.d==='全体'?' all':'');
+                const arr=it.d!=='全体'?`<span class="g-arr-btn" onclick="mvD('g','${it.d}',-1)">▲</span><span class="g-arr-btn" onclick="mvD('g','${it.d}',1)">▼</span>`:'';
+                gr.innerHTML=`<div style="width:200px;padding-left:10px;">${arr} 📂 ${it.d}</div>`;
+                wp.appendChild(gr); y+=30; ld=it.d;
+            }
+            const row=document.createElement('div'); row.className='g-row';
+            const bad=it.n.pIds.some(pid=>ts[pid]&&ts[pid].e>t.s);
+            row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}">${it.n.title}</div>`;
+            const area=document.createElement('div'); area.className='g-area';
+            const off=Math.max(0,diff(mn,t.s)-1); const mil=t.dur===0;
+            const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p';
+            p.style.left=mil?`${off*px-7}px`:`${off*px}px`; if(!mil)p.style.width=`${Math.max(1,t.dur)*px}px`;
+            area.appendChild(p); t.ui={sx:220+off*px, ex:220+(off+t.dur)*px, y:y+20};
+            if(t.as){
+                const ao=Math.max(0,diff(mn,t.as)-1);
+                const a=document.createElement('div'); a.className=mil?'g-mil-a':'g-bar-a';
+                a.style.left=mil?`${ao*px-8}px`:`${ao*px}px`;
+                if(!mil){const ad=t.ae?diff(t.as,t.ae):Math.max(1,diff(t.as,new Date(today))); a.style.width=`${Math.max(1,ad)*px}px`;}
+                const cl=`var(--st-${t.st})`; a.style.background=mil?cl:`linear-gradient(to right, ${cl} ${t.pg}%, #bdc3c7 ${t.pg}%)`;
+                if(bad)a.classList.add('g-crit'); a.onclick=e=>{e.stopPropagation();openM(it.n.id);}; area.appendChild(a);
+            }
+            row.appendChild(area); row.onclick=()=>openM(it.n.id); wp.appendChild(row); y+=40;
+        });
+        items.forEach(it=>{
+            it.n.pIds.forEach(pid=>{
+                const p=ts[pid], c=ts[it.n.id];
+                if(p&&c&&p.ui&&c.ui){
+                    const sx=p.ui.ex, sy=p.ui.y, ex=c.ui.sx, ey=c.ui.y;
+                    const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
+                    const pt=document.createElementNS("http://www.w3.org/2000/svg","path");
+                    pt.setAttribute('d',d); pt.setAttribute('stroke','#7f8c8d'); pt.setAttribute('fill','none'); pt.setAttribute('marker-end','url(#ga)'); svg.appendChild(pt);
+                }
+            });
+        });
+        wp.appendChild(svg); c.appendChild(wp);
+    }
+
+    function renS(){
+        const c=document.getElementById('s-cnt'); c.innerHTML='';
+        const ord=getOrd('s'); const lv={};
+        let ch=true; for(let i=0;i<50&&ch;i++){ch=false; st.nodes.forEach(n=>{let m=-1; n.pIds.forEach(p=>{if(lv[p]!==undefined && lv[p]>m)m=lv[p];}); if(m!==-1 && lv[n.id]!==m+1){lv[n.id]=m+1;ch=true;}});}
+        st.nodes.forEach(n=>{if(lv[n.id]===undefined)lv[n.id]=0;});
+        const cw=300, con=document.createElement('div'); con.className='s-cont'; con.style.width=`${ord.length*cw}px`;
+        ord.forEach((d,i)=>{
+            const col=document.createElement('div'); col.className='s-col'; col.style.background=dCols[i%6].bg;
+            const h=document.createElement('div'); h.className='s-hdr'; h.style.left=`${i*cw}px`; h.style.background=dCols[i%6].bd;
+            h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span> ${d} <span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
+            con.appendChild(h); con.appendChild(col);
+        });
+        const ui={};
+        st.nodes.forEach(n=>{
+            const raw=gf(n,"担当部署")||"未配属"; const mds=raw.split(/[,、]/).map(s=>s.trim());
+            let mn=ord.length, mx=-1;
+            mds.forEach(d=>{const i=ord.indexOf(d); if(i>=0){if(i<mn)mn=i;if(i>mx)mx=i;}});
+            if(mx===-1){mn=0;mx=0;}
+            const el=document.createElement('div'); el.className='node s-node';
+            el.style.width=`${(mx-mn+1)*cw-40}px`; el.style.left=`${mn*cw+20}px`; el.style.top=`${lv[n.id]*180+60}px`;
+            el.innerHTML=`<div class="nt h-${gf(n,"ステータス")||"todo"}">${n.title}</div><div style="padding:5px;font-size:11px;">${gf(n,"期間")}</div>`;
+            el.onclick=()=>openM(n.id); con.appendChild(el);
+            ui[n.id]={l:mn*cw+20, r:(mx+1)*cw-20, t:lv[n.id]*180+60, b:lv[n.id]*180+120};
+        });
+        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.style.zIndex=5;
+        svg.innerHTML='<defs><marker id="sa" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs>';
+        st.nodes.forEach(n=>{
+            n.pIds.forEach(pid=>{
+                const p=ui[pid], c=ui[n.id];
                 if(p&&c){
                     const sx=(p.l+p.r)/2, sy=p.b, ex=(c.l+c.r)/2, ey=c.t;
-                    let d; if(ey>sy+20) d=`M ${sx} ${sy} L ${sx} ${(sy+ey)/2} L ${ex} ${(sy+ey)/2} L ${ex} ${ey}`;
-                    else d=`M ${sx} ${sy} L ${sx} ${sy+20} L ${sx+20} ${sy+20} L ${sx+20} ${ey-20} L ${ex} ${ey-20} L ${ex} ${ey}`;
-                    const pth=document.createElementNS("http://www.w3.org/2000/svg","path"); pth.setAttribute('d',d); pth.setAttribute('class','chart-arrow'); pth.setAttribute('marker-end','url(#sl-arrow)'); svg.appendChild(pth);
+                    const d = (ey > sy+20) ? `M ${sx} ${sy} L ${sx} ${(sy+ey)/2} L ${ex} ${(sy+ey)/2} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx} ${sy+20} L ${sx+20} ${sy+20} L ${sx+20} ${ey-20} L ${ex} ${ey-20} L ${ex} ${ey}`;
+                    const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); pt.setAttribute('d',d); pt.setAttribute('stroke','#7f8c8d'); pt.setAttribute('fill','none'); pt.setAttribute('marker-end','url(#sa)');
+                    svg.appendChild(pt);
                 }
             });
         });
-        container.appendChild(svg); cont.appendChild(container);
+        con.appendChild(svg); c.appendChild(con);
     }
-    
-    function moveSwimlaneDeptDrag(s, t) { const l=state.swimlaneDeptOrder; const si=l.indexOf(s), ti=l.indexOf(t); if(si>=0&&ti>=0){l.splice(si,1);l.splice(ti,0,s);renderSwimlane();} }
-    function startGanttHeaderDrag(e, dept) { e.dataTransfer.setData('text', dept); }
-    function dropGanttHeader(e, tgt) { e.preventDefault(); const src = e.dataTransfer.getData('text'); const list = state.ganttDeptOrder; const sI = list.indexOf(src); const tI = list.indexOf(tgt); if(sI>=0 && tI>=0) { list.splice(sI, 1); list.splice(tI, 0, src); renderGantt(); } }
 
-    // --- Init & Copy Paste ---
-    function fitToScreen() {
-        if(state.nodes.length===0)return;
-        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-        state.nodes.forEach(n=>{ if(n.x<minX)minX=n.x; if(n.y<minY)minY=n.y; if(n.x+240>maxX)maxX=n.x+240; if(n.y+150>maxY)maxY=n.y+150; });
-        const scale = Math.min(window.innerWidth/(maxX-minX+100), window.innerHeight/(maxY-minY+100), 1);
-        triggerSmoothTransition(); state.scale = Math.max(0.1, scale); state.x = -(minX + (maxX-minX)/2)*state.scale; state.y = -(minY + (maxY-minY)/2)*state.scale; render();
-    }
-    function addFreeNode() {
-        const nid = Date.now();
-        const cx = (-state.x + window.innerWidth / 2) / state.scale;
-        const cy = (-state.y + window.innerHeight / 2) / state.scale;
-        state.nodes.push({
-            id: nid, title: "独立ノード",
-            fields: [{label: "予定開始", value: todayStr}, {label: "期間", value: "1日"}, {label: "予定終了", value: todayStr}, {label: "担当部署", value: "全体"}, {label: "ステータス", value: "todo"}, {label: "進捗", value: "0"}, {label: "実績開始", value: ""}, {label: "実績終了", value: ""}],
-            x: cx - 120, y: cy - 40, parentIds: []
+    function ana(){
+        const ts={}; st.nodes.forEach(n=>ts[n.id]={s:pD(gf(n,"予定開始")), e:pD(gf(n,"予定終了"))});
+        const err=new Set(), crt=new Set();
+        st.nodes.forEach(n=>{
+            const s=ts[n.id].s;
+            n.pIds.forEach(pid=>{
+                const p=ts[pid];
+                if(p.e && s && p.e>s){err.add(n.id); err.add(pid);}
+                if(p.e && s && diff(p.e,s)<=1) crt.add(`${pid}-${n.id}`);
+            });
         });
-        state.selectedId = nid; state.selectedIds = new Set([nid]);
-        render(); setTimeout(() => openEditModal(nid), 100);
+        return {err,crt};
+    }
+    function getOrd(t){
+        const act=new Set(); st.nodes.forEach(n=>(gf(n,"担当部署")||"").split(/[,、]/).forEach(d=>act.add(d.trim())));
+        let l = t==='swim'?st.sOrd:st.gOrd; if(!l)l=[];
+        act.forEach(d=>{if(!l.includes(d))l.push(d);});
+        if(t==='swim')st.sOrd=l; else st.gOrd=l;
+        return l.filter(d=>act.has(d));
+    }
+    function mvD(t,d,dir){
+        const l=t==='swim'?st.sOrd:st.gOrd; const i=l.indexOf(d);
+        if(i>-1 && i+dir>=0 && i+dir<l.length){ [l[i],l[i+dir]]=[l[i+dir],l[i]]; t==='swim'?renS():renG(); }
     }
     
-    document.addEventListener('keydown', e=>{
-        const activeEl = document.activeElement;
-        const isInput = activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable;
-        
-        if(document.getElementById('edit-modal').style.display === 'none') {
-            if(!isInput || (activeEl.classList && activeEl.classList.contains('node'))) {
-                if(e.ctrlKey || e.metaKey){
-                    if(e.key==='c') {
-                        e.preventDefault(); 
-                        clipboard = state.nodes.filter(n=>state.selectedIds.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));
+    function sel(id,mul){
+        if(!mul)st.sel.clear();
+        if(id) st.sel.has(id)?st.sel.delete(id):st.sel.add(id);
+        st.selectedId=id; ren();
+    }
+    function addN(type){
+        if(st.sel.size===0)return;
+        const p=st.nodes.find(n=>n.id==Array.from(st.sel)[0]); if(!p)return;
+        const id=Date.now(), isC=type==='child';
+        const nx=isC?p.x+300:p.x, ny=isC?p.y:p.y+160;
+        const s=isC?pD(gf(p,"予定終了"))?aD(pD(gf(p,"予定終了")),1).toISOString().slice(0,10):today:gf(p,"予定開始");
+        st.nodes.push({id, title:"Task", f:[{l:"予定開始",v:s},{l:"期間",v:"1日"},{l:"予定終了",v:s},{l:"担当部署",v:gf(p,"担当部署")},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], x:nx, y:ny, pIds:isC?[p.id]:[...p.pIds]});
+        sel(id,false); openM(id);
+    }
+    function addFree(){
+        const id=Date.now();
+        const cx=(-st.x+innerWidth/2)/st.sc, cy=(-st.y+innerHeight/2)/st.sc;
+        st.nodes.push({id, title:"Task", f:[{l:"予定開始",v:today},{l:"期間",v:"1日"},{l:"予定終了",v:today},{l:"担当部署",v:"全体"},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], x:cx-120, y:cy-40, pIds:[]});
+        sel(id,false); phy.act=true; runPhy();
+        setTimeout(()=>openM(id),50); ren();
+    }
+    function delSel(){
+        if(st.sel.size===0||!confirm("削除しますか？"))return;
+        st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));
+        st.nodes.forEach(n=>n.pIds=n.pIds.filter(pid=>!st.sel.has(pid)));
+        st.sel.clear(); ren();
+    }
+    function togLnk(){
+        if(st.sel.size!==1){alert("1つ選択してください");return;}
+        lnk.act=!lnk.act; lnk.src=Array.from(st.sel)[0];
+        document.getElementById('b-lnk').className=lnk.act?'lnk':'';
+    }
+    function togCn(tid){
+        const t=st.nodes.find(n=>n.id===tid); if(!lnk.act||!t)return;
+        if(t.id!==lnk.src){
+            const idx=t.pIds.indexOf(lnk.src);
+            if(idx>=0) t.pIds.splice(idx,1); else t.pIds.push(lnk.src);
+            ren();
+        }
+        togLnk();
+    }
+    
+    function openM(id){
+        curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
+        document.getElementById('m-tit').value=n.title;
+        document.getElementById('m-dep').value=gf(n,"担当部署")||"";
+        document.getElementById('m-s').value=gf(n,"予定開始");
+        document.getElementById('m-e').value=gf(n,"予定終了");
+        document.getElementById('m-d').value=parseInt(gf(n,"期間"))||0;
+        document.getElementById('m-st').value=gf(n,"ステータス")||"todo";
+        document.getElementById('m-p').value=parseInt(gf(n,"進捗"))||0; document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
+        document.getElementById('m-as').value=gf(n,"実績開始");
+        document.getElementById('m-ae').value=gf(n,"実績終了");
+        const dl=document.getElementById('dl-dept'); dl.innerHTML='';
+        const ds=new Set(); st.nodes.forEach(no=>(gf(no,"担当部署")||"").split(',').forEach(d=>ds.add(d.trim())));
+        ds.forEach(d=>{const o=document.createElement('option'); o.value=d; dl.appendChild(o);});
+        document.getElementById('modal').style.display='flex';
+        document.getElementById('m-tit').focus();
+    }
+    function closeM(){document.getElementById('modal').style.display='none';}
+    function saveM(){
+        const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
+        n.title=document.getElementById('m-tit').value;
+        sf(n,"担当部署",document.getElementById('m-dep').value);
+        sf(n,"予定開始",document.getElementById('m-s').value);
+        sf(n,"予定終了",document.getElementById('m-e').value);
+        sf(n,"期間",document.getElementById('m-d').value+"日");
+        sf(n,"ステータス",document.getElementById('m-st').value);
+        sf(n,"進捗",document.getElementById('m-p').value);
+        sf(n,"実績開始",document.getElementById('m-as').value);
+        sf(n,"実績終了",document.getElementById('m-ae').value);
+        ren(); if(mode==='gantt')renG(); if(mode==='swim')renS();
+        closeM(); phy.act=true; runPhy();
+    }
+    function syncD(k){
+        const s=document.getElementById('m-s').value, e=document.getElementById('m-e').value, d=parseInt(document.getElementById('m-d').value);
+        const sd=pD(s), ed=pD(e);
+        if(k==='s'||k==='d'){ if(sd&&!isNaN(d)) document.getElementById('m-e').value=aD(sd,d).toISOString().slice(0,10); }
+        else if(k==='e'){ if(sd&&ed) document.getElementById('m-d').value=diff(sd,ed); }
+    }
+    function swView(m){
+        mode=m; 
+        document.getElementById('b-map').className=m==='map'?'act':'';
+        document.getElementById('b-gantt').className=m==='gantt'?'act':'';
+        document.getElementById('b-swim').className=m==='swim'?'act':'';
+        document.getElementById('map-con').style.display=m==='map'?'block':'none';
+        document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
+        document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
+        document.getElementById('pres').style.display=m==='map'?'flex':'none';
+        if(m==='map')ren(); else if(m==='gantt')renG(); else renS();
+        if(pre.act && m!=='map')stopP();
+    }
+    function align(){
+        const l={}; const q=st.nodes.filter(n=>n.pIds.length===0).map(n=>({id:n.id,v:0}));
+        const vis=new Set();
+        while(q.length){
+            const {id,v}=q.shift(); if(vis.has(id))continue; vis.add(id);
+            l[id]=Math.max(l[id]||0, v);
+            st.nodes.filter(n=>n.pIds.includes(id)).forEach(c=>q.push({id:c.id,v:v+1}));
+        }
+        const grp={}; st.nodes.forEach(n=>{const v=l[n.id]||0; if(!grp[v])grp[v]=[]; grp[v].push(n);});
+        const c=document.getElementById('canvas'); c.classList.add('smooth');
+        Object.keys(grp).forEach(v=>{
+            const ns=grp[v]; const sy=-((ns.length-1)*160)/2;
+            ns.forEach((n,i)=>{n.x=v*320; n.y=sy+i*160;});
+        });
+        setTimeout(()=>c.classList.remove('smooth'),400);
+        ren(); phy.act=true; runPhy();
+    }
+    function runPhy(){
+        let i=0; const tick=()=>{
+            if(!phy.act||i>60)return;
+            let mv=false;
+            for(let a of st.nodes){
+                for(let b of st.nodes){
+                    if(a===b)continue;
+                    const dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy);
+                    if(d<260 && d>0){
+                        const f=(260-d)*0.1, ang=Math.atan2(dy,dx);
+                        a.x+=Math.cos(ang)*f; a.y+=Math.sin(ang)*f; mv=true;
                     }
-                    if(e.key==='v' && clipboard) {
-                         state.selectedIds.clear();
-                         clipboard.forEach(n=>{ n.id=Date.now()+Math.random(); n.x+=50; n.y+=50; state.nodes.push(n); state.selectedIds.add(n.id); });
-                         render(); startPhysics();
-                    }
-                }
-                if(state.selectedIds.size > 0) {
-                    if(e.key==='Tab') { e.preventDefault(); addNode('child'); }
-                    if(e.key==='Enter') { e.preventDefault(); addNode('sib'); }
-                    if(e.key==='Delete' || e.key==='Backspace') deleteSelected();
                 }
             }
-        }
-    });
+            if(mv)ren(); i++; requestAnimationFrame(tick);
+        }; tick();
+    }
+    function fit(){
+        if(!st.nodes.length)return;
+        let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
+        st.nodes.forEach(n=>{if(n.x<Mx)Mx=n.x; if(n.y<My)My=n.y; if(n.x+240>mx)mx=n.x+240; if(n.y+160>my)my=n.y+160;});
+        const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
+        st.sc=Math.max(0.1,sc); st.x=-(Mx+(mx-Mx)/2)*st.sc; st.y=-(My+(my-My)/2)*st.sc; ren();
+    }
+    function zIn(){st.sc*=1.2;ren();} function zOut(){st.sc*=0.8;ren();}
+    function togSS(){document.body.classList.toggle('sc-mode');alert("撮影モード(UI非表示)");}
+    function nextQ(){
+        if(!qRes.length)return;
+        qIdx=(qIdx+1)%qRes.length; const id=qRes[qIdx];
+        if(mode!=='map')swView('map');
+        sel(id,false); const n=st.nodes.find(x=>x.id==id);
+        if(n){st.x=-n.x*st.sc; st.y=-n.y*st.sc; ren();}
+        document.getElementById('q-cnt').innerText=`${qIdx+1}/${qRes.length}`;
+    }
 
-    setupPanelDrag();
-    render(); setTimeout(fitToScreen,100);
+    async function openF(){
+        if(window.showOpenFilePicker){
+            try{
+                const [h]=await window.showOpenFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}]});
+                fH=h; const f=await h.getFile(); document.getElementById('f-name').innerText=f.name;
+                const t=await f.text(); load(t);
+            }catch(e){}
+        } else document.getElementById('f-in').click();
+    }
+    async function saveO(){
+        if(fH){
+            const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close();
+            const t=document.getElementById('toast'); t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
+        } else saveA();
+    }
+    async function saveA(){
+        if(window.showSaveFilePicker){
+            try{
+                fH=await window.showSaveFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}], suggestedName:`map_${today}.json`});
+                document.getElementById('f-name').innerText=fH.name; saveO();
+            }catch(e){}
+        } else {
+            const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(st)],{type:"application/json"}));
+            a.download=`map_${today}.json`; a.click();
+        }
+    }
+    function loadF(i){const f=i.files[0]; if(f){const r=new FileReader(); r.onload=e=>load(e.target.result); r.readAsText(f);}}
+    function load(t){try{const j=JSON.parse(t); if(j.nodes){st=j;st.sel=new Set();fit();}}catch(e){alert("Error");}}
+    function newF(){if(confirm("New?")){st.nodes=[{id:Date.now(),title:"Start",f:[],x:0,y:0,pIds:[]}];st.sel.clear();fH=null;fit();}}
+
+    function startP(){pre.act=true; pre.idx=0; document.getElementById('pres-ind').style.display='flex'; document.getElementById('p-nav').style.display='flex'; focusP();}
+    function stopP(){pre.act=false; document.getElementById('pres-ind').style.display='none'; document.getElementById('p-nav').style.display='none'; fit();}
+    function nextS(){if(st.nodes.length){pre.idx=(pre.idx+1)%st.nodes.length; focusP();}}
+    function prevS(){if(st.nodes.length){pre.idx=(pre.idx-1+st.nodes.length)%st.nodes.length; focusP();}}
+    function focusP(){
+        const n=st.nodes[pre.idx]; sel(n.id,false);
+        document.getElementById('s-num').innerText=`${pre.idx+1}/${st.nodes.length}`;
+        st.sc=1.5; st.x=-n.x*st.sc; st.y=-n.y*st.sc; ren();
+    }
+
+    if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
+    ren(); setTimeout(fit,100);
 </script>
 </body>
 </html>
