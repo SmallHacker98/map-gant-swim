@@ -5,23 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v4.1</title>
+<title>Pro Map Suite v4.3</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
     body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:sans-serif;user-select:none;}
     
-    /* Map */
+    /* Layout */
     #viewport{width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:20px 20px;}
     #viewport:active{cursor:grabbing;}
     #canvas{transform-origin:0 0;position:absolute;top:0;left:0;}
     .smooth{transition:transform 0.4s cubic-bezier(0.25,1,0.5,1);}
-    
-    /* SVG */
-    svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
-    path{fill:none;stroke:var(--line);stroke-width:2px;stroke-linecap:round;transition:stroke 0.2s;}
-    path.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:5,3;animation:dash 1s linear infinite;}
-    @keyframes dash{to{stroke-dashoffset:-8;}}
 
     /* Node */
     .node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:1;display:flex;flex-direction:column;overflow:hidden;}
@@ -29,6 +23,7 @@
     .node.sel{border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(52,152,219,0.3);}
     .node.hit{border:3px solid var(--high);transform:scale(1.05);z-index:20;}
     .node.err{border:3px solid var(--crit);}
+    .node.phy{transition:left 0.1s linear, top 0.1s linear;}
     
     .nh{height:22px;background:linear-gradient(to bottom,#eee,#ccc);border-bottom:1px solid #999;cursor:grab;display:flex;justify-content:center;align-items:center;}
     .nh::after{content:"⠿";color:#666;}
@@ -38,11 +33,17 @@
     .nf{padding:5px;flex-grow:1;background:white;}
     .fr{display:flex;gap:5px;font-size:11px;border-bottom:1px solid #eee;padding:2px 0;}
     .fl{color:#7f8c8d;width:70px;text-align:right;font-weight:bold;}
-    .fv{color:#2c3e50;flex-grow:1;cursor:text;}
-    .fv.link{cursor:pointer;background:#f9f9f9;}
+    .fv{color:#2c3e50;flex-grow:1;cursor:pointer;}
+    .fv:hover{background:#f9f9f9;}
     .n-add{text-align:center;color:#bdc3c7;cursor:pointer;background:#fafafa;}
     .n-add:hover{color:var(--accent);background:#f0f0f0;}
     .np{height:4px;background:#eee;} .np-bar{height:100%;background:#2ecc71;transition:width 0.3s;}
+
+    /* SVG */
+    svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
+    path{fill:none;stroke:var(--line);stroke-width:2px;stroke-linecap:round;transition:stroke 0.2s;}
+    path.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:5,3;animation:dash 1s linear infinite;}
+    @keyframes dash{to{stroke-dashoffset:-8;}}
 
     /* Panels */
     .pnl{position:fixed;background:white;padding:6px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;gap:5px;z-index:2000;cursor:move;align-items:center;}
@@ -51,9 +52,9 @@
     .pnl button.act{background:var(--accent);color:white;}
     .pnl button.lnk{background:var(--high);color:white;animation:pulse 1s infinite;}
     @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
-    .sep{width:1px;height:20px;background:#ddd;margin:0 2px;}
-    
-    /* Layout */
+    .sep{width:1px;height:20px;background:#ddd;margin:0 2px;} .sep-h{width:20px;height:1px;background:#ddd;margin:2px 0;}
+
+    /* Positions */
     #menu{top:20px;left:20px;flex-wrap:wrap;max-width:320px;}
     #search{top:20px;left:50%;transform:translateX(-50%);}
     #views{top:20px;right:20px;}
@@ -62,11 +63,11 @@
     #pres{bottom:20px;left:50%;transform:translateX(-50%);display:none;}
     #pres-ind{position:fixed;top:0;left:0;width:100%;height:40px;background:var(--crit);color:white;display:none;align-items:center;justify-content:center;z-index:3000;pointer-events:none;font-weight:bold;}
     
-    /* Charts */
+    /* Views */
     .view{position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:1500;display:none;flex-direction:column;}
     .v-head{height:50px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;padding-top:20px;}
     .v-body{flex-grow:1;overflow:auto;position:relative;}
-    
+
     /* Gantt */
     .g-wrap{position:relative;min-height:100%;}
     .g-hdr{display:flex;height:30px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;}
@@ -74,7 +75,6 @@
     .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
     .g-row:hover{background:#f0f8ff;}
     .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;cursor:move;}
-    .g-grp.all{background:#34495e;color:white;}
     .g-lbl{width:200px;min-width:200px;padding:0 10px;border-right:1px solid #ddd;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:white;position:sticky;left:0;z-index:10;height:40px;display:flex;align-items:center;}
     .g-lbl.err{color:var(--crit);}
     .g-area{flex-grow:1;position:relative;height:100%;}
@@ -90,9 +90,6 @@
     .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;position:relative;display:flex;flex-direction:column;min-height:100%;}
     .s-hdr{position:absolute;top:0;width:300px;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:5;cursor:grab;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
-    .arr-btn{cursor:pointer;opacity:0.6;padding:0 5px;color:white;}
-    .arr-btn:hover{opacity:1;transform:scale(1.2);}
-    .g-arr-btn{cursor:pointer;opacity:0.6;padding:0 3px;margin-right:4px;background:white;color:#333;border-radius:3px;}
 
     /* Modal */
     #modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:4000;display:none;align-items:center;justify-content:center;}
@@ -103,7 +100,6 @@
     .m-act{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
     .btn-s{background:var(--accent);color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;}
     
-    /* Utils */
     #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:5000;}
     #loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9999;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
     .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
@@ -130,30 +126,21 @@
     </div>
 
     <div id="menu" class="pnl">
-        <button onclick="newF()" title="新規">📄</button>
-        <button onclick="saveO()" title="上書き保存">💾</button>
-        <button onclick="saveA()" title="名前付保存">📑</button>
-        <button onclick="openF()" title="開く">📂</button>
-        <button onclick="togSS()" title="撮影モード">📷</button>
-        <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div>
-        <input type="file" id="f-in" style="display:none" accept=".json" onchange="loadF(this)">
+        <button onclick="newF()" title="新規">📄</button><button onclick="saveO()" title="上書き(Ctrl+S)">💾</button><button onclick="saveA()" title="名前付">📑</button><button onclick="openF()" title="開く(Ctrl+O)">📂</button><button onclick="togSS()" title="撮影">📷</button><div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div><input type="file" id="f-in" style="display:none" accept=".json" onchange="loadF(this)">
     </div>
     <div id="search" class="pnl">
         <span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索..."><span id="q-cnt" style="font-size:11px;color:#888;"></span><button onclick="nextQ()" style="font-size:12px;">▼</button>
     </div>
     <div id="views" class="pnl">
-        <button id="b-map" onclick="swView('map')" class="act">🗺</button><div class="sep"></div>
-        <button id="b-gantt" onclick="swView('gantt')">📊</button><div class="sep"></div>
-        <button id="b-swim" onclick="swView('swim')">🏊</button>
+        <button id="b-map" onclick="swView('map')" class="act">🗺</button><div class="sep"></div><button id="b-gantt" onclick="swView('gantt')">📊</button><div class="sep"></div><button id="b-swim" onclick="swView('swim')">🏊</button>
     </div>
     <div id="map-con" style="display:block;">
         <div id="viewport">
             <div id="canvas"><svg id="svg-lay"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs><g id="p-grp"></g></svg></div>
         </div>
-        <div id="zoom" class="pnl"><button onclick="align()">✨</button><div class="sep"></div><button onclick="fit()">◎</button><button onclick="zIn()">＋</button><button onclick="zOut()">－</button></div>
+        <div id="zoom" class="pnl"><button onclick="align()">✨</button><div class="sep-h"></div><button onclick="fit()">◎</button><div class="sep-h"></div><button onclick="zIn()">＋</button><button onclick="zOut()">－</button></div>
         <div id="edit" class="pnl">
-            <button onclick="addN('child')" title="子(Tab)">＋子</button><button onclick="addN('sib')" title="兄(Ent)">＋兄</button><button onclick="addFree()" title="独">＋独</button>
-            <div class="sep"></div><button id="b-lnk" onclick="togLnk()" title="接続(Alt)">🔗</button><div class="sep"></div><button onclick="delSel()" style="color:var(--crit)" title="削除(Del)">🗑</button>
+            <button onclick="addN('child')" title="子(Tab)">＋子</button><button onclick="addN('sib')" title="兄(Ent)">＋兄</button><button onclick="addFree()" title="独">＋独</button><div class="sep"></div><button id="b-lnk" onclick="togLnk()" title="接続(Alt)">🔗</button><div class="sep"></div><button onclick="delSel()" style="color:var(--crit)" title="削除(Del)">🗑</button>
         </div>
     </div>
     <div id="g-view" class="view"><div class="v-head"><h2 style="font-size:16px;color:#333;margin:0;">工程表 (Gantt)</h2></div><div id="g-cnt" class="v-body"></div></div>
@@ -164,14 +151,8 @@
     const today = new Date().toISOString().slice(0, 10);
     const dCols = [{bg:'#ebf5fb',bd:'#3498db'},{bg:'#fef9e7',bd:'#f39c12'},{bg:'#eafaf1',bd:'#2ecc71'},{bg:'#fdedec',bd:'#e74c3c'},{bg:'#f4ecf7',bd:'#9b59b6'},{bg:'#e8f8f5',bd:'#1abc9c'}];
     let st = { sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: today}, {l: "期間", v: "1日"}, {l: "予定終了", v: today}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], sel: new Set([1]) };
-    let pre = { act: false, idx: 0 };
-    let lnk = { act: false, src: null };
-    let phy = { act: false };
-    let clip = null, curEd = null, mode = 'map';
-    let qRes = [], qIdx = -1;
-    let panD = { act: false, el: null, ox: 0, oy: 0 };
-    let fH = null, mapD = null;
-
+    let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
+    let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null;
     const cvs = document.getElementById('canvas'), vp = document.getElementById('viewport');
 
     function init() {
@@ -209,13 +190,10 @@
                 if(e.key==='Delete'||e.key==='Backspace'){delSel();}
             }
         };
-        
         document.getElementById('q-in').oninput = e => {
             const v=e.target.value.toLowerCase(); if(!v){qRes=[];qIdx=-1;document.getElementById('q-cnt').innerText="";ren();return;}
             qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id); qIdx=0; nextQ(false);
         };
-
-        if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
         ren(); setTimeout(fit,100);
     }
 
@@ -238,33 +216,30 @@
             if(!el){
                 el=document.createElement('div'); el.className='node'; el.dataset.id=d.id;
                 el.innerHTML=`<div class="nh"></div><div class="nt"></div><div class="np"><div class="np-bar"></div></div><div class="nf"></div><div class="n-add">＋</div>`;
-                el.querySelector('.nh').onmousedown=e=>{e.stopPropagation();if(!e.ctrlKey&&!st.sel.has(d.id))sel(d.id,false); mapD={t:'node',x:e.clientX,y:e.clientY,ids:Array.from(st.sel)};};
-                el.onmousedown=e=>{e.stopPropagation(); if(e.altKey){togCn(d.id);return;} sel(d.id,e.ctrlKey);};
-                el.ondblclick=e=>{e.stopPropagation(); openM(d.id);}; // Fix: Double click anywhere
+                el.querySelector('.nh').onmousedown=e=>{e.stopPropagation();if(!e.ctrlKey&&!e.shiftKey&&!st.sel.has(d.id))sel(d.id,false); else if(e.shiftKey)sel(d.id,true); mapD={t:'node',x:e.clientX,y:e.clientY,ids:Array.from(st.sel)};};
+                el.onmousedown=e=>{e.stopPropagation(); if(e.altKey){togCn(d.id);return;} sel(d.id,e.ctrlKey||e.metaKey||e.shiftKey);};
+                el.ondblclick=e=>{e.stopPropagation();openM(d.id);};
                 el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();};
                 c.appendChild(el);
             }
             el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'');
-            if(!mapD) el.classList.add('smooth'); else el.classList.remove('smooth');
-            
+            if(!mapD||mapD.t!=='node') el.classList.add('phy'); else el.classList.remove('phy');
             const stt=gf(d,"ステータス")||"todo";
             const hd=el.querySelector('.nt'); hd.className=`nt h-${stt}`; hd.innerText=d.title;
             el.querySelector('.np-bar').style.width=(gf(d,"進捗")||0)+'%';
-            
             const nf=el.querySelector('.nf'); nf.innerHTML='';
             d.f.forEach(f=>{
                 const r=document.createElement('div'); r.className='fr';
                 r.innerHTML=`<div class="fl" contenteditable>${f.l}</div><div class="fv" contenteditable>${f.v}</div>`;
                 r.querySelector('.fl').oninput=e=>f.l=e.target.innerText;
                 r.querySelector('.fv').oninput=e=>f.v=e.target.innerText;
-                if(['予定開始','予定終了','実績開始','実績終了','期間','担当部署','ステータス','進捗'].includes(f.l)){
+                if(['予定開始','予定終了','期間','担当部署','ステータス','進捗'].includes(f.l)){
                     const v=r.querySelector('.fv'); v.classList.add('link'); v.onclick=e=>{e.stopPropagation();openM(d.id);}; v.removeAttribute('contenteditable');
                 }
                 nf.appendChild(r);
             });
             el.style.left=d.x+'px'; el.style.top=d.y+'px';
         });
-
         const pg=document.getElementById('p-grp'); pg.innerHTML=''; let h='';
         st.nodes.forEach(n=>{
             n.pIds.forEach(pid=>{
@@ -284,25 +259,20 @@
         const ord=getOrd('g'); const ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
         st.nodes.forEach(n=>{
             const s=pD(gf(n,"予定開始"))||new Date(today), dur=parseInt(gf(n,"期間")||0);
-            const e=dur===0?s:aD(s,dur);
-            const as=pD(gf(n,"実績開始")), ae=pD(gf(n,"実績終了"));
+            const e=dur===0?s:aD(s,dur); const as=pD(gf(n,"実績開始")), ae=pD(gf(n,"実績終了"));
             ts[n.id]={n,s,e,as,ae,dur,st:gf(n,"ステータス")||"todo",pg:gf(n,"進捗")||0};
             if(s<mn)mn=s; if(e>mx)mx=e; if(as&&as<mn)mn=as; if(ae&&ae>mx)mx=ae;
         });
         mn=aD(mn,-2); mx=aD(mx,10); const days=Math.ceil((mx-mn)/86400000), px=40;
-        
         const hd=document.createElement('div'); hd.className='g-hdr';
         for(let i=0;i<=days;i++){const d=aD(mn,i),ce=document.createElement('div');ce.className='g-cell';ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;hd.appendChild(ce);}
         c.appendChild(hd);
-
         const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
         const gb=document.createElement('div'); gb.className='g-area'; gb.style.position='absolute'; gb.style.width='100%';
         for(let i=0;i<=days;i++){const l=document.createElement('div');l.className='g-grid';l.style.left=`${i*px}px`;gb.appendChild(l);}
         wp.appendChild(gb);
-
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.style.zIndex=5;
         svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
-
         let items=[];
         st.nodes.forEach(n=>{
             const ds=(gf(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
@@ -310,11 +280,9 @@
         });
         items.sort((a,b)=>{
             if(a.d==="全体")return -1; if(b.d==="全体")return 1;
-            const ia=ord.indexOf(a.d), ib=ord.indexOf(b.d);
-            if(ia!==ib)return (ia<0?999:ia)-(ib<0?999:ib);
+            const ia=ord.indexOf(a.d), ib=ord.indexOf(b.d); if(ia!==ib)return (ia<0?999:ia)-(ib<0?999:ib);
             return ts[a.n.id].s-ts[b.n.id].s;
         });
-
         let y=0, ld=null;
         items.forEach(it=>{
             const t=ts[it.n.id];
@@ -328,30 +296,20 @@
             const bad=it.n.pIds.some(pid=>ts[pid]&&ts[pid].e>t.s);
             row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}">${it.n.title}</div>`;
             const area=document.createElement('div'); area.className='g-area';
-            
-            const off=Math.max(0,diff(mn,t.s)-1);
-            const mil=t.dur===0;
+            const off=Math.max(0,diff(mn,t.s)-1); const mil=t.dur===0;
             const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p';
-            p.style.left=mil?`${off*px-7}px`:`${off*px}px`;
-            if(!mil)p.style.width=`${Math.max(1,t.dur)*px}px`;
-            area.appendChild(p);
-            t.ui={sx:220+off*px, ex:220+(off+t.dur)*px, y:y+20};
-
+            p.style.left=mil?`${off*px-7}px`:`${off*px}px`; if(!mil)p.style.width=`${Math.max(1,t.dur)*px}px`;
+            area.appendChild(p); t.ui={sx:220+off*px, ex:220+(off+t.dur)*px, y:y+20};
             if(t.as){
                 const ao=Math.max(0,diff(mn,t.as)-1);
                 const a=document.createElement('div'); a.className=mil?'g-mil-a':'g-bar-a';
                 a.style.left=mil?`${ao*px-8}px`:`${ao*px}px`;
                 if(!mil){const ad=t.ae?diff(t.as,t.ae):Math.max(1,diff(t.as,new Date(today))); a.style.width=`${Math.max(1,ad)*px}px`;}
-                const cl=`var(--st-${t.st})`;
-                a.style.background=mil?cl:`linear-gradient(to right, ${cl} ${t.pg}%, #bdc3c7 ${t.pg}%)`;
-                if(bad)a.classList.add('g-crit');
-                a.onclick=e=>{e.stopPropagation();openM(it.n.id);};
-                area.appendChild(a);
+                const cl=`var(--st-${t.st})`; a.style.background=mil?cl:`linear-gradient(to right, ${cl} ${t.pg}%, #bdc3c7 ${t.pg}%)`;
+                if(bad)a.classList.add('g-crit'); a.onclick=e=>{e.stopPropagation();openM(it.n.id);}; area.appendChild(a);
             }
             row.appendChild(area); row.onclick=()=>openM(it.n.id); wp.appendChild(row); y+=40;
         });
-
-        // Arrows
         items.forEach(it=>{
             it.n.pIds.forEach(pid=>{
                 const p=ts[pid], c=ts[it.n.id];
@@ -359,8 +317,7 @@
                     const sx=p.ui.ex, sy=p.ui.y, ex=c.ui.sx, ey=c.ui.y;
                     const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path");
-                    pt.setAttribute('d',d); pt.setAttribute('stroke','#7f8c8d'); pt.setAttribute('fill','none'); pt.setAttribute('marker-end','url(#ga)');
-                    svg.appendChild(pt);
+                    pt.setAttribute('d',d); pt.setAttribute('stroke','#7f8c8d'); pt.setAttribute('fill','none'); pt.setAttribute('marker-end','url(#ga)'); svg.appendChild(pt);
                 }
             });
         });
@@ -372,7 +329,6 @@
         const ord=getOrd('s'); const lv={};
         let ch=true; for(let i=0;i<50&&ch;i++){ch=false; st.nodes.forEach(n=>{let m=-1; n.pIds.forEach(p=>{if(lv[p]!==undefined && lv[p]>m)m=lv[p];}); if(m!==-1 && lv[n.id]!==m+1){lv[n.id]=m+1;ch=true;}});}
         st.nodes.forEach(n=>{if(lv[n.id]===undefined)lv[n.id]=0;});
-        
         const cw=300, con=document.createElement('div'); con.className='s-cont'; con.style.width=`${ord.length*cw}px`;
         ord.forEach((d,i)=>{
             const col=document.createElement('div'); col.className='s-col'; col.style.background=dCols[i%6].bg;
@@ -380,7 +336,6 @@
             h.innerHTML=`<span class="arr-btn" onclick="mvD('s','${d}',-1)">◀</span> ${d} <span class="arr-btn" onclick="mvD('s','${d}',1)">▶</span>`;
             con.appendChild(h); con.appendChild(col);
         });
-
         const ui={};
         st.nodes.forEach(n=>{
             const raw=gf(n,"担当部署")||"未配属"; const mds=raw.split(/[,、]/).map(s=>s.trim());
@@ -393,7 +348,6 @@
             el.onclick=()=>openM(n.id); con.appendChild(el);
             ui[n.id]={l:mn*cw+20, r:(mx+1)*cw-20, t:lv[n.id]*180+60, b:lv[n.id]*180+120};
         });
-
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.style.zIndex=5;
         svg.innerHTML='<defs><marker id="sa" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs>';
         st.nodes.forEach(n=>{
@@ -401,9 +355,7 @@
                 const p=ui[pid], c=ui[n.id];
                 if(p&&c){
                     const sx=(p.l+p.r)/2, sy=p.b, ex=(c.l+c.r)/2, ey=c.t;
-                    let d;
-                    if (ey > sy + 20) d = `M ${sx} ${sy} L ${sx} ${(sy+ey)/2} L ${ex} ${(sy+ey)/2} L ${ex} ${ey}`;
-                    else d = `M ${sx} ${sy} L ${sx} ${sy+20} L ${sx+20} ${sy+20} L ${sx+20} ${ey-20} L ${ex} ${ey-20} L ${ex} ${ey}`;
+                    const d = (ey > sy+20) ? `M ${sx} ${sy} L ${sx} ${(sy+ey)/2} L ${ex} ${(sy+ey)/2} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx} ${sy+20} L ${sx+20} ${sy+20} L ${sx+20} ${ey-20} L ${ex} ${ey-20} L ${ex} ${ey}`;
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); pt.setAttribute('d',d); pt.setAttribute('stroke','#7f8c8d'); pt.setAttribute('fill','none'); pt.setAttribute('marker-end','url(#sa)');
                     svg.appendChild(pt);
                 }
@@ -436,7 +388,6 @@
         const l=t==='swim'?st.sOrd:st.gOrd; const i=l.indexOf(d);
         if(i>-1 && i+dir>=0 && i+dir<l.length){ [l[i],l[i+dir]]=[l[i+dir],l[i]]; t==='swim'?renS():renG(); }
     }
-    
     function sel(id,mul){
         if(!mul)st.sel.clear();
         if(id) st.sel.has(id)?st.sel.delete(id):st.sel.add(id);
@@ -455,7 +406,8 @@
         const id=Date.now();
         const cx=(-st.x+innerWidth/2)/st.sc, cy=(-st.y+innerHeight/2)/st.sc;
         st.nodes.push({id, title:"Task", f:[{l:"予定開始",v:today},{l:"期間",v:"1日"},{l:"予定終了",v:today},{l:"担当部署",v:"全体"},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], x:cx-120, y:cy-40, pIds:[]});
-        sel(id,false); openM(id);
+        sel(id,false); phy.act=true; runPhy();
+        setTimeout(()=>openM(id),50); ren();
     }
     function delSel(){
         if(st.sel.size===0||!confirm("削除しますか？"))return;
@@ -489,11 +441,9 @@
         document.getElementById('m-p').value=parseInt(gf(n,"進捗"))||0; document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
         document.getElementById('m-as').value=gf(n,"実績開始");
         document.getElementById('m-ae').value=gf(n,"実績終了");
-        
         const dl=document.getElementById('dl-dept'); dl.innerHTML='';
         const ds=new Set(); st.nodes.forEach(no=>(gf(no,"担当部署")||"").split(',').forEach(d=>ds.add(d.trim())));
         ds.forEach(d=>{const o=document.createElement('option'); o.value=d; dl.appendChild(o);});
-        
         document.getElementById('modal').style.display='flex';
         document.getElementById('m-tit').focus();
     }
@@ -518,7 +468,18 @@
         if(k==='s'||k==='d'){ if(sd&&!isNaN(d)) document.getElementById('m-e').value=aD(sd,d).toISOString().slice(0,10); }
         else if(k==='e'){ if(sd&&ed) document.getElementById('m-d').value=diff(sd,ed); }
     }
-
+    function swView(m){
+        mode=m; 
+        document.getElementById('b-map').className=m==='map'?'act':'';
+        document.getElementById('b-gantt').className=m==='gantt'?'act':'';
+        document.getElementById('b-swim').className=m==='swim'?'act':'';
+        document.getElementById('map-con').style.display=m==='map'?'block':'none';
+        document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
+        document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
+        document.getElementById('pres').style.display=m==='map'?'flex':'none';
+        if(m==='map')ren(); else if(m==='gantt')renG(); else renS();
+        if(pre.act && m!=='map')stopP();
+    }
     function align(){
         const l={}; const q=st.nodes.filter(n=>n.pIds.length===0).map(n=>({id:n.id,v:0}));
         const vis=new Set();
