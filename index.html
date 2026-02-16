@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Pro Map Suite v3.3 (Fixed)</title>
+    <title>Pro Map Suite v3.5 (Stable)</title>
     <style>
         :root { --bg-color: #f4f7f6; --line-color: #95a5a6; --primary: #2c3e50; --accent: #3498db; --highlight: #e67e22; --critical: #e74c3c; --grid-color: rgba(0,0,0,0.05); }
         :root { --st-todo: #95a5a6; --st-doing: #3498db; --st-done: #27ae60; --st-wait: #f39c12; }
@@ -62,11 +62,15 @@
         #file-info { font-size: 12px; color: #555; margin-left: 10px; font-weight: bold; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         #save-toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(44,62,80,0.8); color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; opacity: 0; transition: opacity 0.3s; z-index: 5000; pointer-events: none; }
 
+        /* Initial Positions */
         #view-switcher { top: 20px; right: 20px; }
-        #file-menu { top: 20px; left: 20px; flex-wrap: wrap; max-width: 300px; }
+        #file-menu { top: 20px; left: 20px; max-width: 400px; flex-wrap: wrap; }
         #zoom-controls { bottom: 20px; right: 20px; flex-direction: column; }
         #edit-controls { bottom: 20px; left: 20px; }
         #pres-controls { bottom: 20px; left: 50%; transform: translateX(-50%); }
+        #pres-nav { display: none; gap: 5px; align-items: center; }
+        #pres-indicator { position: fixed; top: 0; left: 0; width: 100%; height: 40px; background: #e74c3c; color: white; font-weight: bold; display: none; align-items: center; justify-content: center; z-index: 3000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); letter-spacing: 2px; pointer-events: none; }
+        
         #search-panel { top: 20px; left: 50%; transform: translateX(-50%); }
         #search-input { border: 1px solid #ccc; border-radius: 4px; padding: 5px 8px; font-size: 14px; outline: none; }
         #search-count { font-size: 12px; color: #7f8c8d; min-width: 40px; text-align: center; }
@@ -74,6 +78,7 @@
         /* Full Screen Views */
         .fullscreen-view { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: white; z-index: 1500; display: none; flex-direction: column; overflow: hidden; }
         .view-header { padding: 10px 20px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #ddd; background: #fdfdfd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10; flex-shrink: 0; margin-top: 70px; }
+        .view-title { font-size: 18px; font-weight: bold; color: #333; }
         .view-content { flex-grow: 1; overflow: auto; position: relative; background: #fff; }
 
         /* Gantt */
@@ -83,6 +88,7 @@
         .gantt-row { display: flex; border-bottom: 1px solid #eee; height: 40px; align-items: center; position: relative; }
         .gantt-row:hover { background: #f0f8ff; }
         .gantt-group-row { background: #ecf0f1; border-bottom: 1px solid #bdc3c7; height: 30px; display: flex; align-items: center; padding-left: 10px; font-weight: bold; color: #2c3e50; font-size: 12px; position: sticky; left: 0; z-index: 15; width: 100%; cursor: move; }
+        .gantt-group-overall { background: #34495e; color: white; }
         .gantt-label { width: 200px; min-width: 200px; padding: 0 10px; border-right: 1px solid #ddd; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; background: white; position: sticky; left: 0; z-index: 10; border-bottom: 1px solid #eee; display: flex; align-items: center; height: 100%; font-weight: 600; color: #444; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
         .gantt-label.contradiction { color: var(--critical); }
         .gantt-chart-area { flex-grow: 1; position: relative; height: 100%; }
@@ -103,6 +109,10 @@
         .chart-arrow { stroke: #7f8c8d; stroke-width: 1.5; fill: none; stroke-linejoin: round; stroke-linecap: round; }
         .chart-arrow.critical { stroke: var(--critical); stroke-width: 3px; stroke-dasharray: 4; }
 
+        .dept-arrow { cursor:pointer; opacity:0.6; padding:0 8px; font-size:12px; user-select:none; color:white; }
+        .dept-arrow:hover { opacity:1; transform: scale(1.2); }
+        .gantt-arrow-btn { cursor:pointer; opacity:0.6; padding:0 4px; font-size:10px; user-select:none; color:#555; border:1px solid #999; border-radius:3px; margin-right:4px; background:#fff; }
+
         /* Modal */
         #edit-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 4000; display: none; align-items: center; justify-content: center; }
         .modal-content { background: white; padding: 25px; border-radius: 8px; width: 380px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto; }
@@ -115,7 +125,7 @@
         .btn-cancel { background: #eee; color: #333; }
         input[type="range"] { width: 100%; }
 
-        /* Screenshot Mode Cleanups */
+        /* Screenshot Mode */
         body.screenshot-mode .ui-panel, body.screenshot-mode #pres-indicator { display: none !important; }
         body.screenshot-mode .fullscreen-view { margin-top: 0; height: 100%; }
         body.screenshot-mode .view-header { margin-top: 0; }
@@ -237,12 +247,14 @@
     let currentEditId = null;
     let currentViewMode = 'map';
     let searchMatches = []; let currentMatchIndex = -1;
+    let inertia = { active: false, vx: 0, vy: 0, lastX: 0, lastY: 0, lastTime: 0, rafId: null };
     let fileHandle = null; 
     let panelDrag = { active: false, el: null, offX: 0, offY: 0 };
     
     const loupe = document.getElementById('loupe');
     const loupeContent = document.getElementById('loupe-content');
     const canvas = document.getElementById('canvas');
+    const pathsGroup = document.getElementById('paths-group');
     const viewport = document.getElementById('viewport');
 
     // --- UI Panel Drag (Restored!) ---
@@ -253,7 +265,6 @@
                 panelDrag.active = true; panelDrag.el = p;
                 const rect = p.getBoundingClientRect();
                 panelDrag.offX = clientX - rect.left; panelDrag.offY = clientY - rect.top;
-                // Switch to fixed positioning
                 p.style.right = 'auto'; p.style.bottom = 'auto';
                 p.style.left = rect.left + 'px'; p.style.top = rect.top + 'px';
                 e.preventDefault();
@@ -273,21 +284,17 @@
             if(presState.active) stopPresentation();
         } else if(e.target.closest('.node-handle')) {
             const id = parseInt(e.target.closest('.node').dataset.id);
-            // If dragging unselected, select it
             if(!state.selectedIds.has(id) && !e.ctrlKey) selectNode(id, false);
             mapDrag = { type: 'node', x: e.clientX, y: e.clientY, ids: Array.from(state.selectedIds) };
         }
     });
 
     window.addEventListener('mousemove', e => {
-        // 1. Panel Drag
         if(panelDrag.active && panelDrag.el) {
             panelDrag.el.style.left = (e.clientX - panelDrag.offX) + 'px';
             panelDrag.el.style.top = (e.clientY - panelDrag.offY) + 'px';
             return;
         }
-
-        // 2. Map/Node Drag
         if(mapDrag) {
             const dx = e.clientX - mapDrag.x;
             const dy = e.clientY - mapDrag.y;
@@ -304,14 +311,12 @@
             mapDrag.x = e.clientX; mapDrag.y = e.clientY;
             return;
         }
-
-        // 3. Loupe
+        // Loupe
         if(currentViewMode==='map' && state.scale < 0.6 && e.shiftKey) {
             loupe.style.display = 'block';
             loupe.style.left = (e.clientX + 20) + 'px';
             loupe.style.top = (e.clientY + 20) + 'px';
             loupeContent.innerHTML = canvas.innerHTML; 
-            // Simple visual feedback
         } else { loupe.style.display = 'none'; }
     });
 
@@ -320,9 +325,19 @@
         if(mapDrag && mapDrag.type==='node' && physicsState.active) startPhysics(); 
         mapDrag = null; 
     });
+    
+    window.addEventListener('touchmove', e => {
+         const t = e.touches[0];
+         if(panelDrag.active && panelDrag.el) {
+            panelDrag.el.style.left = (t.clientX - panelDrag.offX) + 'px';
+            panelDrag.el.style.top = (t.clientY - panelDrag.offY) + 'px';
+            e.preventDefault();
+         }
+    }, {passive:false});
+    window.addEventListener('touchend', () => { panelDrag.active = false; mapDrag = null; });
 
     // --- Helpers ---
-    function triggerSmoothTransition() { canvas.classList.add('smooth-move'); setTimeout(() => { canvas.classList.remove('smooth-move'); }, 400); }
+    function triggerSmoothTransition() { document.getElementById('canvas').classList.add('smooth-move'); setTimeout(() => { document.getElementById('canvas').classList.remove('smooth-move'); }, 400); }
     function getField(n, lbl) { const f = n.fields.find(x => x.label === lbl); return f ? f.value : null; }
     function setField(n, lbl, val) { let f = n.fields.find(x => x.label === lbl); if(!f) n.fields.push({label: lbl, value: val}); else f.value = val; }
     function parseDate(str) { return str ? new Date(str) : null; }
@@ -332,7 +347,7 @@
     function showToast(msg) { const t=document.getElementById('save-toast'); t.innerText=msg; t.style.opacity=1; setTimeout(()=>t.style.opacity=0, 2000); }
     function updateFileNameUI(name) { document.getElementById('file-info').innerText = name; }
     
-    // --- Physics / Auto Align ---
+    // --- Physics / Auto Layout ---
     function autoAlign() {
         const levels = {};
         const queue = state.nodes.filter(n => n.parentIds.length === 0).map(n => ({id: n.id, lvl: 0}));
@@ -358,6 +373,7 @@
         });
         render(); startPhysics();
     }
+
     function startPhysics() {
         physicsState.active = true;
         let iter = 0;
@@ -427,7 +443,7 @@
             }
             
             el.className = 'node map-node' + (state.selectedIds.has(d.id) ? ' selected' : '') + (searchMatches.includes(d.id) ? ' search-hit' : '') + (analysis.contradictions.has(d.id) ? ' contradiction' : '');
-            if(!mapDrag || mapDrag.type!=='node') el.classList.add('physics-move'); else el.classList.remove('physics-move'); // Optimization
+            if(!mapDrag || mapDrag.type!=='node') el.classList.add('physics-move'); else el.classList.remove('physics-move'); 
             
             const st = getField(d, "ステータス") || "todo";
             const header = el.querySelector('.node-header'); header.className=`node-header header-${st}`; header.innerText = d.title;
@@ -465,10 +481,8 @@
         pathsGroup.innerHTML = svgHtml;
     }
 
-    // --- Charts (Gantt & Swimlane) ---
-    // (Consolidated for brevity - see full logic in previous turns, re-using here)
+    // --- Charts ---
     function renderGantt() {
-        // [Logic same as v3.0, but with getOrderedDepts support]
         const cont = document.getElementById('gantt-content'); cont.innerHTML = '';
         const deptOrder = getOrderedDepts('gantt');
         const tasks={}; let minD=new Date("2100-01-01"), maxD=new Date("2000-01-01");
@@ -482,7 +496,6 @@
         minD=addRealDays(minD,-2); maxD=addRealDays(maxD,10);
         const totalDays = Math.max(10, Math.ceil((maxD-minD)/86400000)); const px=40;
         
-        // DOM Generation
         const hRow=document.createElement('div'); hRow.className='gantt-date-header';
         for(let i=0;i<=totalDays;i++){const d=addRealDays(minD,i);const c=document.createElement('div');c.className='gantt-date-cell';c.innerText=`${d.getMonth()+1}/${d.getDate()}`;hRow.appendChild(c);}
         cont.appendChild(hRow);
@@ -513,17 +526,16 @@
             if(item.dept !== lastDept) {
                 const gr=document.createElement('div'); gr.className='gantt-group-row';
                 if(item.dept==="全体") gr.classList.add('gantt-group-overall');
-                gr.draggable=true; gr.ondragstart=e=>e.dataTransfer.setData('text',item.dept); gr.ondrop=e=>{e.preventDefault();const src=e.dataTransfer.getData('text');moveGanttDeptDrag(src,item.dept);}; gr.ondragover=e=>e.preventDefault();
-                gr.innerHTML=`📂 ${item.dept}`; wrap.appendChild(gr); y+=30; lastDept=item.dept;
+                const arrows = item.dept !== '全体' ? `<span class="gantt-arrow-btn" onclick="moveGanttDept('${item.dept}',-1)">▲</span><span class="gantt-arrow-btn" onclick="moveGanttDept('${item.dept}',1)">▼</span>` : '';
+                gr.innerHTML = `<div style="width:200px; padding-left:10px; cursor:move;" draggable="true" ondragstart="startGanttHeaderDrag(event, '${item.dept}')" ondrop="dropGanttHeader(event, '${item.dept}')" ondragover="event.preventDefault()">${arrows} 📂 ${item.dept}</div>`;
+                wrap.appendChild(gr); y+=30; lastDept=item.dept;
             }
             const r=document.createElement('div'); r.className='gantt-row';
-            // Contradiction Check
             const isContra = item.node.parentIds.some(pid => tasks[pid] && tasks[pid].end > t.start);
             r.innerHTML=`<div class="gantt-label ${isContra?'contradiction':''}">${item.node.title}</div>`;
             const area=document.createElement('div'); area.className='gantt-chart-area';
             const startOff = Math.max(0, diffDays(minD, t.start)-1);
 
-            // Plan
             const isMile = t.dur === 0;
             const pEl = document.createElement('div'); pEl.className = isMile?'gantt-milestone-plan':'gantt-bar-plan';
             pEl.style.left = isMile ? `${startOff*px-7}px` : `${startOff*px}px`;
@@ -531,7 +543,6 @@
             area.appendChild(pEl);
             t.ui={startX:220+startOff*px, endX:220+(startOff+t.dur)*px, y:y+20};
 
-            // Actual
             if(t.actStart) {
                 const aOff = Math.max(0, diffDays(minD, t.actStart)-1);
                 const aEl = document.createElement('div'); aEl.className = isMile?'gantt-milestone-act':'gantt-bar-act';
@@ -550,7 +561,6 @@
             r.onclick = () => openEditModal(item.node.id); r.appendChild(area); wrap.appendChild(r); y+=40;
         });
         
-        // Arrows
         displayItems.forEach(item => {
             item.node.parentIds.forEach(pid => {
                 const p=tasks[pid], c=tasks[item.node.id];
@@ -566,22 +576,27 @@
         wrap.appendChild(svg); cont.appendChild(wrap);
     }
     
-    // --- Swimlane Render ---
     function renderSwimlane() {
         const cont = document.getElementById('swimlane-content'); cont.innerHTML = '';
         const deptArr = getOrderedDepts('swim');
         const levels = {};
-        state.nodes.forEach(n=>levels[n.id]=undefined);
-        // Calculate levels
-        let changed=true; for(let i=0;i<50&&changed;i++){changed=false;state.nodes.forEach(n=>{let m=-1;n.parentIds.forEach(pid=>{if(levels[pid]!==undefined && levels[pid]>m)m=levels[pid];});if(m!==-1 && levels[n.id]!==m+1){levels[n.id]=m+1;changed=true;}});}
-        state.nodes.forEach(n=>{if(levels[n.id]===undefined)levels[n.id]=0;});
+        state.nodes.forEach(n=>levels[n.id]=0);
+        let changed=true; for(let i=0; i<50&&changed; i++) {
+            changed=false;
+            state.nodes.forEach(n => {
+                let maxP = -1;
+                n.parentIds.forEach(pid => { if(levels[pid]!==undefined && levels[pid]>maxP) maxP = levels[pid]; });
+                if(maxP !== -1 && levels[n.id] !== maxP+1) { levels[n.id] = maxP+1; changed=true; }
+            });
+        }
         
         const colW=300; const container=document.createElement('div'); container.className='swimlane-container'; container.style.width=`${deptArr.length*colW}px`;
         deptArr.forEach((d,i)=>{
             const col=document.createElement('div'); col.className='swimlane-col'; col.style.backgroundColor=deptColors[i%deptColors.length].bg;
             const hdr=document.createElement('div'); hdr.className='swimlane-header'; hdr.style.left=`${i*colW}px`; hdr.style.backgroundColor=deptColors[i%deptColors.length].border;
             hdr.draggable=true; hdr.ondragstart=e=>e.dataTransfer.setData('text',d); hdr.ondrop=e=>{e.preventDefault();const src=e.dataTransfer.getData('text');moveSwimlaneDeptDrag(src,d);}; hdr.ondragover=e=>e.preventDefault();
-            hdr.innerText=d; container.appendChild(hdr); container.appendChild(col);
+            hdr.innerHTML=`<span class="dept-arrow" onclick="moveSwimlaneDept('${d}', -1)">◀</span> ${d} <span class="dept-arrow" onclick="moveSwimlaneDept('${d}', 1)">▶</span>`;
+            container.appendChild(hdr); container.appendChild(col);
         });
 
         const uiData={};
@@ -593,14 +608,13 @@
             
             const nel=document.createElement('div'); nel.className='node swimlane-node';
             nel.style.width=`${(maxI-minI+1)*colW-40}px`; nel.style.left=`${minI*colW+20}px`; nel.style.top=`${levels[n.id]*180+60}px`;
-            const st=getField(n,"ステータス")||"todo";
-            nel.innerHTML=`<div class="node-header header-${st}">${n.title}</div><div style="padding:5px;font-size:11px;">${getField(n,"期間")}</div>`;
+            const st=getField(n,"ステータス")||"todo"; const pg=getField(n,"進捗")||0;
+            nel.innerHTML=`<div class="node-header header-${st}">${n.title}</div><div style="padding:5px;font-size:11px;">${getField(n,"期間")}</div><div class="node-progress"><div class="node-progress-bar" style="width:${pg}%"></div></div>`;
             nel.onclick=()=>openEditModal(n.id);
             container.appendChild(nel);
             uiData[n.id]={l:minI*colW+20, r:(maxI+1)*colW-20, t:levels[n.id]*180+60, b:levels[n.id]*180+60+60};
         });
         
-        // Swimlane Arrows
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.setAttribute("class","overlay-svg");
         svg.innerHTML='<defs><marker id="sl-arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs>';
         state.nodes.forEach(n=>{
@@ -616,41 +630,32 @@
         });
         container.appendChild(svg); cont.appendChild(container);
     }
-
-    // --- Dept Drag Logic ---
-    function getOrderedDepts(type) {
-        const active=new Set(); state.nodes.forEach(n=>(getField(n,"担当部署")||"").split(',').forEach(d=>active.add(d.trim())));
-        let list = type==='swim'?state.swimlaneDeptOrder:state.ganttDeptOrder; if(!list)list=[];
-        active.forEach(d=>{if(!list.includes(d))list.push(d);});
-        if(type==='swim')state.swimlaneDeptOrder=list; else state.ganttDeptOrder=list;
-        return list.filter(d=>active.has(d));
-    }
+    
     function moveSwimlaneDeptDrag(s, t) { const l=state.swimlaneDeptOrder; const si=l.indexOf(s), ti=l.indexOf(t); if(si>=0&&ti>=0){l.splice(si,1);l.splice(ti,0,s);renderSwimlane();} }
-    function moveGanttDeptDrag(s, t) { const l=state.ganttDeptOrder; const si=l.indexOf(s), ti=l.indexOf(t); if(si>=0&&ti>=0){l.splice(si,1);l.splice(ti,0,s);renderGantt();} }
+    function startGanttHeaderDrag(e, dept) { e.dataTransfer.setData('text', dept); }
+    function dropGanttHeader(e, tgt) { e.preventDefault(); const src = e.dataTransfer.getData('text'); const list = state.ganttDeptOrder; const sI = list.indexOf(src); const tI = list.indexOf(tgt); if(sI>=0 && tI>=0) { list.splice(sI, 1); list.splice(tI, 0, src); renderGantt(); } }
 
-    // --- Core Interaction ---
-    function selectNode(id, multi) {
-        if(!multi) state.selectedIds.clear();
-        if(id) state.selectedIds.has(id)?state.selectedIds.delete(id):state.selectedIds.add(id);
-        state.selectedId = id; render();
+    // --- Init & Copy Paste ---
+    function fitToScreen() {
+        if(state.nodes.length===0)return;
+        let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+        state.nodes.forEach(n=>{ if(n.x<minX)minX=n.x; if(n.y<minY)minY=n.y; if(n.x+240>maxX)maxX=n.x+240; if(n.y+150>maxY)maxY=n.y+150; });
+        const scale = Math.min(window.innerWidth/(maxX-minX+100), window.innerHeight/(maxY-minY+100), 1);
+        triggerSmoothTransition(); state.scale = Math.max(0.1, scale); state.x = -(minX + (maxX-minX)/2)*state.scale; state.y = -(minY + (maxY-minY)/2)*state.scale; render();
     }
-    function deleteSelected() {
-        if(state.selectedIds.size===0)return;
-        if(confirm("削除しますか？")) {
-            state.nodes=state.nodes.filter(n=>!state.selectedIds.has(n.id));
-            state.nodes.forEach(n=>n.parentIds=n.parentIds.filter(pid=>!state.selectedIds.has(pid)));
-            state.selectedIds.clear(); render();
-        }
+    function addFreeNode() {
+        const nid = Date.now();
+        // Fix: Center to screen
+        const cx = (-state.x + window.innerWidth / 2) / state.scale;
+        const cy = (-state.y + window.innerHeight / 2) / state.scale;
+        state.nodes.push({
+            id: nid, title: "独立ノード",
+            fields: [{label: "予定開始", value: todayStr}, {label: "期間", value: "1日"}, {label: "予定終了", value: todayStr}, {label: "担当部署", value: "全体"}, {label: "ステータス", value: "todo"}, {label: "進捗", value: "0"}, {label: "実績開始", value: ""}, {label: "実績終了", value: ""}],
+            x: cx - 120, y: cy - 40, parentIds: []
+        });
+        state.selectedId = nid; state.selectedIds = new Set([nid]);
+        render(); setTimeout(() => openEditModal(nid), 100);
     }
-    // Zoom to Cursor
-    function handleZoom(delta, ex, ey) {
-        const f = Math.exp(-delta*0.001); const oldS=state.scale;
-        state.scale = Math.min(5, Math.max(0.1, state.scale * f));
-        const wx = (ex - window.innerWidth/2 - state.x)/oldS; const wy = (ey - window.innerHeight/2 - state.y)/oldS;
-        state.x = (ex - window.innerWidth/2) - wx*state.scale; state.y = (ey - window.innerHeight/2) - wy*state.scale;
-        render();
-    }
-    // Copy Paste
     document.addEventListener('keydown', e=>{
         if(e.target.tagName==='INPUT')return;
         if(e.ctrlKey||e.metaKey){
@@ -661,13 +666,8 @@
                 render(); startPhysics();
             }
         }
+        if(e.key==='Delete') deleteSelected();
     });
-
-    // --- Screenshot ---
-    function toggleScreenshotMode() {
-        document.body.classList.toggle('screenshot-mode');
-        alert("撮影モード: UIを隠しました。元に戻すにはリロードしてください。");
-    }
 
     setupPanelDrag();
     render(); setTimeout(fitToScreen,100);
