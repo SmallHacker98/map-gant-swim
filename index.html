@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Pro Map Suite v3.5 (Stable)</title>
+    <title>Pro Map Suite v3.6 (Repair)</title>
     <style>
         :root { --bg-color: #f4f7f6; --line-color: #95a5a6; --primary: #2c3e50; --accent: #3498db; --highlight: #e67e22; --critical: #e74c3c; --grid-color: rgba(0,0,0,0.05); }
         :root { --st-todo: #95a5a6; --st-doing: #3498db; --st-done: #27ae60; --st-wait: #f39c12; }
@@ -32,8 +32,9 @@
         .node.contradiction { border: 3px solid var(--critical); }
 
         .node-handle { height: 22px; background: linear-gradient(to bottom, #eeeeee, #cccccc); border-bottom: 1px solid #999; cursor: grab; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .node-handle:active { cursor: grabbing; background: var(--accent); }
         .node-handle::after { content: "⠿"; font-size: 16px; color: #666; line-height: 22px; }
-        .node-header { color: white; padding: 6px 10px; font-size: 14px; font-weight: bold; outline: none; cursor: text; }
+        .node-header { color: white; padding: 6px 10px; font-size: 14px; font-weight: bold; outline: none; cursor: pointer; }
         .header-todo { background: var(--st-todo); } .header-doing { background: var(--st-doing); } .header-done { background: var(--st-done); } .header-wait { background: var(--st-wait); }
         
         .node-fields { background: white; padding: 5px; display: flex; flex-direction: column; gap: 4px; pointer-events: auto; }
@@ -93,6 +94,7 @@
         .gantt-label.contradiction { color: var(--critical); }
         .gantt-chart-area { flex-grow: 1; position: relative; height: 100%; }
         .gantt-grid-line { position: absolute; top: 0; bottom: 0; border-left: 1px dashed #eee; z-index: 0; pointer-events: none; }
+        
         .gantt-bar-plan { position: absolute; top: 6px; height: 10px; background: #bdc3c7; border-radius: 2px; opacity: 0.9; z-index: 1; pointer-events: none; }
         .gantt-milestone-plan { position: absolute; top: 6px; width: 14px; height: 14px; background: #bdc3c7; transform: rotate(45deg); z-index: 1; border: 1px solid #999; }
         .gantt-bar-act { position: absolute; top: 18px; height: 14px; border-radius: 3px; color: white; font-size: 10px; line-height: 14px; padding: 0 2px; white-space: nowrap; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.2); z-index: 2; cursor: pointer; transition: transform 0.1s; }
@@ -257,7 +259,7 @@
     const pathsGroup = document.getElementById('paths-group');
     const viewport = document.getElementById('viewport');
 
-    // --- UI Panel Drag (Restored!) ---
+    // --- UI Panel Drag ---
     function setupPanelDrag() {
         document.querySelectorAll('.ui-panel').forEach(p => {
             const start = (e, clientX, clientY) => {
@@ -274,7 +276,7 @@
         });
     }
 
-    // --- Global Mouse Move (Unified) ---
+    // --- Global Mouse Move ---
     let mapDrag = null;
     
     viewport.addEventListener('mousedown', e => {
@@ -282,11 +284,8 @@
         if(e.target === viewport || e.target.id === 'canvas') {
             mapDrag = { type: 'pan', x: e.clientX, y: e.clientY };
             if(presState.active) stopPresentation();
-        } else if(e.target.closest('.node-handle')) {
-            const id = parseInt(e.target.closest('.node').dataset.id);
-            if(!state.selectedIds.has(id) && !e.ctrlKey) selectNode(id, false);
-            mapDrag = { type: 'node', x: e.clientX, y: e.clientY, ids: Array.from(state.selectedIds) };
-        }
+        } 
+        // Node Drag handled via handle mousedown to avoid bubbling issues
     });
 
     window.addEventListener('mousemove', e => {
@@ -436,17 +435,37 @@
             if (!el) {
                 el = document.createElement('div'); el.className = 'node map-node'; el.dataset.id = d.id; el.setAttribute('tabindex', '0');
                 el.innerHTML = `<div class="node-handle"></div><div class="node-header"></div><div class="node-progress"><div class="node-progress-fill"></div></div><div class="node-fields"></div><div class="add-field-btn">＋</div>`;
-                el.querySelector('.node-handle').onmousedown = e => { e.stopPropagation(); if(!e.ctrlKey && !state.selectedIds.has(d.id)) selectNode(d.id, false); };
+                
+                // --- EVENT LISTENERS ---
+                // Handle Drag Start directly on element
+                el.querySelector('.node-handle').onmousedown = e => { 
+                    e.stopPropagation(); // Stop bubbling to prevent pan
+                    if(!e.ctrlKey && !state.selectedIds.has(d.id)) selectNode(d.id, false); 
+                    mapDrag = { type: 'node', x: e.clientX, y: e.clientY, ids: Array.from(state.selectedIds) };
+                };
+                
+                // Add Field
                 el.querySelector('.add-field-btn').onclick = e => { e.stopPropagation(); d.fields.push({label:"項目",value:""}); render(); };
-                el.onmousedown = e => { e.stopPropagation(); if(e.altKey) { toggleConnection(d.id); return; } selectNode(d.id, e.ctrlKey || e.metaKey); };
+                
+                // Node Selection
+                el.onmousedown = e => { 
+                    e.stopPropagation(); 
+                    if(e.altKey) { toggleConnection(d.id); return; } 
+                    selectNode(d.id, e.ctrlKey || e.metaKey); 
+                };
+                
                 canvasEl.appendChild(el);
             }
             
             el.className = 'node map-node' + (state.selectedIds.has(d.id) ? ' selected' : '') + (searchMatches.includes(d.id) ? ' search-hit' : '') + (analysis.contradictions.has(d.id) ? ' contradiction' : '');
+            
             if(!mapDrag || mapDrag.type!=='node') el.classList.add('physics-move'); else el.classList.remove('physics-move'); 
             
             const st = getField(d, "ステータス") || "todo";
             const header = el.querySelector('.node-header'); header.className=`node-header header-${st}`; header.innerText = d.title;
+            // Double Click to Edit
+            header.ondblclick = e => { e.stopPropagation(); openEditModal(d.id); };
+
             el.querySelector('.node-progress-fill').style.width = (getField(d,"進捗")||0) + "%";
 
             const fc = el.querySelector('.node-fields'); fc.innerHTML='';
@@ -456,7 +475,8 @@
                 row.querySelector('.field-label').oninput = e => f.label = e.target.innerText;
                 row.querySelector('.field-value').oninput = e => f.value = e.target.innerText;
                 if(['予定開始','予定終了','実績開始','実績終了','期間','担当部署','ステータス','進捗'].includes(f.label)) {
-                    const v = row.querySelector('.field-value'); v.onclick = e => { e.stopPropagation(); openEditModal(d.id); };
+                    const v = row.querySelector('.field-value');
+                    v.onclick = e => { e.stopPropagation(); openEditModal(d.id); };
                     v.removeAttribute('contenteditable'); v.style.cursor = 'pointer'; v.style.background = '#f9f9f9';
                 }
                 fc.appendChild(row);
@@ -645,7 +665,6 @@
     }
     function addFreeNode() {
         const nid = Date.now();
-        // Fix: Center to screen
         const cx = (-state.x + window.innerWidth / 2) / state.scale;
         const cy = (-state.y + window.innerHeight / 2) / state.scale;
         state.nodes.push({
