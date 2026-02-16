@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Pro Map Suite v3.6 (Repair)</title>
+    <title>Pro Map Suite v3.7 (Polished)</title>
     <style>
         :root { --bg-color: #f4f7f6; --line-color: #95a5a6; --primary: #2c3e50; --accent: #3498db; --highlight: #e67e22; --critical: #e74c3c; --grid-color: rgba(0,0,0,0.05); }
         :root { --st-todo: #95a5a6; --st-doing: #3498db; --st-done: #27ae60; --st-wait: #f39c12; }
@@ -24,7 +24,7 @@
         @keyframes dash { to { stroke-dashoffset: -7; } }
         
         /* Nodes */
-        .node.map-node { position: absolute; background: white; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 240px; border: 1px solid #bbb; z-index: 1; display: flex; flex-direction: column; overflow: hidden; transition: box-shadow 0.2s, border-color 0.2s; }
+        .node.map-node { position: absolute; background: white; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 240px; border: 1px solid #bbb; z-index: 1; display: flex; flex-direction: column; overflow: hidden; transition: box-shadow 0.2s, border-color 0.2s; outline: none; }
         .node.physics-move { transition: left 0.1s linear, top 0.1s linear; } 
         .node.map-node:hover { box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10; }
         .node.selected { border: 2px solid var(--accent); box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.3); }
@@ -34,10 +34,10 @@
         .node-handle { height: 22px; background: linear-gradient(to bottom, #eeeeee, #cccccc); border-bottom: 1px solid #999; cursor: grab; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .node-handle:active { cursor: grabbing; background: var(--accent); }
         .node-handle::after { content: "⠿"; font-size: 16px; color: #666; line-height: 22px; }
-        .node-header { color: white; padding: 6px 10px; font-size: 14px; font-weight: bold; outline: none; cursor: pointer; }
+        .node-header { color: white; padding: 6px 10px; font-size: 14px; font-weight: bold; outline: none; cursor: text; }
         .header-todo { background: var(--st-todo); } .header-doing { background: var(--st-doing); } .header-done { background: var(--st-done); } .header-wait { background: var(--st-wait); }
         
-        .node-fields { background: white; padding: 5px; display: flex; flex-direction: column; gap: 4px; pointer-events: auto; }
+        .node-fields { background: white; padding: 5px; display: flex; flex-direction: column; gap: 4px; pointer-events: auto; flex-grow: 1; }
         .field-row { display: flex; align-items: center; gap: 5px; font-size: 11px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
         .field-label { color: #7f8c8d; font-weight: bold; width: 70px; text-align: right; user-select: text; }
         .field-value { color: #2c3e50; flex-grow: 1; min-width: 0; user-select: text; }
@@ -82,7 +82,7 @@
         .view-title { font-size: 18px; font-weight: bold; color: #333; }
         .view-content { flex-grow: 1; overflow: auto; position: relative; background: #fff; }
 
-        /* Gantt */
+        /* Gantt & Swimlane CSS (Same as v3.6) */
         .gantt-timeline-wrapper { position: relative; min-height: 100%; }
         .gantt-date-header { display: flex; height: 30px; background: #f5f5f5; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 20; margin-left: 200px; }
         .gantt-date-cell { flex-shrink: 0; width: 40px; text-align: center; font-size: 10px; line-height: 30px; border-right: 1px solid #eee; color: #555; }
@@ -102,7 +102,6 @@
         .gantt-milestone-act { position: absolute; top: 18px; width: 16px; height: 16px; transform: rotate(45deg); box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2; cursor: pointer; border: 2px solid #fff; }
         .gantt-bar-critical { border: 2px solid var(--critical); }
 
-        /* Swimlane */
         .swimlane-container { display: flex; min-height: 100%; position: relative; padding-top: 40px; }
         .swimlane-col { border-right: 1px solid #ccc; width: 300px; min-width: 300px; position: relative; display: flex; flex-direction: column; }
         .swimlane-header { position: absolute; top: 0; width: 300px; height: 40px; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; z-index: 5; border-right: 1px solid rgba(255,255,255,0.3); cursor: grab; }
@@ -259,7 +258,7 @@
     const pathsGroup = document.getElementById('paths-group');
     const viewport = document.getElementById('viewport');
 
-    // --- UI Panel Drag ---
+    // --- UI Panel Drag (Restored!) ---
     function setupPanelDrag() {
         document.querySelectorAll('.ui-panel').forEach(p => {
             const start = (e, clientX, clientY) => {
@@ -276,7 +275,7 @@
         });
     }
 
-    // --- Global Mouse Move ---
+    // --- Global Mouse Move (Unified) ---
     let mapDrag = null;
     
     viewport.addEventListener('mousedown', e => {
@@ -284,16 +283,22 @@
         if(e.target === viewport || e.target.id === 'canvas') {
             mapDrag = { type: 'pan', x: e.clientX, y: e.clientY };
             if(presState.active) stopPresentation();
-        } 
-        // Node Drag handled via handle mousedown to avoid bubbling issues
+        } else if(e.target.closest('.node-handle')) {
+            const id = parseInt(e.target.closest('.node').dataset.id);
+            if(!state.selectedIds.has(id) && !e.ctrlKey) selectNode(id, false);
+            mapDrag = { type: 'node', x: e.clientX, y: e.clientY, ids: Array.from(state.selectedIds) };
+        }
     });
 
     window.addEventListener('mousemove', e => {
+        // 1. Panel Drag
         if(panelDrag.active && panelDrag.el) {
             panelDrag.el.style.left = (e.clientX - panelDrag.offX) + 'px';
             panelDrag.el.style.top = (e.clientY - panelDrag.offY) + 'px';
             return;
         }
+
+        // 2. Map/Node Drag
         if(mapDrag) {
             const dx = e.clientX - mapDrag.x;
             const dy = e.clientY - mapDrag.y;
@@ -310,12 +315,14 @@
             mapDrag.x = e.clientX; mapDrag.y = e.clientY;
             return;
         }
-        // Loupe
+
+        // 3. Loupe
         if(currentViewMode==='map' && state.scale < 0.6 && e.shiftKey) {
             loupe.style.display = 'block';
             loupe.style.left = (e.clientX + 20) + 'px';
             loupe.style.top = (e.clientY + 20) + 'px';
             loupeContent.innerHTML = canvas.innerHTML; 
+            // Simple visual feedback
         } else { loupe.style.display = 'none'; }
     });
 
@@ -437,9 +444,9 @@
                 el.innerHTML = `<div class="node-handle"></div><div class="node-header"></div><div class="node-progress"><div class="node-progress-fill"></div></div><div class="node-fields"></div><div class="add-field-btn">＋</div>`;
                 
                 // --- EVENT LISTENERS ---
-                // Handle Drag Start directly on element
+                // Handle Drag Start
                 el.querySelector('.node-handle').onmousedown = e => { 
-                    e.stopPropagation(); // Stop bubbling to prevent pan
+                    e.stopPropagation(); 
                     if(!e.ctrlKey && !state.selectedIds.has(d.id)) selectNode(d.id, false); 
                     mapDrag = { type: 'node', x: e.clientX, y: e.clientY, ids: Array.from(state.selectedIds) };
                 };
@@ -447,13 +454,17 @@
                 // Add Field
                 el.querySelector('.add-field-btn').onclick = e => { e.stopPropagation(); d.fields.push({label:"項目",value:""}); render(); };
                 
-                // Node Selection
+                // Node Selection & Connection
                 el.onmousedown = e => { 
                     e.stopPropagation(); 
                     if(e.altKey) { toggleConnection(d.id); return; } 
                     selectNode(d.id, e.ctrlKey || e.metaKey); 
                 };
                 
+                // Double Click to Edit (Container & Header)
+                el.querySelector('.node-header').ondblclick = e => { e.stopPropagation(); openEditModal(d.id); };
+                el.querySelector('.node-fields').ondblclick = e => { e.stopPropagation(); openEditModal(d.id); };
+
                 canvasEl.appendChild(el);
             }
             
@@ -463,9 +474,7 @@
             
             const st = getField(d, "ステータス") || "todo";
             const header = el.querySelector('.node-header'); header.className=`node-header header-${st}`; header.innerText = d.title;
-            // Double Click to Edit
-            header.ondblclick = e => { e.stopPropagation(); openEditModal(d.id); };
-
+            
             el.querySelector('.node-progress-fill').style.width = (getField(d,"進捗")||0) + "%";
 
             const fc = el.querySelector('.node-fields'); fc.innerHTML='';
@@ -665,6 +674,7 @@
     }
     function addFreeNode() {
         const nid = Date.now();
+        // Fix: Center to screen
         const cx = (-state.x + window.innerWidth / 2) / state.scale;
         const cy = (-state.y + window.innerHeight / 2) / state.scale;
         state.nodes.push({
@@ -675,17 +685,35 @@
         state.selectedId = nid; state.selectedIds = new Set([nid]);
         render(); setTimeout(() => openEditModal(nid), 100);
     }
+    
+    // KEY SHORTCUT FIX
     document.addEventListener('keydown', e=>{
-        if(e.target.tagName==='INPUT')return;
-        if(e.ctrlKey||e.metaKey){
-            if(e.key==='c') clipboard = state.nodes.filter(n=>state.selectedIds.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));
-            if(e.key==='v' && clipboard) {
-                state.selectedIds.clear();
-                clipboard.forEach(n=>{ n.id=Date.now()+Math.random(); n.x+=50; n.y+=50; state.nodes.push(n); state.selectedIds.add(n.id); });
-                render(); startPhysics();
+        const activeEl = document.activeElement;
+        const isInput = activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable;
+        
+        // Modal closed check
+        if(document.getElementById('edit-modal').style.display === 'none') {
+            // Node Operations (allow shortcuts even if node is focused)
+            if(!isInput || (activeEl.classList && activeEl.classList.contains('node'))) {
+                if(e.ctrlKey || e.metaKey){
+                    if(e.key==='c') {
+                        e.preventDefault(); // Prevent text copy if node focused
+                        clipboard = state.nodes.filter(n=>state.selectedIds.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));
+                    }
+                    if(e.key==='v' && clipboard) {
+                         state.selectedIds.clear();
+                         clipboard.forEach(n=>{ n.id=Date.now()+Math.random(); n.x+=50; n.y+=50; state.nodes.push(n); state.selectedIds.add(n.id); });
+                         render(); startPhysics();
+                    }
+                }
+                
+                if(state.selectedIds.size > 0) {
+                    if(e.key==='Tab') { e.preventDefault(); addNode('child'); }
+                    if(e.key==='Enter') { e.preventDefault(); addNode('sibling'); }
+                    if(e.key==='Delete') deleteSelected();
+                }
             }
         }
-        if(e.key==='Delete') deleteSelected();
     });
 
     setupPanelDrag();
