@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Pro Map Suite v3.7 (Polished)</title>
+    <title>Pro Map Suite v3.8 (Redemption)</title>
     <style>
         :root { --bg-color: #f4f7f6; --line-color: #95a5a6; --primary: #2c3e50; --accent: #3498db; --highlight: #e67e22; --critical: #e74c3c; --grid-color: rgba(0,0,0,0.05); }
         :root { --st-todo: #95a5a6; --st-doing: #3498db; --st-done: #27ae60; --st-wait: #f39c12; }
@@ -24,7 +24,7 @@
         @keyframes dash { to { stroke-dashoffset: -7; } }
         
         /* Nodes */
-        .node.map-node { position: absolute; background: white; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 240px; border: 1px solid #bbb; z-index: 1; display: flex; flex-direction: column; overflow: hidden; transition: box-shadow 0.2s, border-color 0.2s; outline: none; }
+        .node.map-node { position: absolute; background: white; border-radius: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); width: 240px; border: 1px solid #bbb; z-index: 1; display: flex; flex-direction: column; overflow: hidden; transition: box-shadow 0.2s, border-color 0.2s; }
         .node.physics-move { transition: left 0.1s linear, top 0.1s linear; } 
         .node.map-node:hover { box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10; }
         .node.selected { border: 2px solid var(--accent); box-shadow: 0 0 0 4px rgba(52, 152, 219, 0.3); }
@@ -34,10 +34,10 @@
         .node-handle { height: 22px; background: linear-gradient(to bottom, #eeeeee, #cccccc); border-bottom: 1px solid #999; cursor: grab; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .node-handle:active { cursor: grabbing; background: var(--accent); }
         .node-handle::after { content: "⠿"; font-size: 16px; color: #666; line-height: 22px; }
-        .node-header { color: white; padding: 6px 10px; font-size: 14px; font-weight: bold; outline: none; cursor: text; }
+        .node-header { color: white; padding: 6px 10px; font-size: 14px; font-weight: bold; outline: none; cursor: pointer; }
         .header-todo { background: var(--st-todo); } .header-doing { background: var(--st-doing); } .header-done { background: var(--st-done); } .header-wait { background: var(--st-wait); }
         
-        .node-fields { background: white; padding: 5px; display: flex; flex-direction: column; gap: 4px; pointer-events: auto; flex-grow: 1; }
+        .node-fields { background: white; padding: 5px; display: flex; flex-direction: column; gap: 4px; pointer-events: auto; }
         .field-row { display: flex; align-items: center; gap: 5px; font-size: 11px; border-bottom: 1px solid #eee; padding-bottom: 2px; }
         .field-label { color: #7f8c8d; font-weight: bold; width: 70px; text-align: right; user-select: text; }
         .field-value { color: #2c3e50; flex-grow: 1; min-width: 0; user-select: text; }
@@ -45,10 +45,6 @@
         .add-field-btn:hover { color: var(--accent); background: #f0f0f0; }
         .node-progress-bar { height: 4px; background: #eee; width: 100%; }
         .node-progress-fill { height: 100%; background: #2ecc71; transition: width 0.3s; }
-
-        /* Loupe */
-        #loupe { position: fixed; width: 250px; height: 250px; border: 3px solid #333; border-radius: 50%; overflow: hidden; pointer-events: none; z-index: 9999; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); background: white; }
-        #loupe-content { position: absolute; transform-origin: 0 0; }
 
         /* UI Panels */
         .ui-panel { position: fixed; background: white; padding: 6px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; gap: 5px; z-index: 2000; transition: opacity 0.3s; cursor: move; align-items: center; }
@@ -62,27 +58,16 @@
 
         #file-info { font-size: 12px; color: #555; margin-left: 10px; font-weight: bold; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         #save-toast { position: fixed; top: 80px; left: 50%; transform: translateX(-50%); background: rgba(44,62,80,0.8); color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; opacity: 0; transition: opacity 0.3s; z-index: 5000; pointer-events: none; }
+        #loupe { position: fixed; width: 250px; height: 250px; border: 3px solid #333; border-radius: 50%; overflow: hidden; pointer-events: none; z-index: 9999; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.5); background: white; }
+        #loupe-content { position: absolute; transform-origin: 0 0; }
 
-        /* Initial Positions */
-        #view-switcher { top: 20px; right: 20px; }
-        #file-menu { top: 20px; left: 20px; max-width: 400px; flex-wrap: wrap; }
-        #zoom-controls { bottom: 20px; right: 20px; flex-direction: column; }
-        #edit-controls { bottom: 20px; left: 20px; }
-        #pres-controls { bottom: 20px; left: 50%; transform: translateX(-50%); }
-        #pres-nav { display: none; gap: 5px; align-items: center; }
-        #pres-indicator { position: fixed; top: 0; left: 0; width: 100%; height: 40px; background: #e74c3c; color: white; font-weight: bold; display: none; align-items: center; justify-content: center; z-index: 3000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); letter-spacing: 2px; pointer-events: none; }
-        
-        #search-panel { top: 20px; left: 50%; transform: translateX(-50%); }
-        #search-input { border: 1px solid #ccc; border-radius: 4px; padding: 5px 8px; font-size: 14px; outline: none; }
-        #search-count { font-size: 12px; color: #7f8c8d; min-width: 40px; text-align: center; }
-
-        /* Full Screen Views */
+        /* Full Screen Views - Layout Fixed */
         .fullscreen-view { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: white; z-index: 1500; display: none; flex-direction: column; overflow: hidden; }
-        .view-header { padding: 10px 20px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #ddd; background: #fdfdfd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10; flex-shrink: 0; margin-top: 70px; }
+        .view-header { height: 50px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #ddd; background: #fdfdfd; box-shadow: 0 2px 5px rgba(0,0,0,0.05); z-index: 10; flex-shrink: 0; padding-top: 20px; }
         .view-title { font-size: 18px; font-weight: bold; color: #333; }
         .view-content { flex-grow: 1; overflow: auto; position: relative; background: #fff; }
 
-        /* Gantt & Swimlane CSS (Same as v3.6) */
+        /* Gantt */
         .gantt-timeline-wrapper { position: relative; min-height: 100%; }
         .gantt-date-header { display: flex; height: 30px; background: #f5f5f5; border-bottom: 1px solid #ccc; position: sticky; top: 0; z-index: 20; margin-left: 200px; }
         .gantt-date-cell { flex-shrink: 0; width: 40px; text-align: center; font-size: 10px; line-height: 30px; border-right: 1px solid #eee; color: #555; }
@@ -102,8 +87,9 @@
         .gantt-milestone-act { position: absolute; top: 18px; width: 16px; height: 16px; transform: rotate(45deg); box-shadow: 0 2px 4px rgba(0,0,0,0.2); z-index: 2; cursor: pointer; border: 2px solid #fff; }
         .gantt-bar-critical { border: 2px solid var(--critical); }
 
+        /* Swimlane */
         .swimlane-container { display: flex; min-height: 100%; position: relative; padding-top: 40px; }
-        .swimlane-col { border-right: 1px solid #ccc; width: 300px; min-width: 300px; position: relative; display: flex; flex-direction: column; }
+        .swimlane-col { border-right: 1px solid #ccc; width: 300px; min-width: 300px; position: relative; display: flex; flex-direction: column; min-height: 100%; }
         .swimlane-header { position: absolute; top: 0; width: 300px; height: 40px; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; z-index: 5; border-right: 1px solid rgba(255,255,255,0.3); cursor: grab; }
         .swimlane-header:active { cursor: grabbing; }
         .node.swimlane-node { position: absolute; z-index: 2; transform: none; box-shadow: 0 2px 5px rgba(0,0,0,0.2); background: white; border-radius: 4px; overflow: hidden; border: 1px solid #ccc; }
@@ -126,10 +112,19 @@
         .btn-cancel { background: #eee; color: #333; }
         input[type="range"] { width: 100%; }
 
+        /* Positions */
+        #view-switcher { top: 20px; right: 20px; }
+        #file-menu { top: 20px; left: 20px; }
+        #zoom-controls { bottom: 20px; right: 20px; flex-direction: column; }
+        #edit-controls { bottom: 20px; left: 20px; }
+        #pres-controls { bottom: 20px; left: 50%; transform: translateX(-50%); }
+        #search-panel { top: 20px; left: 50%; transform: translateX(-50%); }
+        #pres-indicator { position: fixed; top: 0; left: 0; width: 100%; height: 40px; background: #e74c3c; color: white; font-weight: bold; display: none; align-items: center; justify-content: center; z-index: 3000; box-shadow: 0 2px 10px rgba(0,0,0,0.2); letter-spacing: 2px; pointer-events: none; }
+
         /* Screenshot Mode */
         body.screenshot-mode .ui-panel, body.screenshot-mode #pres-indicator { display: none !important; }
         body.screenshot-mode .fullscreen-view { margin-top: 0; height: 100%; }
-        body.screenshot-mode .view-header { margin-top: 0; }
+        body.screenshot-mode .view-header { padding-top: 10px; }
     </style>
 </head>
 <body>
@@ -258,7 +253,7 @@
     const pathsGroup = document.getElementById('paths-group');
     const viewport = document.getElementById('viewport');
 
-    // --- UI Panel Drag (Restored!) ---
+    // --- UI Panel Drag ---
     function setupPanelDrag() {
         document.querySelectorAll('.ui-panel').forEach(p => {
             const start = (e, clientX, clientY) => {
@@ -275,7 +270,7 @@
         });
     }
 
-    // --- Global Mouse Move (Unified) ---
+    // --- Global Mouse Move ---
     let mapDrag = null;
     
     viewport.addEventListener('mousedown', e => {
@@ -291,14 +286,11 @@
     });
 
     window.addEventListener('mousemove', e => {
-        // 1. Panel Drag
         if(panelDrag.active && panelDrag.el) {
             panelDrag.el.style.left = (e.clientX - panelDrag.offX) + 'px';
             panelDrag.el.style.top = (e.clientY - panelDrag.offY) + 'px';
             return;
         }
-
-        // 2. Map/Node Drag
         if(mapDrag) {
             const dx = e.clientX - mapDrag.x;
             const dy = e.clientY - mapDrag.y;
@@ -315,14 +307,12 @@
             mapDrag.x = e.clientX; mapDrag.y = e.clientY;
             return;
         }
-
-        // 3. Loupe
+        // Loupe
         if(currentViewMode==='map' && state.scale < 0.6 && e.shiftKey) {
             loupe.style.display = 'block';
             loupe.style.left = (e.clientX + 20) + 'px';
             loupe.style.top = (e.clientY + 20) + 'px';
             loupeContent.innerHTML = canvas.innerHTML; 
-            // Simple visual feedback
         } else { loupe.style.display = 'none'; }
     });
 
@@ -346,7 +336,12 @@
     function triggerSmoothTransition() { document.getElementById('canvas').classList.add('smooth-move'); setTimeout(() => { document.getElementById('canvas').classList.remove('smooth-move'); }, 400); }
     function getField(n, lbl) { const f = n.fields.find(x => x.label === lbl); return f ? f.value : null; }
     function setField(n, lbl, val) { let f = n.fields.find(x => x.label === lbl); if(!f) n.fields.push({label: lbl, value: val}); else f.value = val; }
-    function parseDate(str) { return str ? new Date(str) : null; }
+    // FIX: Safer Date Parsing
+    function parseDate(str) { 
+        if(!str) return null; 
+        const d = new Date(str); 
+        return isNaN(d.getTime()) ? null : d; 
+    }
     function addDays(date, days) { if(!date) return null; const r = new Date(date); r.setDate(r.getDate() + (days - (days===0?0:1))); return r; }
     function addRealDays(date, days) { const r = new Date(date); r.setDate(r.getDate() + days); return r; }
     function diffDays(d1, d2) { if(!d1 || !d2) return 0; const t1 = new Date(d1).setHours(0,0,0,0); const t2 = new Date(d2).setHours(0,0,0,0); return Math.round((t2 - t1) / (1000*60*60*24)) + 1; }
@@ -443,25 +438,20 @@
                 el = document.createElement('div'); el.className = 'node map-node'; el.dataset.id = d.id; el.setAttribute('tabindex', '0');
                 el.innerHTML = `<div class="node-handle"></div><div class="node-header"></div><div class="node-progress"><div class="node-progress-fill"></div></div><div class="node-fields"></div><div class="add-field-btn">＋</div>`;
                 
-                // --- EVENT LISTENERS ---
-                // Handle Drag Start
                 el.querySelector('.node-handle').onmousedown = e => { 
                     e.stopPropagation(); 
                     if(!e.ctrlKey && !state.selectedIds.has(d.id)) selectNode(d.id, false); 
                     mapDrag = { type: 'node', x: e.clientX, y: e.clientY, ids: Array.from(state.selectedIds) };
                 };
                 
-                // Add Field
                 el.querySelector('.add-field-btn').onclick = e => { e.stopPropagation(); d.fields.push({label:"項目",value:""}); render(); };
                 
-                // Node Selection & Connection
                 el.onmousedown = e => { 
                     e.stopPropagation(); 
                     if(e.altKey) { toggleConnection(d.id); return; } 
                     selectNode(d.id, e.ctrlKey || e.metaKey); 
                 };
                 
-                // Double Click to Edit (Container & Header)
                 el.querySelector('.node-header').ondblclick = e => { e.stopPropagation(); openEditModal(d.id); };
                 el.querySelector('.node-fields').ondblclick = e => { e.stopPropagation(); openEditModal(d.id); };
 
@@ -563,7 +553,9 @@
             const isContra = item.node.parentIds.some(pid => tasks[pid] && tasks[pid].end > t.start);
             r.innerHTML=`<div class="gantt-label ${isContra?'contradiction':''}">${item.node.title}</div>`;
             const area=document.createElement('div'); area.className='gantt-chart-area';
-            const startOff = Math.max(0, diffDays(minD, t.start)-1);
+            
+            // Calc offsets. Handle null/invalid dates gracefully.
+            const startOff = t.start ? Math.max(0, diffDays(minD, t.start)-1) : 0;
 
             const isMile = t.dur === 0;
             const pEl = document.createElement('div'); pEl.className = isMile?'gantt-milestone-plan':'gantt-bar-plan';
@@ -674,7 +666,6 @@
     }
     function addFreeNode() {
         const nid = Date.now();
-        // Fix: Center to screen
         const cx = (-state.x + window.innerWidth / 2) / state.scale;
         const cy = (-state.y + window.innerHeight / 2) / state.scale;
         state.nodes.push({
@@ -686,18 +677,15 @@
         render(); setTimeout(() => openEditModal(nid), 100);
     }
     
-    // KEY SHORTCUT FIX
     document.addEventListener('keydown', e=>{
         const activeEl = document.activeElement;
         const isInput = activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable;
         
-        // Modal closed check
         if(document.getElementById('edit-modal').style.display === 'none') {
-            // Node Operations (allow shortcuts even if node is focused)
             if(!isInput || (activeEl.classList && activeEl.classList.contains('node'))) {
                 if(e.ctrlKey || e.metaKey){
                     if(e.key==='c') {
-                        e.preventDefault(); // Prevent text copy if node focused
+                        e.preventDefault(); 
                         clipboard = state.nodes.filter(n=>state.selectedIds.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));
                     }
                     if(e.key==='v' && clipboard) {
@@ -706,7 +694,6 @@
                          render(); startPhysics();
                     }
                 }
-                
                 if(state.selectedIds.size > 0) {
                     if(e.key==='Tab') { e.preventDefault(); addNode('child'); }
                     if(e.key==='Enter') { e.preventDefault(); addNode('sibling'); }
