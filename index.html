@@ -11,23 +11,17 @@
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
     body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:sans-serif;user-select:none;}
     
-    /* Map */
+    /* Layout */
     #viewport{width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:20px 20px;}
     #viewport:active{cursor:grabbing;}
     #canvas{transform-origin:0 0;position:absolute;top:0;left:0;}
     .smooth{transition:transform 0.4s cubic-bezier(0.25,1,0.5,1);}
-    
-    /* SVG */
-    svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
-    path{fill:none;stroke:var(--line);stroke-width:2px;stroke-linecap:round;transition:stroke 0.2s;}
-    path.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:5,3;animation:dash 1s linear infinite;}
-    @keyframes dash{to{stroke-dashoffset:-8;}}
 
     /* Node */
     .node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:1;display:flex;flex-direction:column;overflow:hidden;}
     .node:hover{box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:10;}
     .node.sel{border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(52,152,219,0.3);}
-    .node.src{border:2px solid var(--high);box-shadow:0 0 0 4px rgba(230,126,34,0.4);} /* Source Node for Link */
+    .node.src{border:2px solid var(--high);box-shadow:0 0 0 4px rgba(230,126,34,0.6);} /* Link Source */
     .node.hit{border:3px solid var(--high);transform:scale(1.05);z-index:20;}
     .node.err{border:3px solid var(--crit);}
     .node.phy{transition:left 0.1s linear, top 0.1s linear;}
@@ -45,6 +39,13 @@
     .n-add{text-align:center;color:#bdc3c7;cursor:pointer;background:#fafafa;}
     .n-add:hover{color:var(--accent);background:#f0f0f0;}
     .np{height:4px;background:#eee;} .np-bar{height:100%;background:#2ecc71;transition:width 0.3s;}
+
+    /* SVG */
+    svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
+    path{fill:none;stroke:var(--line);stroke-width:2px;stroke-linecap:round;transition:stroke 0.2s;}
+    path.crit{stroke:var(--high);stroke-width:3px;stroke-dasharray:5,3;} /* Critical Path (Orange Dash) */
+    path.err{stroke:var(--crit);stroke-width:3px;} /* Error (Red Solid) */
+    @keyframes dash{to{stroke-dashoffset:-8;}}
 
     /* Panels */
     .pnl{position:fixed;background:white;padding:6px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;gap:5px;z-index:2000;cursor:move;align-items:center;}
@@ -94,6 +95,7 @@
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
+
     .dept-arr{cursor:pointer;opacity:0.6;padding:0 8px;font-size:12px;user-select:none;color:white;}
     .g-arr-btn{cursor:pointer;opacity:0.6;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;}
 
@@ -110,17 +112,20 @@
 
     #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:5000;}
     #loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9999;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
-    .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;} .sc-mode .view{margin-top:0;} .sc-mode .view-header{padding-top:10px;}
+    .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
+    .sc-mode .view{margin-top:0;}
+    .sc-mode .view-header{padding-top:10px;}
 </style>
 </head>
 <body>
-    <div id="pres-ind">🔴 PRESENTATION MODE</div>
-    <div id="toast">保存しました</div>
-    <div id="loupe"><div id="l-cnt" style="transform-origin:0 0;"></div></div>
+
+    <div id="pres-indicator">🔴 PRESENTATION MODE</div>
+    <div id="save-toast">保存しました</div>
+    <div id="loupe"><div id="loupe-content"></div></div>
 
     <div id="modal">
         <div class="m-cnt">
-            <h3>タスク詳細</h3>
+            <h3 style="margin-top:0; color:#2c3e50;">タスク詳細</h3>
             <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
             <div class="m-row"><label>担当部署 (カンマ区切)</label><input type="text" id="m-dep" list="dl-dept"></div><datalist id="dl-dept"></datalist>
             <div style="display:flex;gap:10px;"><div class="m-row" style="flex:1"><label>予定開始</label><input type="date" id="m-s" onchange="syncD('s')"></div><div class="m-row" style="flex:1"><label>期間(日)</label><input type="number" id="m-d" onchange="syncD('d')"></div></div>
@@ -133,14 +138,23 @@
     </div>
 
     <div id="menu" class="pnl">
-        <button onclick="newF()" title="新規">📄</button><button onclick="saveO()" title="上書き(Ctrl+S)">💾</button><button onclick="saveA()" title="名前付">📑</button><button onclick="openF()" title="開く(Ctrl+O)">📂</button><button onclick="togSS()" title="撮影">📷</button><div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div><input type="file" id="f-in" style="display:none" accept=".json" onchange="loadF(this)">
+        <button onclick="newF()" title="新規">📄</button>
+        <button onclick="saveO()" title="上書き(Ctrl+S)">💾</button>
+        <button onclick="saveA()" title="名前付">📑</button>
+        <button onclick="openF()" title="開く(Ctrl+O)">📂</button>
+        <button onclick="togSS()" title="撮影">📷</button>
+        <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div>
+        <input type="file" id="f-in" style="display:none" accept=".json" onchange="loadF(this)">
     </div>
+
     <div id="search" class="pnl">
         <span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索..."><span id="q-cnt" style="font-size:11px;color:#888;"></span><button onclick="nextQ()" style="font-size:12px;">▼</button>
     </div>
+
     <div id="views" class="pnl">
         <button id="b-map" onclick="swView('map')" class="act">🗺</button><div class="sep"></div><button id="b-gantt" onclick="swView('gantt')">📊</button><div class="sep"></div><button id="b-swim" onclick="swView('swim')">🏊</button>
     </div>
+
     <div id="map-con" style="display:block;">
         <div id="viewport">
             <div id="canvas"><svg id="svg-lay"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs><g id="p-grp"></g></svg></div>
@@ -150,6 +164,7 @@
             <button onclick="addN('child')" title="子(Tab)">＋子</button><button onclick="addN('sib')" title="兄(Ent)">＋兄</button><button onclick="addFree()" title="独">＋独</button><div class="sep"></div><button id="b-lnk" onclick="togLnk()" title="接続(Alt)">🔗</button><div class="sep"></div><button onclick="delSel()" style="color:var(--crit)" title="削除(Del)">🗑</button>
         </div>
     </div>
+
     <div id="g-view" class="view"><div class="v-head"><h2 style="font-size:16px;color:#333;margin:0;">工程表 (Gantt)</h2></div><div id="g-cnt" class="v-body"></div></div>
     <div id="s-view" class="view"><div class="v-head"><h2 style="font-size:16px;color:#333;margin:0;">フロー (Swimlane)</h2></div><div id="s-cnt" class="v-body"></div></div>
     <div id="pres" class="pnl"><button onclick="startP()">▶</button><div id="p-nav" style="display:none;align-items:center;"><button onclick="prevS()">◀</button><span id="s-num" style="font-size:12px;margin:0 5px;"></span><button onclick="nextS()">▶</button><button onclick="stopP()">■</button></div></div>
@@ -229,18 +244,17 @@
                     else if(e.shiftKey||e.ctrlKey) sel(d.id, true);
                     mapD={t:'node',x:e.clientX,y:e.clientY,ids:Array.from(st.sel)};
                 };
-                // Connection Logic Fix
                 el.onmousedown=e=>{
                     e.stopPropagation(); 
-                    if(e.altKey){ togCn(d.id, true); return; }
-                    if(lnk.act){ togCn(d.id, false); return; } // Button mode logic
-                    sel(d.id, e.ctrlKey||e.metaKey||e.shiftKey);
+                    if(e.altKey){togCn(d.id, true);return;} 
+                    if(lnk.act){togCn(d.id, false);return;}
+                    sel(d.id,e.ctrlKey||e.metaKey||e.shiftKey);
                 };
                 el.ondblclick=e=>{e.stopPropagation();openM(d.id);};
                 el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();};
                 c.appendChild(el);
             }
-            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src===d.id?' src':'');
+            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'');
             if(!mapD||mapD.t!=='node') el.classList.add('phy'); else el.classList.remove('phy');
             const stt=gf(d,"ステータス")||"todo";
             const hd=el.querySelector('.nt'); hd.className=`nt h-${stt}`; hd.innerText=d.title;
@@ -264,8 +278,9 @@
                 const p=st.nodes.find(x=>x.id==pid);
                 if(p){
                     const cr=an.crt.has(`${pid}-${n.id}`);
+                    const er=an.err.has(n.id) && an.err.has(pid);
                     const sx=p.x+240, sy=p.y+30, ex=n.x, ey=n.y+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
-                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="${cr?'crit':''}" marker-end="url(#ah)"/>`;
+                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
                 }
             });
         });
@@ -410,22 +425,27 @@
     function sel(id,mul){
         if(!mul)st.sel.clear();
         if(id) st.sel.has(id)?st.sel.delete(id):st.sel.add(id);
-        st.selectedId=id; ren();
+        st.selectedId=id; 
+        // Sync Link Source if singular
+        if(lnk.act && st.sel.size===1) lnk.src=Array.from(st.sel)[0];
+        ren();
     }
     function addN(type){
         if(st.sel.size===0)return;
         const p=st.nodes.find(n=>n.id==Array.from(st.sel)[0]); if(!p)return;
         const id=Date.now(), isC=type==='child';
         const nx=isC?p.x+300:p.x, ny=isC?p.y:p.y+160;
-        const s=isC?pD(gf(p,"予定終了"))?aD(pD(gf(p,"予定終了")),1).toISOString().slice(0,10):today:gf(p,"予定開始");
+        // Fix dates: Child Start = Parent End. Sibling Start = Parent Start
+        let s=today;
+        if(isC) s=pD(gf(p,"予定終了"))?aD(pD(gf(p,"予定終了")),0).toISOString().slice(0,10):today;
+        else s=gf(p,"予定開始")||today;
+        
         st.nodes.push({id, title:"Task", f:[{l:"予定開始",v:s},{l:"期間",v:"1日"},{l:"予定終了",v:s},{l:"担当部署",v:gf(p,"担当部署")},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], x:nx, y:ny, pIds:isC?[p.id]:[...p.pIds]});
         sel(id,false); openM(id);
     }
     function addFree(){
         const id=Date.now();
-        // Viewport Center
-        const cx = (-st.x + window.innerWidth/2)/st.sc;
-        const cy = (-st.y + window.innerHeight/2)/st.sc;
+        const cx=(-st.x+innerWidth/2)/st.sc, cy=(-st.y+innerHeight/2)/st.sc;
         st.nodes.push({id, title:"Task", f:[{l:"予定開始",v:today},{l:"期間",v:"1日"},{l:"予定終了",v:today},{l:"担当部署",v:"全体"},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], x:cx-120, y:cy-40, pIds:[]});
         sel(id,false); phy.act=true; runPhy();
         setTimeout(()=>openM(id),50); ren();
@@ -437,36 +457,31 @@
         st.sel.clear(); ren();
     }
     function togLnk(){
-        if(st.sel.size!==1 && !lnk.act){alert("親ノードを選択してください");return;}
+        if(st.sel.size!==1 && !lnk.act){alert("親ノードを1つ選択してください");return;}
         lnk.act=!lnk.act; 
-        if(lnk.act) {
-            lnk.src=Array.from(st.sel)[0]; // Set source
-        } else {
-            lnk.src=null;
-        }
+        lnk.src=lnk.act ? Array.from(st.sel)[0] : null;
         document.getElementById('b-lnk').className=lnk.act?'lnk':'';
-        ren(); // update style
+        ren();
     }
-    // Updated Connection Logic (Alt or Button)
     function togCn(tid, isAlt){
-        // isAlt means single-shot connect
-        if(isAlt) {
-            if(st.sel.size!==1) return;
-            const srcId = Array.from(st.sel)[0];
-            if(srcId === tid) return;
-            // Connect src -> tid
-            connectNodes(srcId, tid);
-        } else {
-            // Button mode
-            if(!lnk.act || !lnk.src) return;
-            if(lnk.src !== tid) connectNodes(lnk.src, tid);
+        let src = lnk.src;
+        if(isAlt){
+            if(st.sel.size!==1)return;
+            src=Array.from(st.sel)[0];
         }
-    }
-    function connectNodes(srcId, tgtId) {
-        const t = st.nodes.find(n=>n.id===tgtId);
-        if(!t) return;
-        const idx = t.pIds.indexOf(srcId);
-        if(idx>=0) t.pIds.splice(idx,1); else t.pIds.push(srcId);
+        if(!src || src===tid) return;
+        const t=st.nodes.find(n=>n.id===tid);
+        const idx=t.pIds.indexOf(src);
+        if(idx>=0) t.pIds.splice(idx,1); else {
+            t.pIds.push(src);
+            // Auto-fix date to prevent instant error (Child Start = Parent End)
+            const p=st.nodes.find(n=>n.id===src);
+            const pe=pD(gf(p,"予定終了"));
+            if(pe) sf(t,"予定開始",pe.toISOString().slice(0,10));
+            // Auto duration update if needed
+            const ts=pD(gf(t,"予定開始")), dur=parseInt(gf(t,"期間"));
+            if(ts) sf(t,"予定終了",aD(ts,dur).toISOString().slice(0,10));
+        }
         ren();
     }
     
