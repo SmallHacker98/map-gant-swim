@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v6.1</title>
+<title>Pro Map Suite v6.2</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -56,7 +56,7 @@
     @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
     .sep{width:1px;height:20px;background:#ddd;margin:0 2px;} .sep-h{width:20px;height:1px;background:#ddd;margin:2px 0;}
 
-    /* Fixed Positions */
+    /* Positions - Initial */
     #menu{top:20px;left:20px;flex-wrap:wrap;max-width:320px;}
     #search{top:20px;left:50%;transform:translateX(-50%);}
     #views{top:20px;right:20px;}
@@ -65,24 +65,13 @@
     #pres{bottom:20px;left:50%;transform:translateX(-50%);display:none;}
     #pres-ind{position:fixed;top:0;left:0;width:100%;height:40px;background:var(--crit);color:white;display:none;align-items:center;justify-content:center;z-index:3000;pointer-events:none;font-weight:bold;}
     
-    /* Full Screen Views */
+    /* Views */
     .view{position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;display:none;flex-direction:column;}
-    .v-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;}
+    .v-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;padding-top:20px;}
     .v-title{font-size:18px;font-weight:bold;color:#333;}
     .v-body{flex-grow:1;overflow:auto;position:relative;}
 
-    /* Modal Overlay (Fixed Z-Index) */
-    #modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:center;justify-content:center;}
-    .m-cnt{background:white;padding:25px;border-radius:8px;width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
-    .m-row{margin-bottom:12px;}
-    .m-row label{display:block;font-size:12px;color:#555;margin-bottom:4px;font-weight:bold;}
-    .m-row input,.m-row select{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:14px;}
-    .m-act{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
-    .btn-s{background:var(--accent);color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;}
-    .btn-c{background:#eee;color:#333;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;}
-    input[type="range"]{width:100%;}
-
-    /* Gantt Components */
+    /* Gantt */
     .g-wrap{position:relative;min-height:100%;}
     .g-hdr{display:flex;height:30px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;}
     .g-cell{flex-shrink:0;text-align:center;font-size:10px;line-height:30px;border-right:1px solid #eee;color:#555;}
@@ -101,7 +90,7 @@
     .g-mil-a{position:absolute;top:18px;width:16px;height:16px;transform:rotate(45deg);box-shadow:0 2px 4px rgba(0,0,0,0.2);z-index:2;cursor:pointer;border:2px solid #fff;}
     .g-crit{border:2px solid var(--crit);}
 
-    /* Swimlane Components */
+    /* Swimlane */
     .s-cont{display:flex;min-height:100%;padding-top:40px;}
     .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;position:relative;display:flex;flex-direction:column;min-height:100%;}
     .s-hdr{position:absolute;top:0;width:300px;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:5;border-right:1px solid rgba(255,255,255,0.3);cursor:grab;}
@@ -112,19 +101,31 @@
     .dept-arr{cursor:pointer;opacity:0.6;padding:0 8px;font-size:12px;user-select:none;color:white;}
     .g-arr-btn{cursor:pointer;opacity:0.6;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;}
 
+    /* Modal */
+    #modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:center;justify-content:center;}
+    .m-cnt{background:white;padding:25px;border-radius:8px;width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
+    .m-row{margin-bottom:12px;}
+    .m-row label{display:block;font-size:12px;color:#555;margin-bottom:4px;font-weight:bold;}
+    .m-row input,.m-row select{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:14px;}
+    .m-act{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+    .btn-s{background:var(--accent);color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;}
+    .btn-c{background:#eee;color:#333;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;}
+    input[type="range"]{width:100%;}
+
     #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:6000;}
     #loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9000;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
     
     /* ScreenShot Mode */
     .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
     .sc-mode .view{margin-top:0;}
+    .sc-mode .view-header{padding-top:10px;}
 </style>
 </head>
 <body>
 
-    <div id="pres-ind">🔴 PRESENTATION MODE</div>
-    <div id="toast">保存しました</div>
-    <div id="loupe"><div id="l-cnt" style="transform-origin:0 0;"></div></div>
+    <div id="pres-indicator">🔴 PRESENTATION MODE</div>
+    <div id="save-toast">保存しました</div>
+    <div id="loupe"><div id="loupe-content"></div></div>
 
     <div id="menu" class="pnl">
         <button onclick="newF()" title="新規">📄</button>
@@ -183,7 +184,7 @@
             <div class="m-row"><label>予定終了</label><input type="date" id="m-e" onchange="syncD('e')"></div>
             <div style="display:flex;gap:10px;">
                  <div class="m-row" style="flex:1;"><label>ステータス</label><select id="m-st"><option value="todo">未着手</option><option value="doing">進行中</option><option value="done">完了</option><option value="wait">保留</option></select></div>
-                 <div class="m-row" style="flex:1;"><label>進捗: <span id="m-pv">0%</span></label><input type="range" id="m-p" min="0" max="100" step="5" oninput="document.getElementById('m-pv').innerText=this.value+'%'"></div>
+                 <div class="m-row" style="flex:1;"><label>進捗率: <span id="m-pv">0%</span></label><input type="range" id="m-p" min="0" max="100" step="5" oninput="document.getElementById('m-pv').innerText=this.value+'%'"></div>
             </div>
             <hr style="border:0; border-top:1px dashed #ddd; margin: 15px 0;">
             <div style="display:flex;gap:10px;">
@@ -227,13 +228,25 @@
 
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
-            p.onmousedown = e => { if(e.target.tagName!=='BUTTON' && e.target.tagName!=='INPUT'){ panD={act:true,el:p,ox:e.clientX-p.getBoundingClientRect().left, oy:e.clientY-p.getBoundingClientRect().top}; p.style.right='auto';p.style.bottom='auto'; p.style.left=panD.ox+'px'; p.style.top=panD.oy+'px'; }};
+            const start = (e, cx, cy) => {
+                if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;
+                // Fix: Calculate initial position relative to viewport
+                const rect = p.getBoundingClientRect();
+                panD = { act:true, el:p, ox:cx-rect.left, oy:cy-rect.top };
+                // Explicitly set top/left before removing right/bottom
+                p.style.left = rect.left + 'px';
+                p.style.top = rect.top + 'px';
+                p.style.right = 'auto';
+                p.style.bottom = 'auto';
+            };
+            p.onmousedown = e => start(e, e.clientX, e.clientY);
+            p.ontouchstart = e => start(e, e.touches[0].clientX, e.touches[0].clientY);
         });
         window.onmousemove = e => {
             if(panD.act && panD.el){ panD.el.style.left=(e.clientX-panD.ox)+'px'; panD.el.style.top=(e.clientY-panD.oy)+'px'; return; }
             if(mapD){
                 if(mapD.t==='pan'){ st.x+=e.clientX-mapD.x; st.y+=e.clientY-mapD.y; }
-                else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id===id); if(n){n.x+=(e.clientX-mapD.x)/st.sc; n.y+=(e.clientY-mapD.y)/st.sc;} }); }
+                else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id==id); if(n){n.x+=(e.clientX-mapD.x)/st.sc; n.y+=(e.clientY-mapD.y)/st.sc;} }); }
                 mapD.x=e.clientX; mapD.y=e.clientY; ren(); return;
             }
             if(mode==='map' && e.shiftKey && st.sc<0.6){
@@ -409,7 +422,7 @@
                 it.n.pIds.forEach(pid=>{
                     const p=ts[pid], c=ts[it.n.id];
                     if(p&&c&&p.ui&&c.ui){
-                        const sx=p.ui.ex, sy=p.ui.y, ex=c.ui.sx, ey=c.ui.y;
+                        const sx=p.ui.endX, sy=p.ui.y, ex=c.ui.startX, ey=c.ui.y;
                         const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
                         const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); pt.setAttribute('d',d); pt.setAttribute('stroke','#7f8c8d'); pt.setAttribute('fill','none'); pt.setAttribute('marker-end','url(#ga)'); svg.appendChild(pt);
                     }
@@ -444,7 +457,7 @@
         st.nodes.forEach(n=>{
             const raw=gf(n,"担当部署")||"未配属"; const mds=raw.split(/[,、]/).map(s=>s.trim());
             let minI=ord.length, mx=-1;
-            mds.forEach(d=>{const i=ord.indexOf(d); if(i>=0){if(i<minI)minI=i;if(i>mx)mx=i;}});
+            mds.forEach(d=>{const i=ord.indexOf(d); if(i>=0){if(i<minI)minI=i;if(i>maxI)maxI=i;}});
             if(mx===-1){minI=0;mx=0;}
             const el=document.createElement('div'); el.className='node s-node';
             el.style.width=`${(mx-mn+1)*cw-40}px`; el.style.left=`${minI*cw+20}px`; 
@@ -513,8 +526,10 @@
     }
     function addFree(){
         const id=Date.now();
-        const cx = (-st.x + window.innerWidth/2)/st.sc;
-        const cy = (-st.y + window.innerHeight/2)/st.sc;
+        // Fix: Spawn at visual center
+        const cx = (innerWidth/2 - (st.x + innerWidth/2)) / st.sc;
+        const cy = (innerHeight/2 - (st.y + innerHeight/2)) / st.sc;
+        
         st.nodes.push({id, title:"Task", f:[{l:"予定開始",v:today},{l:"期間",v:"1日"},{l:"予定終了",v:today},{l:"担当部署",v:"全体"},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], x:cx-120, y:cy-40, pIds:[]});
         sel(id,false); phy.act=true; runPhy();
         setTimeout(()=>openM(id),50); ren();
