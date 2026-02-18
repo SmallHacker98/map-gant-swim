@@ -254,29 +254,40 @@
         vp.onmousedown = e => { if(e.target===vp||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; if(pre.act)stopPresentation(); }};
         vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); const os=st.sc; st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/os*st.sc; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/os*st.sc; ren(); };
         
-        document.onkeydown = e => {
-            const act=document.activeElement; if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
-            if (e.isComposing) return;
-            
-            // Modal Shortcuts
-            if(document.getElementById('modal').style.display!=='none'){ 
-                if(e.key==='Enter') saveModal(); 
-                if(e.key==='Escape') closeModal();
-                return; 
-            }
-            
-            if(e.ctrlKey||e.metaKey){
-                if(e.key==='c'){ if(!act.tagName) e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
-                if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
-                if(e.key==='s'){ e.preventDefault(); saveOver(); }
-                if(e.key==='o'){ e.preventDefault(); openFile(); }
-            }
-            if(st.sel.size>0 && act.tagName!=='INPUT'){ 
-                if(e.key==='Tab'){e.preventDefault(); addNode('child');}
-                if(e.key==='Enter'){e.preventDefault(); addNode('sibling');}
-                if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}
-            }
-        };
+    document.onkeydown = e => {
+    const act=document.activeElement; 
+    if (e.isComposing) return;
+    
+    // Modal Shortcuts (最優先処理)
+    if(document.getElementById('modal').style.display!=='none'){ 
+        if(e.key==='Enter') {
+            e.preventDefault();
+            saveModal();
+            return;
+        }
+        if(e.key==='Escape') {
+            e.preventDefault();
+            closeModal();
+            return;
+        }
+    }
+    
+    // INPUT/SELECTにフォーカスがある場合は他のショートカットをスキップ
+    if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
+    
+    if(e.ctrlKey||e.metaKey){
+        if(e.key==='c'){ if(!act.tagName) e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
+        if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
+        if(e.key==='s'){ e.preventDefault(); saveOver(); }
+        if(e.key==='o'){ e.preventDefault(); openFile(); }
+    }
+    if(st.sel.size>0 && act.tagName!=='INPUT'){ 
+        if(e.key==='Tab'){e.preventDefault(); addNode('child');}
+        if(e.key==='Enter'){e.preventDefault(); addNode('sibling');}
+        if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}
+    }
+    };
+
         
         const qIn = document.getElementById('q-in');
         qIn.oninput = e => {
@@ -545,28 +556,35 @@
         });
         sel(id,false); openEditModal(id);
     }
+    
     function addFreeNode(){
-        const id=Date.now();
-        const cx = (-st.x + window.innerWidth/2)/st.sc;
-        const cy = (-st.y + window.innerHeight/2)/st.sc;
-        st.nodes.push({
-            id, 
-            title:"Task", 
-            f:[
-                {l:"予定開始",v:todayStr},
-                {l:"期間",v:"1"},
-                {l:"予定終了",v:todayStr},
-                {l:"担当部署",v:"全体"},
-                {l:"ステータス",v:"todo"},
-                {l:"進捗",v:"0"}
-            ], 
-            x:cx-120, 
-            y:cy-40, 
-            pIds:[]
-        });
-        sel(id,false); phy.act=true; runPhy();
-        setTimeout(()=>openEditModal(id),50); ren();
-    }
+    const id=Date.now();
+    // ビューポートの中央座標（ワールド座標系）を計算
+    // ノードサイズ240x160の中心が画面中央に来るように調整
+    const cx = (-st.x + window.innerWidth/2)/st.sc - 120;
+    const cy = (-st.y + window.innerHeight/2)/st.sc - 80;
+    
+    st.nodes.push({
+        id, 
+        title:"Task", 
+        f:[
+            {l:"予定開始",v:todayStr},
+            {l:"期間",v:"1"},
+            {l:"予定終了",v:todayStr},
+            {l:"担当部署",v:"全体"},
+            {l:"ステータス",v:"todo"},
+            {l:"進捗",v:"0"}
+        ], 
+        x:cx, 
+        y:cy, 
+        pIds:[]
+    });
+    sel(id,false);
+    ren();
+    setTimeout(()=>openEditModal(id),50);
+}
+
+    
     function deleteSelected(){
         if(st.sel.size===0||!confirm("削除しますか？"))return;
         st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));
