@@ -203,16 +203,20 @@
         </div>
     </div>
 
-    <div id="g-view" class="view">
-        <div class="v-head">
-            <div class="v-title">プロジェクト工程表 (Gantt)</div>
+<div id="g-view" class="view">
+    <div class="v-head">
+        <div class="v-title">プロジェクト工程表 (Gantt)</div>
+    </div>
+    <div id="g-cnt" class="v-body"></div>
+</div>
+
+    <!-- スケールパネルを独立させる（viewsパネルの後） -->
 <div id="g-scale" class="pnl" style="display:none;">
     <button onclick="changeGanttScale(1)" id="sc-day">日</button>
     <button onclick="changeGanttScale(30)" id="sc-month">月</button>
     <button onclick="changeGanttScale(90)" id="sc-quarter">四半期</button>
-</div>        </div>
-        <div id="g-cnt" class="v-body"></div>
-    </div>
+</div>
+    
     <div id="s-view" class="view">
         <div class="v-head">
             <div class="v-title">部署別フローチャート (Swimlane)</div>
@@ -783,18 +787,24 @@ function changeGanttScale(v){
         if(k==='start'||k==='d'){ if(sd&&!isNaN(d)) document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10); }
         else if(k==='end'){ if(sd&&ed) document.getElementById('m-d').value=Math.max(1,diffDays(sd,ed)); }
     }
-    function switchView(m){
-        mode=m; 
-        document.getElementById('b-map').className=m==='map'?'act':'';
-        document.getElementById('b-gantt').className=m==='gantt'?'act':'';
-        document.getElementById('b-swim').className=m==='swim'?'act':'';
-        document.getElementById('map-con').style.display=m==='map'?'block':'none';
-        document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
-        document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
-        document.getElementById('pres').style.display=m==='map'?'flex':'none';
-        if(m==='map')ren(); else if(m==='gantt')renderGantt(); else renderSwimlane();
-        if(pre.act && m!=='map')stopPresentation();
-    }
+function switchView(m){
+    mode=m; 
+    document.getElementById('b-map').className=m==='map'?'act':'';
+    document.getElementById('b-gantt').className=m==='gantt'?'act':'';
+    document.getElementById('b-swim').className=m==='swim'?'act':'';
+    document.getElementById('map-con').style.display=m==='map'?'block':'none';
+    document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
+    document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
+    document.getElementById('pres').style.display=m==='map'?'flex':'none';
+    // スケールパネルの表示切り替えを追加
+    document.getElementById('g-scale').style.display=m==='gantt'?'flex':'none';
+    if(m==='map')ren(); 
+    else if(m==='gantt'){
+        changeGanttScale(gSc); // 現在のスケールで再描画
+    } 
+    else renderSwimlane();
+    if(pre.act && m!=='map')stopPresentation();
+}
     function autoAlign(){
         const l={}; const q=st.nodes.filter(n=>n.pIds.length===0).map(n=>({id:n.id,v:0}));
         const vis=new Set();
