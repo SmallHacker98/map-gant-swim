@@ -404,61 +404,69 @@ function changeGanttScale(v){
     const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='relative';
     
     if(gSc===1){
-        // 日表示：日付ヘッダー
-        for(let i=0;i<=days;i++){
-            const d=addDays(mn,i);
-            const ce=document.createElement('div');
-            ce.className='g-cell';
-            ce.style.width=px+'px';
-            ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;
-            hd.appendChild(ce);
-        }
-    } else if(gSc===30){
-        // 月表示：月ごとのラベル
-        hd.style.minHeight='40px';
-        let curMonth=-1;
-        for(let i=0;i<=days;i++){
-            const d=addDays(mn,i);
-            const m=d.getMonth();
-            if(m!==curMonth){
-                const lbl=document.createElement('div');
-                lbl.className='g-month-lbl';
-                lbl.style.left=(i*px+200)+'px';
-                lbl.innerText=`${d.getFullYear()}/${m+1}月`;
-                hd.appendChild(lbl);
-                
-                const sep=document.createElement('div');
-                sep.className='g-month-sep';
-                sep.style.left=(i*px+200)+'px';
-                hd.appendChild(sep);
-                curMonth=m;
-            }
-        }
-    } else {
-        // 四半期表示
-        hd.style.minHeight='40px';
-        const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
-        let curQ=-1;
-        for(let i=0;i<=days;i++){
-            const d=addDays(mn,i);
-            const q=getQ(d);
-            if(q!==curQ || d.getDate()===1){
-                if(d.getDate()===1 && (d.getMonth()%3)===0){
-                    const lbl=document.createElement('div');
-                    lbl.className='g-quarter-lbl';
-                    lbl.style.left=(i*px+200)+'px';
-                    lbl.innerText=`${d.getFullYear()}/Q${q}`;
-                    hd.appendChild(lbl);
-                    
-                    const sep=document.createElement('div');
-                    sep.className='g-quarter-sep';
-                    sep.style.left=(i*px+200)+'px';
-                    hd.appendChild(sep);
-                }
-                curQ=q;
-            }
+    // 日表示：日付ヘッダー
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        const ce=document.createElement('div');
+        ce.className='g-cell';
+        ce.style.width=px+'px';
+        ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;
+        hd.appendChild(ce);
+    }
+} else if(gSc===30){
+    // 月表示：月ごとのラベル
+    hd.style.minHeight='40px';
+    let curMonth=-1, curYear=-1;
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        const m=d.getMonth(), y=d.getFullYear();
+        if(m!==curMonth || y!==curYear){
+            const lbl=document.createElement('div');
+            lbl.className='g-month-lbl';
+            lbl.style.left=(i*px)+'px';  // 200px削除
+            lbl.innerText=`${y}/${m+1}月`;
+            hd.appendChild(lbl);
+            
+            const sep=document.createElement('div');
+            sep.className='g-month-sep';
+            sep.style.left=(i*px)+'px';  // 200px削除
+            hd.appendChild(sep);
+            curMonth=m; curYear=y;
         }
     }
+} else {
+    // 四半期表示：表示範囲の四半期を全て表示
+    hd.style.minHeight='40px';
+    const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
+    
+    // 開始四半期と終了四半期を計算
+    const startQ=getQ(mn), startY=mn.getFullYear();
+    const endQ=getQ(mx), endY=mx.getFullYear();
+    
+    // 四半期ごとにラベルを配置
+    let shown = new Set();
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        const q=getQ(d), y=d.getFullYear();
+        const key=`${y}-Q${q}`;
+        
+        // 四半期の最初の日、または未表示の四半期なら表示
+        if(!shown.has(key) && (d.getDate()===1 || i===0)){
+            const lbl=document.createElement('div');
+            lbl.className='g-quarter-lbl';
+            lbl.style.left=(i*px)+'px';  // 200px削除
+            lbl.innerText=`${y}/Q${q}`;
+            hd.appendChild(lbl);
+            
+            const sep=document.createElement('div');
+            sep.className='g-quarter-sep';
+            sep.style.left=(i*px)+'px';  // 200px削除
+            hd.appendChild(sep);
+            
+            shown.add(key);
+        }
+    }
+}
     c.appendChild(hd);
 
     const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
