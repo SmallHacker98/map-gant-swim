@@ -423,13 +423,13 @@ function changeGanttScale(v){
         if(m!==curMonth || y!==curYear){
             const lbl=document.createElement('div');
             lbl.className='g-month-lbl';
-            lbl.style.left=(i*px)+'px';  // 200px削除
+            lbl.style.left=(i*px)+'px';  // ヘッダーのmargin-leftで自動調整される
             lbl.innerText=`${y}/${m+1}月`;
             hd.appendChild(lbl);
             
             const sep=document.createElement('div');
             sep.className='g-month-sep';
-            sep.style.left=(i*px)+'px';  // 200px削除
+            sep.style.left=(i*px)+'px';  // ヘッダーのmargin-leftで自動調整される
             hd.appendChild(sep);
             curMonth=m; curYear=y;
         }
@@ -439,11 +439,6 @@ function changeGanttScale(v){
     hd.style.minHeight='40px';
     const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
     
-    // 開始四半期と終了四半期を計算
-    const startQ=getQ(mn), startY=mn.getFullYear();
-    const endQ=getQ(mx), endY=mx.getFullYear();
-    
-    // 四半期ごとにラベルを配置
     let shown = new Set();
     for(let i=0;i<=days;i++){
         const d=addDays(mn,i);
@@ -451,16 +446,16 @@ function changeGanttScale(v){
         const key=`${y}-Q${q}`;
         
         // 四半期の最初の日、または未表示の四半期なら表示
-        if(!shown.has(key) && (d.getDate()===1 || i===0)){
+        if(!shown.has(key) && d.getDate()===1 && (d.getMonth()%3)===0){
             const lbl=document.createElement('div');
             lbl.className='g-quarter-lbl';
-            lbl.style.left=(i*px)+'px';  // 200px削除
+            lbl.style.left=(i*px)+'px';  // ヘッダーのmargin-leftで自動調整される
             lbl.innerText=`${y}/Q${q}`;
             hd.appendChild(lbl);
             
             const sep=document.createElement('div');
             sep.className='g-quarter-sep';
-            sep.style.left=(i*px)+'px';  // 200px削除
+            sep.style.left=(i*px)+'px';  // ヘッダーのmargin-leftで自動調整される
             hd.appendChild(sep);
             
             shown.add(key);
