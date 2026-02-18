@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v6.2</title>
+<title>Pro Map Suite v6.3</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -56,10 +56,10 @@
     @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
     .sep{width:1px;height:20px;background:#ddd;margin:0 2px;} .sep-h{width:20px;height:1px;background:#ddd;margin:2px 0;}
 
-    /* Positions - Initial */
+    /* Positions */
     #menu{top:20px;left:20px;flex-wrap:wrap;max-width:320px;}
     #search{top:20px;left:50%;transform:translateX(-50%);}
-    #views{top:20px;right:20px;}
+    #views{top:20px;right:20px; z-index: 3000;} 
     #zoom{bottom:20px;right:20px;flex-direction:column;}
     #edit{bottom:20px;left:20px;}
     #pres{bottom:20px;left:50%;transform:translateX(-50%);display:none;}
@@ -85,7 +85,7 @@
     .g-grid{position:absolute;top:0;bottom:0;border-left:1px dashed #eee;z-index:0;}
     .g-bar-p{position:absolute;top:6px;height:10px;background:#bdc3c7;border-radius:2px;opacity:0.9;z-index:1;pointer-events:none;}
     .g-mil-p{position:absolute;top:6px;width:14px;height:14px;background:#bdc3c7;transform:rotate(45deg);z-index:1;border:1px solid #999;}
-    .g-bar-a{position:absolute;top:18px;height:14px;border-radius:3px;color:white;font-size:10px;line-height:14px;padding:0 2px;white-space:nowrap;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.2);z-index:2;cursor:pointer;transition:transform 0.1s;}
+    .g-bar-a{position:absolute;top:18px;height:14px;border-radius:3px;color:white;font-size:10px;line-height:14px;padding:0 2px;whitespace:nowrap;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.2);z-index:2;cursor:pointer;transition:transform 0.1s;}
     .g-bar-a:hover{transform:scale(1.02);z-index:3;}
     .g-mil-a{position:absolute;top:18px;width:16px;height:16px;transform:rotate(45deg);box-shadow:0 2px 4px rgba(0,0,0,0.2);z-index:2;cursor:pointer;border:2px solid #fff;}
     .g-crit{border:2px solid var(--crit);}
@@ -123,54 +123,9 @@
 </head>
 <body>
 
-    <div id="pres-indicator">🔴 PRESENTATION MODE</div>
-    <div id="save-toast">保存しました</div>
+    <div id="pres-ind">🔴 PRESENTATION MODE</div>
+    <div id="toast">保存しました</div>
     <div id="loupe"><div id="loupe-content"></div></div>
-
-    <div id="menu" class="pnl">
-        <button onclick="newF()" title="新規">📄</button>
-        <button onclick="saveO()" title="上書き(Ctrl+S)">💾</button>
-        <button onclick="saveA()" title="名前付">📑</button>
-        <button onclick="openF()" title="開く(Ctrl+O)">📂</button>
-        <button onclick="togSS()" title="撮影">📷</button>
-        <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div>
-        <input type="file" id="f-in" style="display: none;" accept=".json" onchange="loadF(this)">
-    </div>
-
-    <div id="search" class="pnl">
-        <span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索..." autocomplete="off">
-        <span id="q-cnt" style="font-size:11px;color:#888;"></span>
-        <button onclick="nextQ()" title="次へ (Enter)">▼</button>
-    </div>
-
-    <div id="views" class="pnl">
-        <button id="b-map" onclick="swView('map')" class="act">🗺</button><div class="sep"></div>
-        <button id="b-gantt" onclick="swView('gantt')">📊</button><div class="sep"></div>
-        <button id="b-swim" onclick="swView('swim')">🏊</button>
-    </div>
-
-    <div id="map-con" style="display:block;">
-        <div id="viewport">
-            <div id="canvas">
-                <svg id="svg-lay"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d" /></marker></defs><g id="p-grp"></g></svg>
-            </div>
-        </div>
-        <div id="zoom" class="pnl">
-            <button onclick="align()">✨</button><div class="sep-h"></div>
-            <button onclick="fit()">◎</button><div class="sep-h"></div>
-            <button onclick="zIn()">＋</button>
-            <button onclick="zOut()">－</button>
-        </div>
-        <div id="edit" class="pnl">
-            <button onclick="addN('child')" title="子(Tab)">＋子</button>
-            <button onclick="addN('sib')" title="兄(Ent)">＋兄</button>
-            <button onclick="addFree()" title="独">＋独</button>
-            <div class="sep"></div>
-            <button id="b-lnk" onclick="togLnk()" title="接続 (Alt+Click)">🔗</button>
-            <div class="sep"></div>
-            <button onclick="delSel()" style="color:var(--crit)" title="削除(Del)">🗑</button>
-        </div>
-    </div>
 
     <div id="modal">
         <div class="m-cnt">
@@ -178,10 +133,10 @@
             <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
             <div class="m-row"><label>担当部署 (カンマ区切)</label><input type="text" id="m-dep" list="dl-dept"></div><datalist id="dl-dept"></datalist>
             <div style="display:flex;gap:10px;">
-                <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncD('s')"></div>
-                <div class="m-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="m-d" min="0" onchange="syncD('d')"></div>
+                <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncDate('start')"></div>
+                <div class="m-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="m-d" min="0" onchange="syncDate('d')"></div>
             </div>
-            <div class="m-row"><label>予定終了</label><input type="date" id="m-e" onchange="syncD('e')"></div>
+            <div class="m-row"><label>予定終了</label><input type="date" id="m-e" onchange="syncDate('end')"></div>
             <div style="display:flex;gap:10px;">
                  <div class="m-row" style="flex:1;"><label>ステータス</label><select id="m-st"><option value="todo">未着手</option><option value="doing">進行中</option><option value="done">完了</option><option value="wait">保留</option></select></div>
                  <div class="m-row" style="flex:1;"><label>進捗率: <span id="m-pv">0%</span></label><input type="range" id="m-p" min="0" max="100" step="5" oninput="document.getElementById('m-pv').innerText=this.value+'%'"></div>
@@ -192,9 +147,54 @@
                 <div class="m-row" style="flex:1;"><label>実績終了</label><input type="date" id="m-ae"></div>
             </div>
             <div class="m-act">
-                <button class="btn-c" onclick="closeM()">キャンセル</button>
-                <button class="btn-s" onclick="saveM()">保存 (Enter)</button>
+                <button class="btn-c" onclick="closeModal()">キャンセル (Esc)</button>
+                <button class="btn-s" onclick="saveModal()">保存 (Enter)</button>
             </div>
+        </div>
+    </div>
+
+    <div id="menu" class="pnl">
+        <button onclick="newFile()" title="新規">📄</button>
+        <button onclick="saveOver()" title="上書き保存">💾</button>
+        <button onclick="saveAs()" title="名前を付けて保存">📑</button>
+        <button onclick="openFile()" title="開く">📂</button>
+        <button onclick="toggleScreenshotMode()" title="撮影">📷</button>
+        <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div>
+        <input type="file" id="f-in" style="display: none;" accept=".json" onchange="loadFileFallback(this)">
+    </div>
+
+    <div id="search" class="pnl">
+        <span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索..." autocomplete="off">
+        <span id="q-cnt" style="font-size:11px;color:#888;"></span>
+        <button onclick="jumpToNextMatch()" title="次へ (Enter)">▼</button>
+    </div>
+
+    <div id="views" class="pnl">
+        <button id="b-map" onclick="switchView('map')" class="act">🗺</button><div class="sep"></div>
+        <button id="b-gantt" onclick="switchView('gantt')">📊</button><div class="sep"></div>
+        <button id="b-swim" onclick="switchView('swim')">🏊</button>
+    </div>
+
+    <div id="map-con" style="display:block;">
+        <div id="viewport">
+            <div id="canvas">
+                <svg id="svg-lay"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d" /></marker></defs><g id="p-grp"></g></svg>
+            </div>
+        </div>
+        <div id="zoom" class="pnl">
+            <button onclick="autoAlign()">✨</button><div class="sep-h"></div>
+            <button onclick="fitToScreen()">◎</button><div class="sep-h"></div>
+            <button onclick="zoomIn()">＋</button>
+            <button onclick="zoomOut()">－</button>
+        </div>
+        <div id="edit" class="pnl">
+            <button onclick="addNode('child')" title="子(Tab)">＋子</button>
+            <button onclick="addNode('sibling')" title="兄(Ent)">＋兄</button>
+            <button onclick="addFreeNode()" title="独">＋独</button>
+            <div class="sep"></div>
+            <button id="b-lnk" onclick="toggleLinkMode()" title="接続 (Alt+Click)">🔗</button>
+            <div class="sep"></div>
+            <button onclick="deleteSelected()" style="color:var(--crit)" title="削除(Del)">🗑</button>
         </div>
     </div>
 
@@ -202,9 +202,9 @@
         <div class="v-head">
             <div class="v-title">プロジェクト工程表 (Gantt)</div>
             <div style="display:flex;gap:5px;">
-                <button class="btn-c" onclick="chGSc(1)">日</button>
-                <button class="btn-c" onclick="chGSc(30)">月</button>
-                <button class="btn-c" onclick="chGSc(365)">年</button>
+                <button class="btn-c" onclick="changeGanttScale(1)">日</button>
+                <button class="btn-c" onclick="changeGanttScale(30)">月</button>
+                <button class="btn-c" onclick="changeGanttScale(365)">年</button>
             </div>
         </div>
         <div id="g-cnt" class="v-body"></div>
@@ -216,28 +216,24 @@
         <div id="s-cnt" class="v-body"></div>
     </div>
 
-    <div id="pres" class="pnl"><button onclick="startP()">▶</button><div id="p-nav" style="display:none;align-items:center;"><button onclick="prevS()">◀</button><span id="s-num" style="font-size:12px;margin:0 5px;"></span><button onclick="nextS()">▶</button><button onclick="stopP()">■</button></div></div>
+    <div id="pres" class="pnl"><button onclick="startPresentation()">▶</button><div id="p-nav" style="display:none;align-items:center;"><button onclick="prevSlide()">◀</button><span id="s-num" style="font-size:12px;margin:0 5px;"></span><button onclick="nextSlide()">▶</button><button onclick="stopPresentation()">■</button></div></div>
 
 <script>
-    const today = new Date().toISOString().slice(0, 10);
-    const dCols = [{bg:'#ebf5fb',bd:'#3498db'},{bg:'#fef9e7',bd:'#f39c12'},{bg:'#eafaf1',bd:'#2ecc71'},{bg:'#fdedec',bd:'#e74c3c'},{bg:'#f4ecf7',bd:'#9b59b6'},{bg:'#e8f8f5',bd:'#1abc9c'}];
-    let st = { sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: today}, {l: "期間", v: "1日"}, {l: "予定終了", v: today}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], sel: new Set([1]) };
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const dCols = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
+    let st = { sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], sel: new Set([1]) };
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
     let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1;
     const cvs = document.getElementById('canvas'), vp = document.getElementById('viewport');
 
+    // --- Core Funcs (Unified) ---
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
             const start = (e, cx, cy) => {
                 if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;
-                // Fix: Calculate initial position relative to viewport
                 const rect = p.getBoundingClientRect();
                 panD = { act:true, el:p, ox:cx-rect.left, oy:cy-rect.top };
-                // Explicitly set top/left before removing right/bottom
-                p.style.left = rect.left + 'px';
-                p.style.top = rect.top + 'px';
-                p.style.right = 'auto';
-                p.style.bottom = 'auto';
+                p.style.left = rect.left + 'px'; p.style.top = rect.top + 'px'; p.style.right = 'auto'; p.style.bottom = 'auto';
             };
             p.onmousedown = e => start(e, e.clientX, e.clientY);
             p.ontouchstart = e => start(e, e.touches[0].clientX, e.touches[0].clientY);
@@ -251,27 +247,34 @@
             }
             if(mode==='map' && e.shiftKey && st.sc<0.6){
                 const lp=document.getElementById('loupe'); lp.style.display='block'; lp.style.left=(e.clientX+20)+'px'; lp.style.top=(e.clientY+20)+'px';
-                document.getElementById('l-cnt').innerHTML=cvs.innerHTML;
+                document.getElementById('loupe-content').innerHTML=cvs.innerHTML;
             } else document.getElementById('loupe').style.display='none';
         };
         window.onmouseup = () => { panD.act=false; if(mapD && mapD.t==='node' && phy.act) runPhy(); mapD=null; };
-        vp.onmousedown = e => { if(e.target===vp||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; if(pre.act)stopP(); }};
+        vp.onmousedown = e => { if(e.target===vp||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; if(pre.act)stopPresentation(); }};
         vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); const os=st.sc; st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/os*st.sc; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/os*st.sc; ren(); };
         
         document.onkeydown = e => {
             const act=document.activeElement; if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
-            if (e.isComposing) return; // IME Fix
-            if(document.getElementById('modal').style.display!=='none'){ if(e.key==='Enter')saveM(); return; }
+            if (e.isComposing) return;
+            
+            // Modal Shortcuts
+            if(document.getElementById('modal').style.display!=='none'){ 
+                if(e.key==='Enter') saveModal(); 
+                if(e.key==='Escape') closeModal();
+                return; 
+            }
+            
             if(e.ctrlKey||e.metaKey){
                 if(e.key==='c'){ if(!act.tagName) e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
                 if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
-                if(e.key==='s'){ e.preventDefault(); saveO(); }
-                if(e.key==='o'){ e.preventDefault(); openF(); }
+                if(e.key==='s'){ e.preventDefault(); saveOver(); }
+                if(e.key==='o'){ e.preventDefault(); openFile(); }
             }
-            if(st.sel.size>0 && act.tagName!=='INPUT'){ // Allow key commands even if body focused
-                if(e.key==='Tab'){e.preventDefault(); addN('child');}
-                if(e.key==='Enter'){e.preventDefault(); addN('sib');}
-                if(e.key==='Delete'||e.key==='Backspace'){delSel();}
+            if(st.sel.size>0 && act.tagName!=='INPUT'){ 
+                if(e.key==='Tab'){e.preventDefault(); addNode('child');}
+                if(e.key==='Enter'){e.preventDefault(); addNode('sibling');}
+                if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}
             }
         };
         
@@ -279,19 +282,19 @@
         qIn.oninput = e => {
             if(e.isComposing) return;
             const v=e.target.value.toLowerCase(); if(!v){qRes=[];qIdx=-1;document.getElementById('q-cnt').innerText="";ren();return;}
-            qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id); qIdx=0; nextQ(false);
+            qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id); qIdx=0; jumpToNextMatch(false);
         };
-        qIn.onkeydown = e => { if(e.key==='Enter') nextQ(); };
+        qIn.onkeydown = e => { if(e.key==='Enter') jumpToNextMatch(); };
 
         if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
-        ren(); setTimeout(fit,100);
+        ren(); setTimeout(fitToScreen,100);
     }
 
-    function gf(n,l){const f=n.f.find(x=>x.l===l);return f?f.v:null;}
-    function sf(n,l,v){let f=n.f.find(x=>x.l===l); if(f)f.v=v; else n.f.push({l:l,v:v});}
-    function pD(s){if(!s)return null;const d=new Date(s);return isNaN(d)?null:d;}
-    function aD(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
-    function diff(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
+    function getField(n,l){const f=n.f.find(x=>x.l===l);return f?f.v:null;}
+    function setField(n,l,v){let f=n.f.find(x=>x.l===l); if(f)f.v=v; else n.f.push({l:l,v:v});}
+    function parseDate(s){if(!s)return null;const d=new Date(s);return isNaN(d)?null:d;}
+    function addDays(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+    function diffDays(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
 
     function ren(){
         if(mode!=='map')return;
@@ -314,19 +317,19 @@
                 };
                 el.onmousedown=e=>{
                     e.stopPropagation(); 
-                    if(e.altKey){togCn(d.id,true);return;}
-                    if(lnk.act){togCn(d.id,false);return;}
+                    if(e.altKey){toggleConnection(d.id,true);return;}
+                    if(lnk.act){toggleConnection(d.id,false);return;}
                     sel(d.id,e.ctrlKey||e.metaKey||e.shiftKey);
                 };
-                el.ondblclick=e=>{e.stopPropagation();openM(d.id);};
+                el.ondblclick=e=>{e.stopPropagation();openEditModal(d.id);};
                 el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();};
                 c.appendChild(el);
             }
             el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'');
             if(!mapD||mapD.t!=='node') el.classList.add('phy'); else el.classList.remove('phy');
-            const stt=gf(d,"ステータス")||"todo";
+            const stt=getField(d,"ステータス")||"todo";
             const hd=el.querySelector('.nt'); hd.className=`nt h-${stt}`; hd.innerText=d.title;
-            el.querySelector('.np-bar').style.width=(gf(d,"進捗")||0)+'%';
+            el.querySelector('.np-bar').style.width=(getField(d,"進捗")||0)+'%';
             const nf=el.querySelector('.nf'); nf.innerHTML='';
             d.f.forEach(f=>{
                 const r=document.createElement('div'); r.className='fr';
@@ -334,7 +337,7 @@
                 r.querySelector('.fl').oninput=e=>f.l=e.target.innerText;
                 r.querySelector('.fv').oninput=e=>f.v=e.target.innerText;
                 if(['予定開始','予定終了','期間','担当部署','ステータス','進捗'].includes(f.l)){
-                    const v=r.querySelector('.fv'); v.classList.add('link'); v.onclick=e=>{e.stopPropagation();openM(d.id);}; v.removeAttribute('contenteditable');
+                    const v=r.querySelector('.fv'); v.classList.add('link'); v.onclick=e=>{e.stopPropagation();openEditModal(d.id);}; v.removeAttribute('contenteditable');
                 }
                 nf.appendChild(r);
             });
@@ -355,21 +358,21 @@
         pg.innerHTML=h;
     }
 
-    function chGSc(v){gSc=v;renG();}
-    function renG(){
+    function changeGanttScale(v){gSc=v;renderGantt();}
+    function renderGantt(){
         const c=document.getElementById('g-cnt'); c.innerHTML='';
         const ord=getOrd('g'); const ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
         st.nodes.forEach(n=>{
-            const s=pD(gf(n,"予定開始"))||new Date(today), dur=parseInt(gf(n,"期間")||0);
-            const e=dur===0?s:aD(s,dur); const as=pD(gf(n,"実績開始")), ae=pD(gf(n,"実績終了"));
-            ts[n.id]={n,s,e,as,ae,dur,st:gf(n,"ステータス")||"todo",pg:gf(n,"進捗")||0};
+            const s=parseDate(getField(n,"予定開始"))||new Date(todayStr), dur=parseInt(getField(n,"期間")||1);
+            const e=dur===0?s:addDays(s,dur-1); const as=parseDate(getField(n,"実績開始")), ae=parseDate(getField(n,"実績終了"));
+            ts[n.id]={n,s,e,as,ae,dur,st:getField(n,"ステータス")||"todo",pg:parseInt(getField(n,"進捗")||0)};
             if(s<mn)mn=s; if(e>mx)mx=e; if(as&&as<mn)mn=as; if(ae&&ae>mx)mx=ae;
         });
-        mn=aD(mn,-2); mx=aD(mx,10); const days=Math.max(10,Math.ceil((mx-mn)/86400000));
+        mn=addDays(mn,-2); mx=addDays(mx,10); const days=Math.max(10,Math.ceil((mx-mn)/86400000));
         let px=40; if(gSc===30)px=10; if(gSc===365)px=2;
         
         const hd=document.createElement('div'); hd.className='g-hdr';
-        if(gSc===1){for(let i=0;i<=days;i++){const d=aD(mn,i),ce=document.createElement('div');ce.className='g-cell';ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;hd.appendChild(ce);}}
+        if(gSc===1){for(let i=0;i<=days;i++){const d=addDays(mn,i),ce=document.createElement('div');ce.className='g-cell';ce.style.width=px+'px';ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;hd.appendChild(ce);}}
         else {hd.innerHTML=`<div style="padding-left:220px;line-height:30px;color:#555;">${mn.getFullYear()}/${mn.getMonth()+1} - ${mx.getFullYear()}/${mx.getMonth()+1}</div>`;}
         c.appendChild(hd);
 
@@ -378,11 +381,11 @@
         if(gSc===1){for(let i=0;i<=days;i++){const l=document.createElement('div');l.className='g-grid';l.style.left=`${i*px}px`;gb.appendChild(l);}}
         wp.appendChild(gb);
 
-        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.style.zIndex=5;
+        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
         svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
         let items=[];
         st.nodes.forEach(n=>{
-            const ds=(gf(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
+            const ds=(getField(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
             let d=ds.length>1?"全体":(ds[0]||"未配属"); items.push({n,d});
         });
         items.sort((a,b)=>{
@@ -403,27 +406,27 @@
             const bad=it.n.pIds.some(pid=>ts[pid]&&ts[pid].e>t.s);
             row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}">${it.n.title}</div>`;
             const area=document.createElement('div'); area.className='g-area';
-            const off=Math.max(0,diff(mn,t.s)-1); const mil=t.dur===0;
+            const off=Math.max(0,diffDays(mn,t.s)-1); const mil=t.dur===0;
             const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p';
             p.style.left=mil?`${off*px-7}px`:`${off*px}px`; if(!mil)p.style.width=`${Math.max(1,t.dur)*px}px`;
             area.appendChild(p); t.ui={sx:220+off*px, ex:220+(off+t.dur)*px, y:y+20};
             if(t.as){
-                const ao=Math.max(0,diff(mn,t.as)-1);
+                const ao=Math.max(0,diffDays(mn,t.as)-1);
                 const a=document.createElement('div'); a.className=mil?'g-mil-a':'g-bar-a';
                 a.style.left=mil?`${ao*px-8}px`:`${ao*px}px`;
-                if(!mil){const ad=t.ae?diff(t.as,t.ae):Math.max(1,diff(t.as,new Date(today))); a.style.width=`${Math.max(1,ad)*px}px`;}
+                if(!mil){const ad=t.ae?diffDays(t.as,t.ae):Math.max(1,diffDays(t.as,new Date(todayStr))); a.style.width=`${Math.max(1,ad)*px}px`;}
                 const cl=`var(--st-${t.st})`; a.style.background=mil?cl:`linear-gradient(to right, ${cl} ${t.pg}%, #bdc3c7 ${t.pg}%)`;
-                if(bad)a.classList.add('g-crit'); a.onclick=e=>{e.stopPropagation();openM(it.n.id);}; area.appendChild(a);
+                if(bad)a.classList.add('g-crit'); a.onclick=e=>{e.stopPropagation();openEditModal(it.n.id);}; area.appendChild(a);
             }
-            row.appendChild(area); row.onclick=()=>openM(it.n.id); wp.appendChild(row); y+=40;
+            row.appendChild(area); row.onclick=()=>openEditModal(it.n.id); wp.appendChild(row); y+=40;
         });
         if(gSc===1){
             items.forEach(it=>{
                 it.n.pIds.forEach(pid=>{
                     const p=ts[pid], c=ts[it.n.id];
                     if(p&&c&&p.ui&&c.ui){
-                        const sx=p.ui.endX, sy=p.ui.y, ex=c.ui.startX, ey=c.ui.y;
-                        const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${midX} ${sy} L ${midX} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
+                        const sx=p.ui.ex, sy=p.ui.y, ex=c.ui.sx, ey=c.ui.y;
+                        const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
                         const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); pt.setAttribute('d',d); pt.setAttribute('stroke','#7f8c8d'); pt.setAttribute('fill','none'); pt.setAttribute('marker-end','url(#ga)'); svg.appendChild(pt);
                     }
                 });
@@ -432,7 +435,7 @@
         wp.appendChild(svg); c.appendChild(wp);
     }
 
-    function renS(){
+    function renderSwimlane(){
         const c=document.getElementById('s-cnt'); c.innerHTML='';
         const ord=getOrd('s'); const lv={};
         let ch=true; for(let i=0;i<50&&ch;i++){ch=false; st.nodes.forEach(n=>{let m=-1; n.pIds.forEach(p=>{if(lv[p]!==undefined && lv[p]>m)m=lv[p];}); if(m!==-1 && lv[n.id]!==m+1){lv[n.id]=m+1;ch=true;}});}
@@ -440,7 +443,7 @@
         
         // Offset overlaps
         const posMap={}; st.nodes.forEach(n=>{
-            const raw=gf(n,"担当部署")||"未配属"; const mds=raw.split(/[,、]/).map(s=>s.trim());
+            const raw=getField(n,"担当部署")||"未配属"; const mds=raw.split(/[,、]/).map(s=>s.trim());
             let minI=ord.length; mds.forEach(d=>{const idx=ord.indexOf(d); if(idx>=0 && idx<minI)minI=idx;});
             if(minI===ord.length)minI=0;
             const k=`${minI}_${lv[n.id]}`; if(!posMap[k])posMap[k]=0; n._sOff=posMap[k]++;
@@ -449,21 +452,21 @@
         const cw=300, con=document.createElement('div'); con.className='s-cont'; con.style.width=`${ord.length*cw}px`;
         ord.forEach((d,i)=>{
             const col=document.createElement('div'); col.className='s-col'; col.style.background=dCols[i%6].bg;
-            const h=document.createElement('div'); h.className='s-hdr'; h.style.left=`${i*cw}px`; h.style.background=dCols[i%6].bd;
+            const h=document.createElement('div'); h.className='s-hdr'; h.style.left=`${i*cw}px`; h.style.background=dCols[i%6].border;
             h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span> ${d} <span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
             con.appendChild(h); con.appendChild(col);
         });
         const ui={};
         st.nodes.forEach(n=>{
-            const raw=gf(n,"担当部署")||"未配属"; const mds=raw.split(/[,、]/).map(s=>s.trim());
+            const raw=getField(n,"担当部署")||"未配属"; const mds=raw.split(/[,、]/).map(s=>s.trim());
             let minI=ord.length, mx=-1;
-            mds.forEach(d=>{const i=ord.indexOf(d); if(i>=0){if(i<minI)minI=i;if(i>maxI)maxI=i;}});
+            mds.forEach(d=>{const i=ord.indexOf(d); if(i>=0){if(i<minI)minI=i;if(i>mx)mx=i;}});
             if(mx===-1){minI=0;mx=0;}
             const el=document.createElement('div'); el.className='node s-node';
-            el.style.width=`${(mx-mn+1)*cw-40}px`; el.style.left=`${minI*cw+20}px`; 
+            el.style.width=`${(mx-minI+1)*cw-40}px`; el.style.left=`${minI*cw+20}px`; 
             const bt=lv[n.id]*220+60, stag=(n._sOff||0)*110; el.style.top=`${bt+stag}px`;
-            el.innerHTML=`<div class="nt h-${gf(n,"ステータス")||"todo"}">${n.title}</div><div style="padding:5px;font-size:11px;">${gf(n,"期間")}</div>`;
-            el.onclick=()=>openM(n.id); con.appendChild(el);
+            el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div><div style="padding:5px;font-size:11px;">${getField(n,"期間")}</div>`;
+            el.onclick=()=>openEditModal(n.id); con.appendChild(el);
             ui[n.id]={l:minI*cw+20, r:(mx+1)*cw-20, t:bt+stag, b:bt+stag+60};
         });
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.style.zIndex=5;
@@ -483,20 +486,20 @@
     }
 
     function ana(){
-        const ts={}; st.nodes.forEach(n=>ts[n.id]={s:pD(gf(n,"予定開始")), e:pD(gf(n,"予定終了"))});
+        const ts={}; st.nodes.forEach(n=>ts[n.id]={s:parseDate(getField(n,"予定開始")), e:parseDate(getField(n,"予定終了"))});
         const err=new Set(), crt=new Set();
         st.nodes.forEach(n=>{
             const s=ts[n.id].s;
             n.pIds.forEach(pid=>{
                 const p=ts[pid];
                 if(p.e && s && p.e>s){err.add(n.id); err.add(pid);}
-                if(p.e && s && diff(p.e,s)<=1) crt.add(`${pid}-${n.id}`);
+                if(p.e && s && diffDays(p.e,s)<=1) crt.add(`${pid}-${n.id}`);
             });
         });
         return {err,crt};
     }
     function getOrd(t){
-        const act=new Set(); st.nodes.forEach(n=>(gf(n,"担当部署")||"").split(/[,、]/).forEach(d=>act.add(d.trim())));
+        const act=new Set(); st.nodes.forEach(n=>(getField(n,"担当部署")||"").split(/[,、]/).forEach(d=>act.add(d.trim())));
         let l = t==='swim'?st.sOrd:st.gOrd; if(!l)l=[];
         act.forEach(d=>{if(!l.includes(d))l.push(d);});
         if(t==='swim')st.sOrd=l; else st.gOrd=l;
@@ -504,7 +507,7 @@
     }
     function mvD(t,d,dir){
         const l=t==='swim'?st.sOrd:st.gOrd; const i=l.indexOf(d);
-        if(i>-1 && i+dir>=0 && i+dir<l.length){ [l[i],l[i+dir]]=[l[i+dir],l[i]]; t==='swim'?renS():renG(); }
+        if(i>-1 && i+dir>=0 && i+dir<l.length){ [l[i],l[i+dir]]=[l[i+dir],l[i]]; t==='swim'?renderSwimlane():renderGantt(); }
     }
     function sel(id,mul){
         if(!mul)st.sel.clear();
@@ -513,41 +516,71 @@
         if(lnk.act && st.sel.size===1) lnk.src=Array.from(st.sel)[0];
         ren();
     }
-    function addN(type){
+    function addNode(type){
         if(st.sel.size===0)return;
         const p=st.nodes.find(n=>n.id==Array.from(st.sel)[0]); if(!p)return;
         const id=Date.now(), isC=type==='child';
         const nx=isC?p.x+300:p.x, ny=isC?p.y:p.y+160;
-        let s=today;
-        if(isC) s=pD(gf(p,"予定終了"))?aD(pD(gf(p,"予定終了")),0).toISOString().slice(0,10):today;
-        else s=gf(p,"予定開始")||today;
-        st.nodes.push({id, title:"Task", f:[{l:"予定開始",v:s},{l:"期間",v:"1日"},{l:"予定終了",v:s},{l:"担当部署",v:gf(p,"担当部署")},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], x:nx, y:ny, pIds:isC?[p.id]:[...p.pIds]});
-        sel(id,false); openM(id);
+        let s=todayStr;
+        if(isC) {
+            const pe = parseDate(getField(p,"予定終了"));
+            s = pe ? addDays(pe, 1).toISOString().slice(0,10) : todayStr;
+        } else {
+            s = getField(p,"予定開始")||todayStr;
+        }
+        st.nodes.push({
+            id, 
+            title:"Task", 
+            f:[
+                {l:"予定開始",v:s},
+                {l:"期間",v:"1"},
+                {l:"予定終了",v:s},
+                {l:"担当部署",v:getField(p,"担当部署")||"全体"},
+                {l:"ステータス",v:"todo"},
+                {l:"進捗",v:"0"}
+            ], 
+            x:nx, 
+            y:ny, 
+            pIds:isC?[p.id]:[...p.pIds]
+        });
+        sel(id,false); openEditModal(id);
     }
-    function addFree(){
+    function addFreeNode(){
         const id=Date.now();
-        // Fix: Spawn at visual center
-        const cx = (innerWidth/2 - (st.x + innerWidth/2)) / st.sc;
-        const cy = (innerHeight/2 - (st.y + innerHeight/2)) / st.sc;
-        
-        st.nodes.push({id, title:"Task", f:[{l:"予定開始",v:today},{l:"期間",v:"1日"},{l:"予定終了",v:today},{l:"担当部署",v:"全体"},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], x:cx-120, y:cy-40, pIds:[]});
+        const cx = (-st.x + window.innerWidth/2)/st.sc;
+        const cy = (-st.y + window.innerHeight/2)/st.sc;
+        st.nodes.push({
+            id, 
+            title:"Task", 
+            f:[
+                {l:"予定開始",v:todayStr},
+                {l:"期間",v:"1"},
+                {l:"予定終了",v:todayStr},
+                {l:"担当部署",v:"全体"},
+                {l:"ステータス",v:"todo"},
+                {l:"進捗",v:"0"}
+            ], 
+            x:cx-120, 
+            y:cy-40, 
+            pIds:[]
+        });
         sel(id,false); phy.act=true; runPhy();
-        setTimeout(()=>openM(id),50); ren();
+        setTimeout(()=>openEditModal(id),50); ren();
     }
-    function delSel(){
+    function deleteSelected(){
         if(st.sel.size===0||!confirm("削除しますか？"))return;
         st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));
         st.nodes.forEach(n=>n.pIds=n.pIds.filter(pid=>!st.sel.has(pid)));
         st.sel.clear(); ren();
     }
-    function togLnk(){
+    function toggleLinkMode(){
         if(st.sel.size!==1 && !lnk.act){alert("親ノードを1つ選択してください");return;}
         lnk.act=!lnk.act; 
         lnk.src=lnk.act ? Array.from(st.sel)[0] : null;
         document.getElementById('b-lnk').className=lnk.act?'lnk':'';
         ren();
     }
-    function togCn(tid, isAlt){
+    function toggleConnection(tid, isAlt){
         let src = lnk.src;
         if(isAlt){
             if(st.sel.size!==1)return;
@@ -559,56 +592,56 @@
         if(idx>=0) t.pIds.splice(idx,1); else {
             t.pIds.push(src);
             const p=st.nodes.find(n=>n.id===src);
-            const pe=pD(gf(p,"予定終了"));
+            const pe=parseDate(getField(p,"予定終了"));
             if(pe) {
-                const ns = pe.toISOString().slice(0,10);
-                sf(t,"予定開始", ns);
-                const dur = parseInt(gf(t,"期間"))||1;
-                sf(t,"予定終了", aD(pe,dur).toISOString().slice(0,10));
+                const ns = addDays(pe, 1).toISOString().slice(0,10);
+                setField(t,"予定開始", ns);
+                const dur = parseInt(getField(t,"期間"))||1;
+                setField(t,"予定終了", addDays(parseDate(ns), dur-1).toISOString().slice(0,10));
             }
         }
         ren();
     }
     
-    function openM(id){
+    function openEditModal(id){
         curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
         document.getElementById('m-tit').value=n.title;
-        document.getElementById('m-dep').value=gf(n,"担当部署")||"";
-        document.getElementById('m-s').value=gf(n,"予定開始");
-        document.getElementById('m-e').value=gf(n,"予定終了");
-        document.getElementById('m-d').value=parseInt(gf(n,"期間"))||0;
-        document.getElementById('m-st').value=gf(n,"ステータス")||"todo";
-        document.getElementById('m-p').value=parseInt(gf(n,"進捗"))||0; document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
-        document.getElementById('m-as').value=gf(n,"実績開始");
-        document.getElementById('m-ae').value=gf(n,"実績終了");
+        document.getElementById('m-dep').value=getField(n,"担当部署")||"";
+        document.getElementById('m-s').value=getField(n,"予定開始");
+        document.getElementById('m-e').value=getField(n,"予定終了");
+        document.getElementById('m-d').value=parseInt(getField(n,"期間"))||1;
+        document.getElementById('m-st').value=getField(n,"ステータス")||"todo";
+        document.getElementById('m-p').value=parseInt(getField(n,"進捗"))||0; document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
+        document.getElementById('m-as').value=getField(n,"実績開始")||'';
+        document.getElementById('m-ae').value=getField(n,"実績終了")||'';
         const dl=document.getElementById('dl-dept'); dl.innerHTML='';
-        const ds=new Set(); st.nodes.forEach(no=>(gf(no,"担当部署")||"").split(',').forEach(d=>ds.add(d.trim())));
+        const ds=new Set(); st.nodes.forEach(no=>(getField(no,"担当部署")||"").split(',').forEach(d=>ds.add(d.trim())));
         ds.forEach(d=>{const o=document.createElement('option'); o.value=d; dl.appendChild(o);});
         document.getElementById('modal').style.display='flex';
         document.getElementById('m-tit').focus();
     }
-    function closeM(){document.getElementById('modal').style.display='none';}
-    function saveM(){
+    function closeModal(){document.getElementById('modal').style.display='none';}
+    function saveModal(){
         const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
         n.title=document.getElementById('m-tit').value;
-        sf(n,"担当部署",document.getElementById('m-dep').value);
-        sf(n,"予定開始",document.getElementById('m-s').value);
-        sf(n,"予定終了",document.getElementById('m-e').value);
-        sf(n,"期間",document.getElementById('m-d').value+"日");
-        sf(n,"ステータス",document.getElementById('m-st').value);
-        sf(n,"進捗",document.getElementById('m-p').value);
-        sf(n,"実績開始",document.getElementById('m-as').value);
-        sf(n,"実績終了",document.getElementById('m-ae').value);
-        ren(); if(mode==='gantt')renG(); if(mode==='swim')renS();
-        closeM(); phy.act=true; runPhy();
+        setField(n,"担当部署",document.getElementById('m-dep').value);
+        setField(n,"予定開始",document.getElementById('m-s').value);
+        setField(n,"予定終了",document.getElementById('m-e').value);
+        setField(n,"期間",document.getElementById('m-d').value);
+        setField(n,"ステータス",document.getElementById('m-st').value);
+        setField(n,"進捗",document.getElementById('m-p').value);
+        setField(n,"実績開始",document.getElementById('m-as').value);
+        setField(n,"実績終了",document.getElementById('m-ae').value);
+        ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane();
+        closeModal(); phy.act=true; runPhy();
     }
-    function syncD(k){
-        const s=document.getElementById('m-s').value, e=document.getElementById('m-e').value, d=parseInt(document.getElementById('m-d').value);
-        const sd=pD(s), ed=pD(e);
-        if(k==='s'||k==='d'){ if(sd&&!isNaN(d)) document.getElementById('m-e').value=aD(sd,d).toISOString().slice(0,10); }
-        else if(k==='e'){ if(sd&&ed) document.getElementById('m-d').value=diff(sd,ed); }
+    function syncDate(k){
+        const s=document.getElementById('m-s').value, e=document.getElementById('m-e').value, d=parseInt(document.getElementById('m-d').value)||1;
+        const sd=parseDate(s), ed=parseDate(e);
+        if(k==='start'||k==='d'){ if(sd&&!isNaN(d)) document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10); }
+        else if(k==='end'){ if(sd&&ed) document.getElementById('m-d').value=Math.max(1,diffDays(sd,ed)); }
     }
-    function swView(m){
+    function switchView(m){
         mode=m; 
         document.getElementById('b-map').className=m==='map'?'act':'';
         document.getElementById('b-gantt').className=m==='gantt'?'act':'';
@@ -617,10 +650,10 @@
         document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
         document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
         document.getElementById('pres').style.display=m==='map'?'flex':'none';
-        if(m==='map')ren(); else if(m==='gantt')renG(); else renS();
-        if(pre.act && m!=='map')stopP();
+        if(m==='map')ren(); else if(m==='gantt')renderGantt(); else renderSwimlane();
+        if(pre.act && m!=='map')stopPresentation();
     }
-    function align(){
+    function autoAlign(){
         const l={}; const q=st.nodes.filter(n=>n.pIds.length===0).map(n=>({id:n.id,v:0}));
         const vis=new Set();
         while(q.length){
@@ -666,58 +699,99 @@
             if(mv)ren(); i++; requestAnimationFrame(tick);
         }; tick();
     }
-    function fit(){
+    function fitToScreen(){
         if(!st.nodes.length)return;
         let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
         st.nodes.forEach(n=>{if(n.x<Mx)Mx=n.x; if(n.y<My)My=n.y; if(n.x+240>mx)mx=n.x+240; if(n.y+160>my)my=n.y+160;});
         const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
         st.sc=Math.max(0.1,sc); st.x=-(Mx+(mx-Mx)/2)*st.sc; st.y=-(My+(my-My)/2)*st.sc; ren();
     }
-    function zIn(){st.sc*=1.2;ren();} function zOut(){st.sc*=0.8;ren();}
-    function togSS(){document.body.classList.toggle('sc-mode');alert("撮影モード(UI非表示)");}
-    function nextQ(){
+    function zoomIn(){st.sc*=1.2;ren();} function zoomOut(){st.sc*=0.8;ren();}
+    function toggleScreenshotMode(){document.body.classList.toggle('sc-mode');alert("撮影モード(UI非表示)");}
+    function jumpToNextMatch(auto=true){
         if(!qRes.length)return;
-        qIdx=(qIdx+1)%qRes.length; const id=qRes[qIdx];
-        if(mode!=='map')swView('map');
+        if(auto) qIdx=(qIdx+1)%qRes.length; 
+        const id=qRes[qIdx];
+        if(mode!=='map')switchView('map');
         sel(id,false); const n=st.nodes.find(x=>x.id==id);
         if(n){st.x=-n.x*st.sc; st.y=-n.y*st.sc; ren();}
         document.getElementById('q-cnt').innerText=`${qIdx+1}/${qRes.length}`;
     }
 
-    async function openF(){
+    async function openFile(){
         if(window.showOpenFilePicker){
             try{
                 const [h]=await window.showOpenFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}]});
                 fH=h; const f=await h.getFile(); document.getElementById('f-name').innerText=f.name;
                 const t=await f.text(); load(t);
-            }catch(e){}
+            }catch(e){console.error('Open failed:',e);}
         } else document.getElementById('f-in').click();
     }
-    async function saveO(){
+    async function saveOver(){
         if(fH){
-            const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close();
-            const t=document.getElementById('toast'); t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
-        } else saveA();
+            try{
+                const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close();
+                const t=document.getElementById('toast'); t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
+            }catch(e){console.error('Save failed:',e);}
+        } else saveAs();
     }
-    async function saveA(){
+    async function saveAs(){
         if(window.showSaveFilePicker){
             try{
-                fH=await window.showSaveFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}], suggestedName:`map_${today}.json`});
-                document.getElementById('f-name').innerText=fH.name; saveO();
-            }catch(e){}
+                fH=await window.showSaveFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}], suggestedName:`map_${todayStr}.json`});
+                document.getElementById('f-name').innerText=fH.name; saveOver();
+            }catch(e){console.error('SaveAs failed:',e);}
         } else {
             const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(st)],{type:"application/json"}));
-            a.download=`map_${today}.json`; a.click();
+            a.download=`map_${todayStr}.json`; a.click();
         }
     }
-    function loadF(i){const f=i.files[0]; if(f){const r=new FileReader(); r.onload=e=>load(e.target.result); r.readAsText(f);}}
-    function load(t){try{const j=JSON.parse(t); if(j.nodes){st=j;st.sel=new Set();fit();}}catch(e){alert("Error");}}
-    function newF(){if(confirm("New?")){st.nodes=[{id:Date.now(),title:"Start",f:[],x:0,y:0,pIds:[]}];st.sel.clear();fH=null;fit();}}
+    function loadFileFallback(i){const f=i.files[0]; if(f){const r=new FileReader(); r.onload=e=>load(e.target.result); r.readAsText(f);}}
+    function load(t){
+        try{
+            const j=JSON.parse(t); 
+            if(j.nodes){
+                // Migrate old format if needed
+                j.nodes.forEach(n=>{
+                    if(!n.f && n.fields) n.f = n.fields;
+                    if(!n.pIds && n.parentIds) n.pIds = n.parentIds;
+                });
+                st=j;
+                st.sel=new Set();
+                fitToScreen();
+                ren();
+            }
+        }catch(e){alert("読込エラー"); console.error(e);}
+    }
+    function newFile(){
+        if(confirm("新規作成しますか？")){
+            st={
+                sc:1, x:0, y:0, sOrd:[], gOrd:[], 
+                nodes:[{
+                    id:Date.now(),
+                    title:"開始",
+                    f:[
+                        {l:"予定開始",v:todayStr},
+                        {l:"期間",v:"1"},
+                        {l:"予定終了",v:todayStr},
+                        {l:"担当部署",v:"全体"},
+                        {l:"ステータス",v:"todo"},
+                        {l:"進捗",v:"0"}
+                    ],
+                    x:0, y:0, pIds:[]
+                }],
+                sel:new Set()
+            };
+            fH=null;
+            document.getElementById('f-name').innerText='(未保存)';
+            fitToScreen();
+        }
+    }
 
-    function startP(){pre.act=true; pre.idx=0; document.getElementById('pres-ind').style.display='flex'; document.getElementById('p-nav').style.display='flex'; focusP();}
-    function stopP(){pre.act=false; document.getElementById('pres-ind').style.display='none'; document.getElementById('p-nav').style.display='none'; fit();}
-    function nextS(){if(st.nodes.length){pre.idx=(pre.idx+1)%st.nodes.length; focusP();}}
-    function prevS(){if(st.nodes.length){pre.idx=(pre.idx-1+st.nodes.length)%st.nodes.length; focusP();}}
+    function startPresentation(){pre.act=true; pre.idx=0; document.getElementById('pres-ind').style.display='flex'; document.getElementById('p-nav').style.display='flex'; focusP();}
+    function stopPresentation(){pre.act=false; document.getElementById('pres-ind').style.display='none'; document.getElementById('p-nav').style.display='none'; fitToScreen();}
+    function nextSlide(){if(st.nodes.length){pre.idx=(pre.idx+1)%st.nodes.length; focusP();}}
+    function prevSlide(){if(st.nodes.length){pre.idx=(pre.idx-1+st.nodes.length)%st.nodes.length; focusP();}}
     function focusP(){
         const n=st.nodes[pre.idx]; sel(n.id,false);
         document.getElementById('s-num').innerText=`${pre.idx+1}/${st.nodes.length}`;
