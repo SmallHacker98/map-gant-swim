@@ -56,7 +56,7 @@
     @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
     .sep{width:1px;height:20px;background:#ddd;margin:0 2px;} .sep-h{width:20px;height:1px;background:#ddd;margin:2px 0;}
 
-    /* Positions */
+    /* Positions (Initial) */
     #menu{top:20px;left:20px;flex-wrap:wrap;max-width:320px;}
     #search{top:20px;left:50%;transform:translateX(-50%);}
     #views{top:20px;right:20px;}
@@ -67,7 +67,7 @@
     
     /* Views */
     .view{position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:1500;display:none;flex-direction:column;}
-    .v-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;margin-top:70px;}
+    .v-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;padding-top:20px;}
     .v-title{font-size:18px;font-weight:bold;color:#333;}
     .v-body{flex-grow:1;overflow:auto;position:relative;}
 
@@ -78,7 +78,6 @@
     .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
     .g-row:hover{background:#f0f8ff;}
     .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;cursor:move;}
-    .g-grp.all{background:#34495e;color:white;}
     .g-lbl{width:200px;min-width:200px;padding:0 10px;border-right:1px solid #ddd;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:white;position:sticky;left:0;z-index:10;height:40px;display:flex;align-items:center;}
     .g-lbl.err{color:var(--crit);}
     .g-area{flex-grow:1;position:relative;height:100%;}
@@ -114,9 +113,11 @@
 
     #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:5000;}
     #loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9999;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
+    
+    /* Screenshot Mode */
     .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
     .sc-mode .view{margin-top:0;}
-    .sc-mode .view-header{margin-top:0;}
+    .sc-mode .view-header{padding-top:10px;}
 </style>
 </head>
 <body>
@@ -128,7 +129,7 @@
     <div id="edit-modal">
         <div class="modal-content">
             <h3 style="margin-top:0; color:#2c3e50;">タスク詳細</h3>
-            <div class="modal-row"><label>タイトル</label><input type="text" id="modal-title"></div>
+            <div class="modal-row"><label>タイトル</label><input type="text" id="modal-title" autofocus></div>
             <div class="modal-row">
                 <label>担当部署 (カンマ区切り)</label>
                 <input type="text" id="modal-dept" list="dept-list" placeholder="例: 営業, 開発">
@@ -157,10 +158,10 @@
 
     <div id="file-menu" class="ui-panel">
         <button onclick="newFile()" title="新規作成">📄</button>
-        <button onclick="saveOver()" title="上書き保存 (Ctrl+S)">💾</button>
+        <button onclick="saveOver()" title="上書き保存">💾</button>
         <button onclick="saveAs()" title="名前を付けて保存">📑</button>
-        <button onclick="openFile()" title="開く (Ctrl+O)">📂</button>
-        <button onclick="toggleScreenshotMode()" title="スクリーンショットモード">📷</button>
+        <button onclick="openFile()" title="開く">📂</button>
+        <button onclick="toggleScreenshotMode()" title="撮影">📷</button>
         <div id="file-info">(未保存)</div>
         <input type="file" id="file-input" style="display: none;" accept=".json" onchange="loadFileFallback(this)">
     </div>
@@ -169,7 +170,7 @@
         <span style="font-size:16px;">🔍</span>
         <input type="text" id="search-input" placeholder="検索..." autocomplete="off" oninput="handleSearch(this.value)" onkeydown="handleSearchKey(event)">
         <span id="search-count"></span>
-        <button onclick="jumpToNextMatch()" title="次へ (Enter)">▼</button>
+        <button onclick="jumpToNextMatch()" title="次へ">▼</button>
     </div>
 
     <div id="view-switcher" class="ui-panel">
@@ -200,7 +201,7 @@
             <button onclick="addNode('sibling')" title="兄弟ノード (Enter)">＋兄</button>
             <button onclick="addFreeNode()" title="独立ノード">＋独</button>
             <div class="ui-sep"></div>
-            <button id="b-lnk" onclick="toggleLinkMode()" title="接続/切断 (Alt+Click)">🔗</button>
+            <button id="b-lnk" onclick="toggleLinkMode()" title="接続 (Alt+Click)">🔗</button>
             <div class="ui-sep"></div>
             <button onclick="deleteSelected()" style="color:var(--crit)" title="削除 (Del)">🗑</button>
         </div>
@@ -237,7 +238,7 @@
         scale: 1, x: 0, y: 0, isDirected: true, 
         swimlaneDeptOrder: [], ganttDeptOrder: [],
         nodes: [{ id: 1, title: "開始", fields: [{label: "予定開始", value: todayStr}, {label: "期間", value: "1日"}, {label: "予定終了", value: todayStr}, {label: "担当部署", value: "全体"}, {label:"ステータス", value:"todo"}, {label:"進捗", value:"0"}], x: 0, y: 0, parentIds: [] }], 
-        selectedIds: new Set([1])
+        selectedId: 1, selectedIds: new Set([1])
     };
     
     let presState = { active: false, index: 0 };
@@ -246,7 +247,7 @@
     let clipboard = null;
     let currentEditId = null;
     let currentViewMode = 'map';
-    let ganttScale = 1; // 1=Day, 30=Month, 365=Year
+    let ganttScale = 1; 
     let searchMatches = []; let currentMatchIndex = -1;
     let fileHandle = null; 
     let panelDrag = { active: false, el: null, offX: 0, offY: 0 };
@@ -257,7 +258,7 @@
     const loupe = document.getElementById('loupe');
     const loupeContent = document.getElementById('loupe-content');
 
-    // --- UI Panel Drag (Fixed) ---
+    // --- UI Panel Drag ---
     function setupPanelDrag() {
         document.querySelectorAll('.ui-panel').forEach(p => {
             const startDrag = (e, clientX, clientY) => {
@@ -267,7 +268,7 @@
                 panelDrag.offX = clientX - rect.left; 
                 panelDrag.offY = clientY - rect.top;
                 
-                // Fix: Initialize explicit position to prevent jump
+                // IMPORTANT: Set initial styles to prevent jumping
                 p.style.left = rect.left + 'px'; 
                 p.style.top = rect.top + 'px';
                 p.style.right = 'auto'; 
@@ -286,7 +287,7 @@
         }
     };
     
-    // --- Global Mouse Logic (Unified) ---
+    // --- Global Mouse Logic ---
     let mapDrag = null;
     
     viewport.addEventListener('mousedown', e => {
@@ -315,6 +316,7 @@
             mapDrag.x = e.clientX; mapDrag.y = e.clientY;
             return;
         }
+        // Loupe
         if(currentViewMode==='map' && state.scale < 0.6 && e.shiftKey) {
             loupe.style.display = 'block';
             loupe.style.left = (e.clientX + 20) + 'px';
@@ -346,54 +348,57 @@
     function showToast(msg) { const t=document.getElementById('save-toast'); t.innerText=msg; t.style.opacity=1; setTimeout(()=>t.style.opacity=0, 2000); }
     function updateFileNameUI(name) { document.getElementById('file-info').innerText = name; }
     
-    // --- Physics / Auto Layout (Enhanced) ---
+    // --- Physics / Auto Layout ---
     function autoAlign() {
-        // Dagre-like hierarchical layout logic
         const layers = {};
         const visited = new Set();
-        
-        // Find roots or loops
         const nodes = state.nodes;
         
-        // Assign ranks
         const assignRank = (nid, rank) => {
             if(visited.has(nid)) return;
             visited.add(nid);
             if(!layers[rank]) layers[rank] = [];
             layers[rank].push(nid);
-            
             // Children -> Rank + 1
             const children = nodes.filter(n => n.parentIds.includes(nid));
             children.forEach(c => assignRank(c.id, rank + 1));
-            
-            // Parents -> Rank - 1 (Reverse check for unvisited roots)
         };
         
-        // Start with nodes having no parents
         const roots = nodes.filter(n => n.parentIds.length === 0);
-        if(roots.length === 0 && nodes.length > 0) roots.push(nodes[0]); // Fallback for loops
+        if(roots.length === 0 && nodes.length > 0) roots.push(nodes[0]); 
         
         roots.forEach(r => assignRank(r.id, 0));
-        
-        // Handle unvisited (disconnected components)
         nodes.forEach(n => { if(!visited.has(n.id)) assignRank(n.id, 0); });
         
         triggerSmoothTransition();
         
-        // Apply Grid Positions
-        const GRID_X = 300; const GRID_Y = 180;
-        Object.keys(layers).forEach(rankStr => {
-            const rank = parseInt(rankStr);
-            const layerNodes = layers[rank];
-            const startY = -((layerNodes.length - 1) * GRID_Y) / 2;
-            
-            layerNodes.forEach((nid, idx) => {
-                const n = nodes.find(x => x.id === nid);
-                if(n) {
-                    n.x = rank * GRID_X;
-                    n.y = startY + idx * GRID_Y;
-                }
-            });
+        // Barycenter heuristic sort within layers
+        const keys = Object.keys(layers).sort((a,b)=>parseInt(a)-parseInt(b));
+        keys.forEach((rankStr, i) => {
+             const rank = parseInt(rankStr);
+             const layerNodes = layers[rank];
+             // Sort based on avg parent position if not first layer
+             if(i > 0) {
+                 layerNodes.sort((aId, bId) => {
+                     const getAvgParentY = (nid) => {
+                         const n = nodes.find(x=>x.id===nid);
+                         if(!n || !n.parentIds.length) return 0;
+                         const parents = nodes.filter(p => n.parentIds.includes(p.id));
+                         const sumY = parents.reduce((sum, p) => sum + p.y, 0);
+                         return sumY / parents.length;
+                     };
+                     return getAvgParentY(aId) - getAvgParentY(bId);
+                 });
+             }
+             
+             const startY = -((layerNodes.length - 1) * 180) / 2;
+             layerNodes.forEach((nid, idx) => {
+                 const n = nodes.find(x => x.id === nid);
+                 if(n) {
+                     n.x = rank * 320;
+                     n.y = startY + idx * 180;
+                 }
+             });
         });
         
         render(); startPhysics();
@@ -403,7 +408,7 @@
         physicsState.active = true;
         let iter = 0;
         const tick = () => {
-            if(!physicsState.active || iter > 100) return;
+            if(!physicsState.active || iter > 60) return; // Reduce ticks for stability
             let moved = false;
             for(let i=0; i<state.nodes.length; i++) {
                 for(let j=i+1; j<state.nodes.length; j++) {
@@ -545,17 +550,15 @@
         minD=addRealDays(minD,-2); maxD=addRealDays(maxD,10);
         
         const totalDays = Math.max(10, Math.ceil((maxD - minD) / 86400000));
-        let px = 40; // Default Day
-        if(ganttScale === 30) px = 5; // Month View (approx)
-        if(ganttScale === 365) px = 1; // Year View
+        let px = 40; 
+        if(ganttScale === 30) px = 5; 
+        if(ganttScale === 365) px = 1; 
         
         const hRow=document.createElement('div'); hRow.className='gantt-date-header';
         
-        // Header Generation
         if(ganttScale === 1) {
              for(let i=0;i<=totalDays;i++){const d=addRealDays(minD,i);const c=document.createElement('div');c.className='gantt-date-cell';c.innerText=`${d.getMonth()+1}/${d.getDate()}`;hRow.appendChild(c);}
         } else {
-             // Simplified header for zoomed out
              const w = (220 + totalDays * px);
              hRow.innerHTML = `<div style="padding-left:220px; line-height:30px; color:#555;">${minD.getFullYear()}/${minD.getMonth()+1} - ${maxD.getFullYear()}/${maxD.getMonth()+1}</div>`;
         }
@@ -563,7 +566,6 @@
         cont.appendChild(hRow);
         const wrap=document.createElement('div'); wrap.className='gantt-timeline-wrapper'; wrap.style.minWidth=`${220+totalDays*px}px`;
         
-        // Grid
         const gridBg=document.createElement('div'); gridBg.style.position='absolute'; gridBg.style.left='220px'; gridBg.style.width='100%'; gridBg.style.height='100%';
         if(ganttScale === 1) {
             for(let i=0;i<=totalDays;i++){const l=document.createElement('div');l.className='gantt-grid-line';l.style.left=`${i*px}px`;gridBg.appendChild(l);}
@@ -629,7 +631,6 @@
             r.onclick = () => openEditModal(item.node.id); r.appendChild(area); wrap.appendChild(r); y+=40;
         });
         
-        // Draw Arrows only in Day mode to avoid clutter
         if(ganttScale === 1) {
             displayItems.forEach(item => {
                 item.node.parentIds.forEach(pid => {
@@ -661,17 +662,15 @@
             });
         }
         
-        // Fix overlap in swimlane: group by dept and level
-        const posMap = {}; // { deptIndex_level : count }
+        const posMap = {}; 
         state.nodes.forEach(n => {
             const raw=getField(n,"担当部署")||"未配属"; const mds=raw.split(/[,、]/).map(s=>s.trim());
             let minI=deptArr.length;
             mds.forEach(d=>{const idx=deptArr.indexOf(d); if(idx>=0 && idx<minI) minI=idx;});
             if(minI===deptArr.length) minI=0;
-            
             const key = `${minI}_${levels[n.id]}`;
             if(!posMap[key]) posMap[key] = 0;
-            n._swimOffset = posMap[key]++; // Assign offset
+            n._swimOffset = posMap[key]++; 
         });
 
         const colW=300; const container=document.createElement('div'); container.className='swimlane-container'; container.style.width=`${deptArr.length*colW}px`;
@@ -687,12 +686,11 @@
         state.nodes.forEach(n=>{
             const raw=getField(n,"担当部署")||"未配属"; const mds=raw.split(/[,、]/).map(s=>s.trim());
             let minI=deptArr.length, maxI=-1;
-            mds.forEach(d=>{const i=deptArr.indexOf(d); if(i>=0){if(i<minI)minI=i;if(i>maxI)maxI=i;}});
+            myDepts.forEach(d=>{const i=deptArr.indexOf(d); if(i>=0){if(i<minI)minI=i;if(i>maxI)maxI=i;}});
             if(maxI===-1){minI=0; maxI=0;}
             
             const el=document.createElement('div'); el.className='node s-node';
             el.style.width=`${(maxI-minI+1)*colW-40}px`; el.style.left=`${minI*colW+20}px`; 
-            // Stagger position based on offset
             const baseTop = levels[n.id]*220 + 60;
             const stagger = (n._swimOffset||0) * 110; 
             el.style.top=`${baseTop + stagger}px`;
@@ -749,24 +747,29 @@
         const activeEl = document.activeElement;
         const isInput = activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT' || activeEl.tagName === 'TEXTAREA' || activeEl.isContentEditable;
         
+        if (e.isComposing) return; // Fix Edge IME
+
         if(document.getElementById('edit-modal').style.display === 'none') {
-            if(e.ctrlKey || e.metaKey){
-                if(e.key==='c') {
-                    if(!isInput) e.preventDefault(); 
-                    clipboard = state.nodes.filter(n=>state.selectedIds.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));
+            if(!isInput || (activeEl.classList && activeEl.classList.contains('node'))) {
+                if(e.ctrlKey || e.metaKey){
+                    if(e.key==='c') {
+                        if(!isInput) e.preventDefault(); 
+                        clipboard = state.nodes.filter(n=>state.selectedIds.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));
+                    }
+                    if(e.key==='v' && clipboard) {
+                         state.selectedIds.clear();
+                         clipboard.forEach(n=>{ n.id=Date.now()+Math.random(); n.x+=50; n.y+=50; state.nodes.push(n); state.selectedIds.add(n.id); });
+                         render(); startPhysics();
+                    }
                 }
-                if(e.key==='v' && clipboard) {
-                     state.selectedIds.clear();
-                     clipboard.forEach(n=>{ n.id=Date.now()+Math.random(); n.x+=50; n.y+=50; state.nodes.push(n); state.selectedIds.add(n.id); });
-                     render(); startPhysics();
+                if(state.selectedIds.size > 0 && !isInput) {
+                    if(e.key==='Tab') { e.preventDefault(); addNode('child'); }
+                    if(e.key==='Enter') { e.preventDefault(); addNode('sib'); }
+                    if(e.key==='Delete' || e.key==='Backspace') deleteSelected();
                 }
             }
-            // Allow Tab/Enter even if focused on body
-            if(state.selectedIds.size > 0 && !isInput) {
-                if(e.key==='Tab') { e.preventDefault(); addNode('child'); }
-                if(e.key==='Enter') { e.preventDefault(); addNode('sib'); }
-                if(e.key==='Delete' || e.key==='Backspace') deleteSelected();
-            }
+        } else {
+             if(e.key==='Enter') { e.preventDefault(); saveModal(); }
         }
     });
 
