@@ -146,7 +146,7 @@
             <div class="m-row"><label>担当部署 (カンマ区切)</label><input type="text" id="m-dep" list="dl-dept"></div><datalist id="dl-dept"></datalist>
             <div style="display:flex;gap:10px;">
                 <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncDate('start')"></div>
-                <div class="m-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="m-d" min="0" onchange="syncDate('d')"></div>
+                <div class="m-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="m-d" min="0" onchange="syncDate('d')" oninput="syncDate('d')">
             </div>
             <div class="m-row"><label>予定終了</label><input type="date" id="m-e" onchange="syncDate('end')"></div>
             <div style="display:flex;gap:10px;">
@@ -882,9 +882,18 @@ function closeModal(){
     document.getElementById('modal').style.display='none';
 }
     function saveModal(){
-    newNodeId = null; // 保存時は新規フラグをクリア
+    newNodeId = null;
     
     const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
+    
+    // 保存前に期間を同期（終了日を再計算）
+    const s=document.getElementById('m-s').value;
+    const d=parseInt(document.getElementById('m-d').value)||1;
+    const sd=parseDate(s);
+    if(sd && !isNaN(d)){
+        document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10);
+    }
+    
     n.title=document.getElementById('m-tit').value;
     setField(n,"担当部署",document.getElementById('m-dep').value);
     setField(n,"予定開始",document.getElementById('m-s').value);
