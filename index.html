@@ -727,14 +727,10 @@ function changeGanttScale(v){
     function addFreeNode(){
     const id=Date.now();
     
-    // 画面中央のワールド座標を正しく計算
-    // ビューポート座標系からワールド座標系への変換
-    const centerScreenX = innerWidth / 2;
-    const centerScreenY = innerHeight / 2;
-    
-    // スケールとオフセットを考慮したワールド座標
-    const cx = (centerScreenX - st.x - innerWidth/2) / st.sc;
-    const cy = (centerScreenY - st.y - innerHeight/2) / st.sc;
+    // 画面中央のワールド座標を計算
+    // ノードの中心が画面中央に来るように、左上座標を調整
+    const cx = -st.x / st.sc - 120;  // 240px幅の半分
+    const cy = -st.y / st.sc - 80;   // 160px高さの半分
     
     st.nodes.push({
         id, 
@@ -752,7 +748,7 @@ function changeGanttScale(v){
         pIds:[]
     });
     sel(id,false);
-    ren();
+    ren();  // 有向グラフを描画
     
     // 衝突回避のため物理演算を実行
     phy.act = true;
@@ -939,7 +935,8 @@ function switchView(m){
     let i=0; 
     const tick=()=>{
         if(!phy.act||i>60){
-            phy.act=false;  // 終了時に必ずオフ
+            phy.act=false;
+            ren();  // 終了時に必ず描画
             return;
         }
         let mv=false;
@@ -955,16 +952,16 @@ function switchView(m){
         }
         if(mv)ren(); 
         i++; 
-        // 動きがなくなったら早期終了
         if(!mv && i>10){
             phy.act=false;
+            ren();  // 早期終了時も描画
             return;
         }
         requestAnimationFrame(tick);
     }; 
     tick();
 }
-
+    
     function fitToScreen(){
         if(!st.nodes.length)return;
         let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
