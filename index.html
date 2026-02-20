@@ -477,7 +477,7 @@ const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position=
     }
 // 1. ヘッダー部分（gbにはアクセスしない）
 } else {
-    // 四半期ヘッダー
+    // 四半期表示：タスク範囲内の四半期を全て表示
     const getFiscalQ=(d)=>{
         const m = d.getMonth();
         if(m >= 3 && m <= 5) return 1;
@@ -495,11 +495,17 @@ const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position=
     let shown = new Set();
     for(let i=0;i<=days;i++){
         const d=addDays(mn,i);
-        const q=getFiscalQ(d), y=d.getFullYear();
-        const fiscalYear = d.getMonth() < 3 ? y : y+1;
+        const m=d.getMonth();
+        const q=getFiscalQ(d);
+        const y=d.getFullYear();
+        const fiscalYear = m < 3 ? y : y+1;
         const key=`${fiscalYear}-FQ${q}`;
         
-        if(!shown.has(key) && d.getDate()===1 && [3,6,9,0].includes(d.getMonth())){
+        // 四半期の最初の月の1日、または範囲内で未表示の四半期
+        const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
+        const isFirstOccurrence = !shown.has(key) && (i===0 || isQuarterStart);
+        
+        if(isFirstOccurrence){
             const lbl=document.createElement('div');
             lbl.className='g-quarter-lbl';
             lbl.style.left=(i*px)+'px';
@@ -561,18 +567,24 @@ if(gSc===1){
     
     for(let i=0;i<=days;i++){
         const d=addDays(mn,i);
+        const m=d.getMonth();
         const q=getFiscalQ(d);
-        const fiscalYear = d.getMonth() < 3 ? d.getFullYear() : d.getFullYear()+1;
+        const fiscalYear = m < 3 ? d.getFullYear() : d.getFullYear()+1;
         const qKey=`${fiscalYear}-FQ${q}`;
-        const mKey=`${d.getFullYear()}-${d.getMonth()}`;
+        const mKey=`${d.getFullYear()}-${m}`;
         
-        if(!shownQuarter.has(qKey) && d.getDate()===1 && [3,6,9,0].includes(d.getMonth())){
+        // 四半期の太線
+        const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
+        const isFirstQuarter = !shownQuarter.has(qKey) && (i===0 || isQuarterStart);
+        
+        if(isFirstQuarter){
             const l=document.createElement('div');
             l.className='g-quarter-sep';
             l.style.left=`${i*px}px`;
             gb.appendChild(l);
             shownQuarter.add(qKey);
         }
+        // 月の薄線（四半期開始月以外の毎月1日）
         else if(!shownMonth.has(mKey) && d.getDate()===1){
             const l=document.createElement('div');
             l.className='g-month-light';
