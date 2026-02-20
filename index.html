@@ -808,29 +808,14 @@ st.nodes.forEach(n=>{
     n.pIds.forEach(pid=>{
         const p=ui[pid], ch=ui[n.id];
         if(p&&ch){
-            const sx=(p.l+p.r)/2, sy=p.b, ex=(ch.l+ch.r)/2, ey=ch.t;
+            // 親タスクの下端中央から出発
+            const sx=(p.l+p.r)/2, sy=p.b;
+            // 子タスクの上端中央に到着
+            const ex=(ch.l+ch.r)/2, ey=ch.t;
             
-            let d;
-            // 親と子が水平方向でオーバーラップしているか判定
-            const horizontalOverlap = !(ch.r < p.l || ch.l > p.r);
-            
-            if(horizontalOverlap){
-                // 重なっている場合：シンプルな垂直ルート
-                d = `M ${sx} ${sy} L ${sx} ${(sy+ey)/2} L ${ex} ${(sy+ey)/2} L ${ex} ${ey}`;
-            } else {
-                // 離れている場合：レーン境界を迂回
-                const midY = (sy + ey) / 2;
-                
-                if(ex < sx){
-                    // 子が左側：親の左端を経由
-                    const turnX = p.l - 10;
-                    d = `M ${sx} ${sy} L ${sx} ${midY - 20} L ${turnX} ${midY - 20} L ${turnX} ${midY + 20} L ${ex} ${midY + 20} L ${ex} ${ey}`;
-                } else {
-                    // 子が右側：親の右端を経由
-                    const turnX = p.r + 10;
-                    d = `M ${sx} ${sy} L ${sx} ${midY - 20} L ${turnX} ${midY - 20} L ${turnX} ${midY + 20} L ${ex} ${midY + 20} L ${ex} ${ey}`;
-                }
-            }
+            // シンプルな2セグメント経路
+            const midY = (sy + ey) / 2;
+            const d = `M ${sx} ${sy} L ${sx} ${midY} L ${ex} ${midY} L ${ex} ${ey}`;
             
             const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
             pt.setAttribute('d',d); 
@@ -841,6 +826,7 @@ st.nodes.forEach(n=>{
         }
     });
 });
+
     con.appendChild(svg); 
     c.appendChild(con);
 }
