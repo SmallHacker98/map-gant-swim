@@ -809,34 +809,84 @@ function switchView(m){
     if(pre.act && m!=='map')stopPresentation();
 }
     function autoAlign(){
-        const l={}; const q=st.nodes.filter(n=>n.pIds.length===0).map(n=>({id:n.id,v:0}));
-        const vis=new Set();
-        while(q.length){
-            const {id,v}=q.shift(); if(vis.has(id))continue; vis.add(id);
-            l[id]=Math.max(l[id]||0, v);
-            st.nodes.filter(n=>n.pIds.includes(id)).forEach(c=>q.push({id:c.id,v:v+1}));
-        }
-        const grp={}; st.nodes.forEach(n=>{const v=l[n.id]||0; if(!grp[v])grp[v]=[]; grp[v].push(n);});
-        
-        // Barycenter sort
-        Object.keys(grp).forEach(k=>{
-            const r=parseInt(k); if(r>0){
-                grp[r].sort((a,b)=>{
-                    const pa=st.nodes.filter(p=>a.pIds.includes(p.id)).reduce((s,x)=>s+x.y,0);
-                    const pb=st.nodes.filter(p=>b.pIds.includes(p.id)).reduce((s,x)=>s+x.y,0);
-                    return pa-pb;
-                });
-            }
-        });
-
-        const c=document.getElementById('canvas'); c.classList.add('smooth');
-        Object.keys(grp).forEach(v=>{
-            const ns=grp[v]; const sy=-((ns.length-1)*160)/2;
-            ns.forEach((n,i)=>{n.x=v*320; n.y=sy+i*160;});
-        });
-        setTimeout(()=>c.classList.remove('smooth'),400);
-        ren(); phy.act=true; runPhy();
+    // 1. レベル計算（BFS）
+    const levels = {};
+    const queue = st.nodes.filter(n=>n.pIds.length===0).map(n=>({id:n.id, lv:0}));
+    const visited = new Set();
+    
+    while(queue.length){
+        const {id, lv} = queue.shift();
+        if(visited.has(id)) continue;
+        visited.add(id);
+        levels[id] = Math.max(levels[id]||0, lv);
+        st.nodes.filter(n=>n.pIds.includes(id)).forEach(c=>queue.push({id:c.id, lv:lv+1}));
     }
+    
+    // 2. レベルごとにグループ化
+    const groups = {};
+    st.nodes.forEach(n=>{
+        const lv = levels[n.id]||0;
+        if(!groups[lv]) groups[lv] = [];
+        groups[lv].push(n);
+    });
+    
+    // 3. Barycenter法で並び替え（複数回反復）
+    const maxLv = Math.max(...Object.keys(groups).map(k=>parseInt(k)));
+    for(let iter=0; iter<10; iter++){
+        // 順方向（左から右）
+        for(let lv=1; lv<=maxLv; lv++){
+            if(!groups[lv]) continue;
+            groups[lv].forEach(n=>{
+                // 親ノードのY座標の平均を計算
+                const parents = st.nodes.filter(p=>n.pIds.includes(p.id));
+                if(parents.length>0){
+                    n._targetY = parents.reduce((sum,p)=>sum+p.y, 0) / parents.length;
+                } else {
+                    n._targetY = n.y;
+                }
+            });
+            // Y座標でソート
+            groups[lv].sort((a,b)=>(a._targetY||a.y) - (b._targetY||b.y));
+        }
+        
+        // 逆方向（右から左）
+        for(let lv=maxLv-1; lv>=0; lv--){
+            if(!groups[lv]) continue;
+            groups[lv].forEach(n=>{
+                // 子ノードのY座標の平均を計算
+                const children = st.nodes.filter(c=>c.pIds.includes(n.id));
+                if(children.length>0){
+                    n._targetY = children.reduce((sum,c)=>sum+c.y, 0) / children.length;
+                } else {
+                    n._targetY = n.y;
+                }
+            });
+            // Y座標でソート
+            groups[lv].sort((a,b)=>(a._targetY||a.y) - (b._targetY||b.y));
+        }
+    }
+    
+    // 4. 座標を割り当て
+    const c = document.getElementById('canvas');
+    c.classList.add('smooth');
+    Object.keys(groups).forEach(lv=>{
+        const nodes = groups[lv];
+        const spacing = 180; // ノード間隔
+        const totalHeight = (nodes.length-1) * spacing;
+        const startY = -totalHeight / 2;
+        
+        nodes.forEach((n, i)=>{
+            n.x = parseInt(lv) * 320;
+            n.y = startY + i * spacing;
+        });
+    });
+    
+    setTimeout(()=>c.classList.remove('smooth'), 400);
+    ren();
+    phy.act = true;
+    runPhy();
+}
+
     function runPhy(){
         let i=0; const tick=()=>{
             if(!phy.act||i>60)return;
