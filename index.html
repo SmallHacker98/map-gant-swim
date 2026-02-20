@@ -475,8 +475,9 @@ const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position=
             curMonth=m; curYear=y;
         }
     }
+// 1. ヘッダー部分（gbにはアクセスしない）
 } else {
-    // 四半期表示：四半期の太線 + 月の薄線
+    // 四半期ヘッダー
     const getFiscalQ=(d)=>{
         const m = d.getMonth();
         if(m >= 3 && m <= 5) return 1;
@@ -484,37 +485,39 @@ const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position=
         if(m >= 9 && m <= 11) return 3;
         return 4;
     };
+    const getQMonths=(q)=>{
+        if(q===1) return '4-6月';
+        if(q===2) return '7-9月';
+        if(q===3) return '10-12月';
+        return '1-3月';
+    };
     
-    let shownQuarter = new Set();
-    let shownMonth = new Set();
-    
+    let shown = new Set();
     for(let i=0;i<=days;i++){
         const d=addDays(mn,i);
-        const q=getFiscalQ(d);
-        const fiscalYear = d.getMonth() < 3 ? d.getFullYear() : d.getFullYear()+1;
-        const qKey=`${fiscalYear}-FQ${q}`;
-        const mKey=`${d.getFullYear()}-${d.getMonth()}`;
+        const q=getFiscalQ(d), y=d.getFullYear();
+        const fiscalYear = d.getMonth() < 3 ? y : y+1;
+        const key=`${fiscalYear}-FQ${q}`;
         
-        // 四半期の太線（4,7,10,1月の1日）
-        if(!shownQuarter.has(qKey) && d.getDate()===1 && [3,6,9,0].includes(d.getMonth())){
-            const l=document.createElement('div');
-            l.className='g-quarter-sep';
-            l.style.left=`${i*px}px`;
-            gb.appendChild(l);
-            shownQuarter.add(qKey);
-        }
-        // 月の薄線（毎月1日、四半期開始月以外）
-        else if(!shownMonth.has(mKey) && d.getDate()===1){
-            const l=document.createElement('div');
-            l.className='g-month-light';
-            l.style.left=`${i*px}px`;
-            gb.appendChild(l);
-            shownMonth.add(mKey);
+        if(!shown.has(key) && d.getDate()===1 && [3,6,9,0].includes(d.getMonth())){
+            const lbl=document.createElement('div');
+            lbl.className='g-quarter-lbl';
+            lbl.style.left=(i*px)+'px';
+            lbl.innerHTML=`FY${fiscalYear}/Q${q}<br><span style="font-size:10px;color:#7f8c8d;">${getQMonths(q)}</span>`;
+            hd.appendChild(lbl);
+            
+            const sep=document.createElement('div');
+            sep.className='g-quarter-sep';
+            sep.style.left=(i*px)+'px';
+            hd.appendChild(sep);
+            
+            shown.add(key);
         }
     }
 }
 c.appendChild(hd);
 
+// 2. wp, gb を定義
 const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
 const gb=document.createElement('div'); 
 gb.className='g-area'; 
@@ -522,7 +525,7 @@ gb.style.position='absolute';
 gb.style.width='100%';
 gb.style.marginLeft='200px';
 
-// グリッド線をヘッダーと同じ条件で描画
+// 3. gbにグリッド線を追加（ここでgbを使う）
 if(gSc===1){
     for(let i=0;i<=days;i++){
         const l=document.createElement('div');
@@ -544,22 +547,42 @@ if(gSc===1){
         }
     }
 } else {
-    const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
-    let shown = new Set();
+    // 四半期グリッド線（太線+薄線）
+    const getFiscalQ=(d)=>{
+        const m = d.getMonth();
+        if(m >= 3 && m <= 5) return 1;
+        if(m >= 6 && m <= 8) return 2;
+        if(m >= 9 && m <= 11) return 3;
+        return 4;
+    };
+    
+    let shownQuarter = new Set();
+    let shownMonth = new Set();
+    
     for(let i=0;i<=days;i++){
         const d=addDays(mn,i);
-        const q=getQ(d), y=d.getFullYear();
-        const key=`${y}-Q${q}`;
-        if(!shown.has(key) && d.getDate()===1 && (d.getMonth()%3)===0){
+        const q=getFiscalQ(d);
+        const fiscalYear = d.getMonth() < 3 ? d.getFullYear() : d.getFullYear()+1;
+        const qKey=`${fiscalYear}-FQ${q}`;
+        const mKey=`${d.getFullYear()}-${d.getMonth()}`;
+        
+        if(!shownQuarter.has(qKey) && d.getDate()===1 && [3,6,9,0].includes(d.getMonth())){
             const l=document.createElement('div');
             l.className='g-quarter-sep';
             l.style.left=`${i*px}px`;
             gb.appendChild(l);
-            shown.add(key);
+            shownQuarter.add(qKey);
+        }
+        else if(!shownMonth.has(mKey) && d.getDate()===1){
+            const l=document.createElement('div');
+            l.className='g-month-light';
+            l.style.left=`${i*px}px`;
+            gb.appendChild(l);
+            shownMonth.add(mKey);
         }
     }
 }
-wp.appendChild(gb);
+wp.appendChild(gb);wp.appendChild(gb);
 
     const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
     svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
