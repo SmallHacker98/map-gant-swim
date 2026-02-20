@@ -448,60 +448,40 @@ function changeGanttScale(v){
     const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='relative';
     
     if(gSc===1){
-    // 日表示：日付ヘッダー
+    // 日表示は変更なし
     for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        const ce=document.createElement('div');
-        ce.className='g-cell';
-        ce.style.width=px+'px';
-        ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;
-        hd.appendChild(ce);
+        const l=document.createElement('div');
+        l.className='g-grid';
+        l.style.left=`${i*px}px`;
+        gb.appendChild(l);
     }
 } else if(gSc===30){
-    // 月表示：月ごとのラベル
-    hd.style.minHeight='40px';
+    // 月表示：ヘッダーと同じ条件
     let curMonth=-1, curYear=-1;
     for(let i=0;i<=days;i++){
         const d=addDays(mn,i);
         const m=d.getMonth(), y=d.getFullYear();
-        if(m!==curMonth || y!==curYear){
-            const lbl=document.createElement('div');
-            lbl.className='g-month-lbl';
-            lbl.style.left=(i*px)+'px';  // ヘッダーのmargin-leftで自動調整される
-            lbl.innerText=`${y}/${m+1}月`;
-            hd.appendChild(lbl);
-            
-            const sep=document.createElement('div');
-            sep.className='g-month-sep';
-            sep.style.left=(i*px)+'px';  // ヘッダーのmargin-leftで自動調整される
-            hd.appendChild(sep);
+        if(m!==curMonth || y!==curYear){  // ← ヘッダーと同じ条件
+            const l=document.createElement('div');
+            l.className='g-month-sep';
+            l.style.left=`${i*px}px`;
+            gb.appendChild(l);
             curMonth=m; curYear=y;
         }
     }
 } else {
-    // 四半期表示：表示範囲の四半期を全て表示
-    hd.style.minHeight='40px';
+    // 四半期表示：ヘッダーと同じ条件
     const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
-    
     let shown = new Set();
     for(let i=0;i<=days;i++){
         const d=addDays(mn,i);
         const q=getQ(d), y=d.getFullYear();
         const key=`${y}-Q${q}`;
-        
-        // 四半期の最初の日、または未表示の四半期なら表示
-        if(!shown.has(key) && d.getDate()===1 && (d.getMonth()%3)===0){
-            const lbl=document.createElement('div');
-            lbl.className='g-quarter-lbl';
-            lbl.style.left=(i*px)+'px';  // ヘッダーのmargin-leftで自動調整される
-            lbl.innerText=`${y}/Q${q}`;
-            hd.appendChild(lbl);
-            
-            const sep=document.createElement('div');
-            sep.className='g-quarter-sep';
-            sep.style.left=(i*px)+'px';  // ヘッダーのmargin-leftで自動調整される
-            hd.appendChild(sep);
-            
+        if(!shown.has(key) && d.getDate()===1 && (d.getMonth()%3)===0){  // ← ヘッダーと同じ条件
+            const l=document.createElement('div');
+            l.className='g-quarter-sep';
+            l.style.left=`${i*px}px`;
+            gb.appendChild(l);
             shown.add(key);
         }
     }
