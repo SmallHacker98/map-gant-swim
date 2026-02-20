@@ -948,20 +948,23 @@ function switchView(m){
     
     Object.keys(groups).forEach(lv => {
         const nodes = groups[lv];
-        const spacing = 200;
+        const spacing = 250;  // 200 → 250 に増加
         const totalHeight = (nodes.length - 1) * spacing;
         const startY = -totalHeight / 2;
         
         nodes.forEach((n, i) => {
-            n.x = parseInt(lv) * 350;  // レイヤー間隔を広げる
+            n.x = parseInt(lv) * 380;  // 350 → 380 に増加
             n.y = startY + i * spacing;
-            n._y = n.y;  // 次の反復用に保存
+            n._y = n.y;
         });
     });
     
     setTimeout(() => {
         c.classList.remove('smooth');
         ren();
+        // 整列後に物理演算を実行
+        phy.act = true;
+        runPhy();
     }, 400);
     
     ren();
