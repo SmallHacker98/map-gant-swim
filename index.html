@@ -440,91 +440,81 @@ function changeGanttScale(v){
     mn=addDays(mn,-5); mx=addDays(mx,30); 
     const days=Math.max(10,Math.ceil((mx-mn)/86400000));
     
-    // スケールに応じたピクセル幅
     let px=40; 
-    if(gSc===30)px=20;      // 月表示：1日20px
-    if(gSc===90)px=8;       // 四半期表示：1日8px
+    if(gSc===30)px=20;
+    if(gSc===90)px=8;
     
     const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='relative';
     
     if(gSc===1){
-    // 日表示は変更なし
-    for(let i=0;i<=days;i++){
-        const l=document.createElement('div');
-        l.className='g-grid';
-        l.style.left=`${i*px}px`;
-        gb.appendChild(l);
-    }
-} else if(gSc===30){
-    // 月表示：ヘッダーと同じ条件
-    let curMonth=-1, curYear=-1;
-    for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        const m=d.getMonth(), y=d.getFullYear();
-        if(m!==curMonth || y!==curYear){  // ← ヘッダーと同じ条件
-            const l=document.createElement('div');
-            l.className='g-month-sep';
-            l.style.left=`${i*px}px`;
-            gb.appendChild(l);
-            curMonth=m; curYear=y;
+        for(let i=0;i<=days;i++){
+            const d=addDays(mn,i);
+            const ce=document.createElement('div');
+            ce.className='g-cell';
+            ce.style.width=px+'px';
+            ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;
+            hd.appendChild(ce);
+        }
+    } else if(gSc===30){
+        hd.style.minHeight='40px';
+        let curMonth=-1, curYear=-1;
+        for(let i=0;i<=days;i++){
+            const d=addDays(mn,i);
+            const m=d.getMonth(), y=d.getFullYear();
+            if(m!==curMonth || y!==curYear){
+                const lbl=document.createElement('div');
+                lbl.className='g-month-lbl';
+                lbl.style.left=(i*px)+'px';
+                lbl.innerText=`${y}/${m+1}月`;
+                hd.appendChild(lbl);
+                
+                const sep=document.createElement('div');
+                sep.className='g-month-sep';
+                sep.style.left=(i*px)+'px';
+                hd.appendChild(sep);
+                curMonth=m; curYear=y;
+            }
+        }
+    } else {
+        hd.style.minHeight='40px';
+        const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
+        let shown = new Set();
+        for(let i=0;i<=days;i++){
+            const d=addDays(mn,i);
+            const q=getQ(d), y=d.getFullYear();
+            const key=`${y}-Q${q}`;
+            if(!shown.has(key) && d.getDate()===1 && (d.getMonth()%3)===0){
+                const lbl=document.createElement('div');
+                lbl.className='g-quarter-lbl';
+                lbl.style.left=(i*px)+'px';
+                lbl.innerText=`${y}/Q${q}`;
+                hd.appendChild(lbl);
+                
+                const sep=document.createElement('div');
+                sep.className='g-quarter-sep';
+                sep.style.left=(i*px)+'px';
+                hd.appendChild(sep);
+                shown.add(key);
+            }
         }
     }
-} else {
-    // 四半期表示：ヘッダーと同じ条件
-    const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
-    let shown = new Set();
-    for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        const q=getQ(d), y=d.getFullYear();
-        const key=`${y}-Q${q}`;
-        if(!shown.has(key) && d.getDate()===1 && (d.getMonth()%3)===0){  // ← ヘッダーと同じ条件
-            const l=document.createElement('div');
-            l.className='g-quarter-sep';
-            l.style.left=`${i*px}px`;
-            gb.appendChild(l);
-            shown.add(key);
-        }
-    }
-}
     c.appendChild(hd);
 
     const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
     const gb=document.createElement('div'); 
-gb.className='g-area'; 
-gb.style.position='absolute'; 
-gb.style.width='100%';
-gb.style.marginLeft='200px';  // これを追加
-
+    gb.className='g-area'; 
+    gb.style.position='absolute'; 
+    gb.style.width='100%';
+    gb.style.marginLeft='200px';
     
-    // グリッド線（月・四半期でも表示）
     if(gSc===1){
-    for(let i=0;i<=days;i++){
-        const l=document.createElement('div');
-        l.className='g-grid';
-        l.style.left=`${i*px}px`;  // そのまま
-        gb.appendChild(l);
-    }
-} else if(gSc===30){
-    for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        if(d.getDate()===1){
+        for(let i=0;i<=days;i++){
             const l=document.createElement('div');
-            l.className='g-month-sep';
-            l.style.left=`${i*px}px`;  // そのまま
+            l.className='g-grid';
+            l.style.left=`${i*px}px`;
             gb.appendChild(l);
         }
     }
-} else {
-    for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        if(d.getDate()===1 && (d.getMonth()%3)===0){
-            const l=document.createElement('div');
-            l.className='g-quarter-sep';
-            l.style.left=`${i*px}px`;  // そのまま
-            gb.appendChild(l);
-        }
-    }
-}
     wp.appendChild(gb);
 
     const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
@@ -556,8 +546,7 @@ gb.style.marginLeft='200px';  // これを追加
         const area=document.createElement('div'); area.className='g-area';
         const off=Math.max(0,diffDays(mn,t.s)-1); const mil=t.dur===0;
         
-        // バーの最小幅を設定（見やすさ向上）
-        const minBarWidth = gSc===1?px:gSc===30?px*2:px*7; // 日:40px, 月:40px, 四半期:56px
+        const minBarWidth = gSc===1?px:gSc===30?px*2:px*7;
         
         const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p';
         p.style.left=mil?`${off*px-7}px`:`${off*px}px`; 
@@ -582,7 +571,6 @@ gb.style.marginLeft='200px';  // これを追加
         row.appendChild(area); row.onclick=()=>openEditModal(it.n.id); wp.appendChild(row); y+=40;
     });
     
-    // 依存関係の矢印（日表示のみ）
     if(gSc===1){
         items.forEach(it=>{
             it.n.pIds.forEach(pid=>{
@@ -602,7 +590,6 @@ gb.style.marginLeft='200px';  // これを追加
     }
     wp.appendChild(svg); c.appendChild(wp);
 }
-
 
     function renderSwimlane(){
         const c=document.getElementById('s-cnt'); c.innerHTML='';
