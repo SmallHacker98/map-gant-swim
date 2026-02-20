@@ -853,18 +853,97 @@ function switchView(m){
     if(pre.act && m!=='map')stopPresentation();
 }
     function autoAlign(){
-    // 1. レベル計算（BFS）
+    // 1. トポロジカルソートで厳密にレベルを決定
+    const inDegree = {};
     const levels = {};
-    const queue = st.nodes.filter(n=>n.pIds.length===0).map(n=>({id:n.id, lv:0}));
-    const visited = new Set();
+    st.nodes.forEach(n => {
+        inDegree[n.id] = n.pIds.length;
+        levels[n.id] = 0;
+    });
     
-    while(queue.length){
-        const {id, lv} = queue.shift();
-        if(visited.has(id)) continue;
-        visited.add(id);
-        levels[id] = Math.max(levels[id]||0, lv);
-        st.nodes.filter(n=>n.pIds.includes(id)).forEach(c=>queue.push({id:c.id, lv:lv+1}));
+    // 最長パスによるレベル計算
+    let changed = true;
+    for(let iter=0; iter<50 && changed; iter++){
+        changed = false;
+        st.nodes.forEach(n => {
+            if(n.pIds.length > 0){
+                const maxParentLevel = Math.max(...n.pIds.map(pid => levels[pid] || 0));
+                if(levels[n.id] !== maxParentLevel + 1){
+                    levels[n.id] = maxParentLevel + 1;
+                    changed = true;
+                }
+            }
+        });
     }
+    
+    // 2. レベルごとにグループ化
+    const groups = {};
+    st.nodes.forEach(n => {
+        const lv = levels[n.id];
+        if(!groups[lv]) groups[lv] = [];
+        groups[lv].push(n);
+    });
+    
+    // 3. Barycenter法で交錯を最小化（20回反復）
+    const maxLv = Math.max(...Object.keys(groups).map(k => parseInt(k)));
+    
+    for(let iter=0; iter<20; iter++){
+        // 左から右へ（親の位置を基準に子を並べる）
+        for(let lv=1; lv<=maxLv; lv++){
+            if(!groups[lv]) continue;
+            groups[lv].forEach(n => {
+                const parents = st.nodes.filter(p => n.pIds.includes(p.id));
+                if(parents.length > 0){
+                    // 親の平均Y座標
+                    n._sortKey = parents.reduce((sum, p) => sum + (p._y || p.y), 0) / parents.length;
+                } else {
+                    n._sortKey = n.y;
+                }
+            });
+            groups[lv].sort((a, b) => a._sortKey - b._sortKey);
+        }
+        
+        // 右から左へ（子の位置を基準に親を並べる）
+        for(let lv=maxLv-1; lv>=0; lv--){
+            if(!groups[lv]) continue;
+            groups[lv].forEach(n => {
+                const children = st.nodes.filter(c => c.pIds.includes(n.id));
+                if(children.length > 0){
+                    // 子の平均Y座標
+                    n._sortKey = children.reduce((sum, c) => sum + (c._y || c.y), 0) / children.length;
+                } else {
+                    n._sortKey = n._y || n.y;
+                }
+            });
+            groups[lv].sort((a, b) => a._sortKey - b._sortKey);
+        }
+    }
+    
+    // 4. 最終的な座標を割り当て
+    const c = document.getElementById('canvas');
+    c.classList.add('smooth');
+    
+    Object.keys(groups).forEach(lv => {
+        const nodes = groups[lv];
+        const spacing = 200;
+        const totalHeight = (nodes.length - 1) * spacing;
+        const startY = -totalHeight / 2;
+        
+        nodes.forEach((n, i) => {
+            n.x = parseInt(lv) * 350;  // レイヤー間隔を広げる
+            n.y = startY + i * spacing;
+            n._y = n.y;  // 次の反復用に保存
+        });
+    });
+    
+    setTimeout(() => {
+        c.classList.remove('smooth');
+        ren();
+    }, 400);
+    
+    ren();
+}
+
     
     // 2. レベルごとにグループ化
     const groups = {};
