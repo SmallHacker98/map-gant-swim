@@ -683,10 +683,10 @@ wp.appendChild(gb);
 }
 
     function renderSwimlane(){
-    const c=document.getElementById('s-cnt'); c.innerHTML='';
+       const c=document.getElementById('s-cnt'); c.innerHTML='';
     const ord=getOrd('s'); 
     
-    // レベル計算を厳密に（ガントチャートと同じロジック）
+    // レベル計算（変更なし）
     const levels = {};
     st.nodes.forEach(n => levels[n.id] = 0);
     
@@ -704,7 +704,11 @@ wp.appendChild(gb);
         });
     }
     
-    // Offset overlaps
+    // 最大レベルを計算して高さを決定
+    const maxLevel = Math.max(...Object.values(levels));
+    const minHeight = (maxLevel + 1) * 220 + 200; // 余裕を持たせる
+    
+    // Offset overlaps（変更なし）
     const posMap={}; 
     st.nodes.forEach(n=>{
         const raw=getField(n,"担当部署")||"未配属"; 
@@ -723,11 +727,13 @@ wp.appendChild(gb);
     const cw=300, con=document.createElement('div'); 
     con.className='s-cont'; 
     con.style.width=`${ord.length*cw}px`;
+    con.style.minHeight=`${minHeight}px`; // 最小高さを設定
     
     ord.forEach((d,i)=>{
         const col=document.createElement('div'); 
         col.className='s-col'; 
         col.style.background=dCols[i%6].bg;
+        col.style.minHeight=`${minHeight}px`; // カラムにも最小高さを設定
         const h=document.createElement('div'); 
         h.className='s-hdr'; 
         h.style.left=`${i*cw}px`; 
@@ -740,27 +746,39 @@ wp.appendChild(gb);
     const ui={};
     st.nodes.forEach(n=>{
         const raw=getField(n,"担当部署")||"未配属"; 
-        const mds=raw.split(/[,、]/).map(s=>s.trim());
-        let minI=ord.length, mx=-1;
-        mds.forEach(d=>{
-            const i=ord.indexOf(d); 
-            if(i>=0){
-                if(i<minI)minI=i;
-                if(i>mx)mx=i;
-            }
-        });
-        if(mx===-1){minI=0;mx=0;}
+        const mds=raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d);
+        
+        // 実際に関連する部署のインデックスを取得
+        const deptIndices = mds.map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);
+        
+        if(deptIndices.length === 0){
+            deptIndices.push(0); // デフォルト
+        }
+        
+        const minI = deptIndices[0];
+        const mx = deptIndices[deptIndices.length - 1];
         
         const el=document.createElement('div'); 
         el.className='node s-node';
         el.style.width=`${(mx-minI+1)*cw-40}px`; 
         el.style.left=`${minI*cw+20}px`; 
         
-        // レベルベースの垂直位置（親が必ず子より上）
         const bt=levels[n.id]*220+60, stag=(n._sOff||0)*110; 
         el.style.top=`${bt+stag}px`;
         
-        el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div><div style="padding:5px;font-size:11px;">${getField(n,"期間")}</div>`;
+        // 関連部署を視覚的に表示（ドットインジケーター）
+        let deptIndicator = '';
+        if(deptIndices.length > 1 && (mx - minI + 1) > deptIndices.length){
+            // 飛び飛びの部署がある場合、ドットで表示
+            deptIndicator = '<div style="display:flex;gap:3px;padding:2px 5px;font-size:9px;">';
+            for(let i = minI; i <= mx; i++){
+                const isActive = deptIndices.includes(i);
+                deptIndicator += `<span style="width:6px;height:6px;border-radius:50%;background:${isActive?'#2c3e50':'#ddd'};"></span>`;
+            }
+            deptIndicator += '</div>';
+        }
+        
+        el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")}</div>`;
         el.onclick=()=>openEditModal(n.id); 
         con.appendChild(el);
         ui[n.id]={l:minI*cw+20, r:(mx+1)*cw-20, t:bt+stag, b:bt+stag+60};
