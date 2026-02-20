@@ -237,7 +237,7 @@
     const dCols = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
     let st = { sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], sel: new Set([1]) };
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
-    let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1;
+    let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;  // ← ここに追加
     const cvs = document.getElementById('canvas'), vp = document.getElementById('viewport');
 
     // --- Core Funcs (Unified) ---
@@ -721,7 +721,7 @@ function changeGanttScale(v){
             y:ny, 
             pIds:isC?[p.id]:[...p.pIds]
         });
-        sel(id,false); openEditModal(id);
+        sel(id,false); openEditModal(id, true);
     }
     
     function addFreeNode(){
@@ -756,7 +756,7 @@ function changeGanttScale(v){
         runPhy();
     }, 100);
     
-    setTimeout(()=>openEditModal(id),200);
+    setTimeout(()=>openEditModal(id, true),200);
 }
 
 
@@ -815,6 +815,8 @@ function changeGanttScale(v){
     }
     function closeModal(){document.getElementById('modal').style.display='none';}
     function saveModal(){
+    newNodeId = null; // 保存時は新規フラグをクリア
+    
     const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
     n.title=document.getElementById('m-tit').value;
     setField(n,"担当部署",document.getElementById('m-dep').value);
@@ -828,9 +830,9 @@ function changeGanttScale(v){
     ren(); 
     if(mode==='gantt')renderGantt(); 
     if(mode==='swim')renderSwimlane();
-    closeModal(); 
-    // phy.act=true; runPhy(); ← 削除（モーダル保存で物理演算を実行しない）
+    closeModal();
 }
+
     function syncDate(k){
         const s=document.getElementById('m-s').value, e=document.getElementById('m-e').value, d=parseInt(document.getElementById('m-d').value)||1;
         const sd=parseDate(s), ed=parseDate(e);
