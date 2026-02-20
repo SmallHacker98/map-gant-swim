@@ -875,6 +875,7 @@ function switchView(m){
     else renderSwimlane();
     if(pre.act && m!=='map')stopPresentation();
 }
+
     function autoAlign(){
     // 1. トポロジカルソートで厳密にレベルを決定
     const inDegree = {};
@@ -917,7 +918,6 @@ function switchView(m){
             groups[lv].forEach(n => {
                 const parents = st.nodes.filter(p => n.pIds.includes(p.id));
                 if(parents.length > 0){
-                    // 親の平均Y座標
                     n._sortKey = parents.reduce((sum, p) => sum + (p._y || p.y), 0) / parents.length;
                 } else {
                     n._sortKey = n.y;
@@ -932,7 +932,6 @@ function switchView(m){
             groups[lv].forEach(n => {
                 const children = st.nodes.filter(c => c.pIds.includes(n.id));
                 if(children.length > 0){
-                    // 子の平均Y座標
                     n._sortKey = children.reduce((sum, c) => sum + (c._y || c.y), 0) / children.length;
                 } else {
                     n._sortKey = n._y || n.y;
@@ -948,12 +947,12 @@ function switchView(m){
     
     Object.keys(groups).forEach(lv => {
         const nodes = groups[lv];
-        const spacing = 250;  // 200 → 250 に増加
+        const spacing = 250;
         const totalHeight = (nodes.length - 1) * spacing;
         const startY = -totalHeight / 2;
         
         nodes.forEach((n, i) => {
-            n.x = parseInt(lv) * 380;  // 350 → 380 に増加
+            n.x = parseInt(lv) * 380;
             n.y = startY + i * spacing;
             n._y = n.y;
         });
@@ -965,6 +964,8 @@ function switchView(m){
         // 整列後に物理演算を実行
         phy.act = true;
         runPhy();
+        // 全体を画面に収める
+        setTimeout(() => fitToScreen(), 500);  // 物理演算完了を待つ
     }, 400);
     
     ren();
