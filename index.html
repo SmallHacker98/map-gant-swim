@@ -103,6 +103,7 @@
     #g-scale{top:80px;right:20px;z-index:3000;}  /* ← クラス(.)ではなくID(#)に変更 */
     
     /* Swimlane */
+    #s-fit{position:fixed;top:80px;right:20px;z-index:3000;}
     .s-cont{display:flex;min-height:100%;padding-top:40px;}
     .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;position:relative;display:flex;flex-direction:column;min-height:100%;}
     .s-hdr{position:absolute;top:0;width:300px;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:5;border-right:1px solid rgba(255,255,255,0.3);cursor:grab;}
@@ -143,7 +144,13 @@
         <div class="m-cnt">
             <h3 style="margin-top:0; color:#2c3e50;">タスク詳細</h3>
             <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
-            <div class="m-row"><label>担当部署 (カンマ区切)</label><input type="text" id="m-dep" list="dl-dept"></div><datalist id="dl-dept"></datalist>
+<div class="m-row">
+    <label>担当部署 (カンマ区切 or 選択)</label>
+    <input type="text" id="m-dep" placeholder="カンマ区切で複数入力可">
+    <select id="m-dep-list" style="margin-top:4px;" onchange="addDeptFromList()">
+        <option value="">-- 既存の部署から選択 --</option>
+    </select>
+</div>
             <div style="display:flex;gap:10px;">
                 <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncDate('start')"></div>
                 <div class="m-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="m-d" min="0" onchange="syncDate('d')" oninput="syncDate('d')"></div>
@@ -222,6 +229,11 @@
     <button onclick="changeGanttScale(1)" id="sc-day">日</button>
     <button onclick="changeGanttScale(30)" id="sc-month">月</button>
     <button onclick="changeGanttScale(90)" id="sc-quarter">四半期</button>
+</div>
+
+    <!-- スイムレーン用のフィットボタン -->
+<div id="s-fit" class="pnl" style="display:none;">
+    <button onclick="fitSwimlane()" title="全体表示">◎</button>
 </div>
     
     <div id="s-view" class="view">
@@ -912,23 +924,58 @@ wp.appendChild(gb);
     }
     
 function openEditModal(id, isNewNode = false){
-if(isNewNode) newNodeId = id;
-        curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
-        document.getElementById('m-tit').value=n.title;
-        document.getElementById('m-dep').value=getField(n,"担当部署")||"";
-        document.getElementById('m-s').value=getField(n,"予定開始");
-        document.getElementById('m-e').value=getField(n,"予定終了");
-        document.getElementById('m-d').value=parseInt(getField(n,"期間"))||1;
-        document.getElementById('m-st').value=getField(n,"ステータス")||"todo";
-        document.getElementById('m-p').value=parseInt(getField(n,"進捗"))||0; document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
-        document.getElementById('m-as').value=getField(n,"実績開始")||'';
-        document.getElementById('m-ae').value=getField(n,"実績終了")||'';
-        const dl=document.getElementById('dl-dept'); dl.innerHTML='';
-        const ds=new Set(); st.nodes.forEach(no=>(getField(no,"担当部署")||"").split(',').forEach(d=>ds.add(d.trim())));
-        ds.forEach(d=>{const o=document.createElement('option'); o.value=d; dl.appendChild(o);});
-        document.getElementById('modal').style.display='flex';
-        document.getElementById('m-tit').focus();
+    if(isNewNode) newNodeId = id;
+    curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
+    document.getElementById('m-tit').value=n.title;
+    document.getElementById('m-dep').value=getField(n,"担当部署")||"";
+    document.getElementById('m-s').value=getField(n,"予定開始");
+    document.getElementById('m-e').value=getField(n,"予定終了");
+    document.getElementById('m-d').value=parseInt(getField(n,"期間"))||1;
+    document.getElementById('m-st').value=getField(n,"ステータス")||"todo";
+    document.getElementById('m-p').value=parseInt(getField(n,"進捗"))||0; 
+    document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
+    document.getElementById('m-as').value=getField(n,"実績開始")||'';
+    document.getElementById('m-ae').value=getField(n,"実績終了")||'';
+    
+    // 部署リストを構築
+    const dl=document.getElementById('m-dep-list');
+    dl.innerHTML='<option value="">-- 既存の部署から選択 --</option>';
+    const ds=new Set(); 
+    st.nodes.forEach(no=>(getField(no,"担当部署")||"").split(/[,、]/).forEach(d=>{
+        const trimmed=d.trim();
+        if(trimmed)ds.add(trimmed);
+    }));
+    ds.forEach(d=>{
+        const o=document.createElement('option'); 
+        o.value=d; 
+        o.innerText=d;
+        dl.appendChild(o);
+    });
+    
+    document.getElementById('modal').style.display='flex';
+    document.getElementById('m-tit').focus();
+}
+
+    function addDeptFromList(){
+    const sel=document.getElementById('m-dep-list');
+    const val=sel.value;
+    if(!val)return;
+    
+    const inp=document.getElementById('m-dep');
+    const current=inp.value.trim();
+    if(current){
+        // 既に入力がある場合はカンマで追加
+        const depts=current.split(/[,、]/).map(s=>s.trim());
+        if(!depts.includes(val)){
+            inp.value=current+', '+val;
+        }
+    } else {
+        inp.value=val;
     }
+    sel.value='';  // 選択をリセット
+}
+
+    
 function closeModal(){
     // キャンセル時に新規ノードなら削除
     if(newNodeId !== null){
@@ -982,15 +1029,25 @@ function switchView(m){
     document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
     document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
     document.getElementById('pres').style.display=m==='map'?'flex':'none';
-    // スケールパネルの表示切り替えを追加
     document.getElementById('g-scale').style.display=m==='gantt'?'flex':'none';
+    document.getElementById('s-fit').style.display=m==='swim'?'flex':'none';  // 追加
     if(m==='map')ren(); 
     else if(m==='gantt'){
-        changeGanttScale(gSc); // 現在のスケールで再描画
+        changeGanttScale(gSc);
     } 
     else renderSwimlane();
     if(pre.act && m!=='map')stopPresentation();
 }
+
+    function fitSwimlane(){
+    const c=document.getElementById('s-cnt');
+    const con=c.querySelector('.s-cont');
+    if(!con)return;
+    const vb=document.getElementById('s-view').querySelector('.v-body');
+    vb.scrollLeft=0;
+    vb.scrollTop=0;
+}
+
 
     function autoAlign(){
     // 1. トポロジカルソートで厳密にレベルを決定
