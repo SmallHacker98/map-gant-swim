@@ -726,11 +726,15 @@ function changeGanttScale(v){
     
     function addFreeNode(){
     const id=Date.now();
-    phy.act = false;  // 物理演算を明示的に停止
     
-    // 画面中央のワールド座標
-    const cx = (-st.x + innerWidth/2) / st.sc;
-    const cy = (-st.y + innerHeight/2) / st.sc;
+    // 画面中央のワールド座標を正しく計算
+    // ビューポート座標系からワールド座標系への変換
+    const centerScreenX = innerWidth / 2;
+    const centerScreenY = innerHeight / 2;
+    
+    // スケールとオフセットを考慮したワールド座標
+    const cx = (centerScreenX - st.x - innerWidth/2) / st.sc;
+    const cy = (centerScreenY - st.y - innerHeight/2) / st.sc;
     
     st.nodes.push({
         id, 
@@ -749,6 +753,11 @@ function changeGanttScale(v){
     });
     sel(id,false);
     ren();
+    
+    // 衝突回避のため物理演算を実行
+    phy.act = true;
+    runPhy();
+    
     setTimeout(()=>openEditModal(id),50);
 }
 
