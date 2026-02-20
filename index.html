@@ -269,15 +269,18 @@
         const lp=document.getElementById('loupe');
         const lc=document.getElementById('loupe-content');
         
-        // 虫眼鏡の位置をカーソルに追従（右下にオフセット）
+        // 虫眼鏡の中心をカーソル位置に一致（250x250の半分=125）
         lp.style.display='block';
-        lp.style.left=(e.clientX+30)+'px';
-        lp.style.top=(e.clientY+30)+'px';
+        lp.style.left=(e.clientX-125)+'px';
+        lp.style.top=(e.clientY-125)+'px';
         
-        // カーソル位置を中心に拡大表示（3倍ズーム）
+        // カーソル位置（虫眼鏡の中心）を拡大の中心に
         const zoom = 3;
-        const offsetX = 125 - (e.clientX - st.x - innerWidth/2) * zoom / st.sc;
-        const offsetY = 125 - (e.clientY - st.y - innerHeight/2) * zoom / st.sc;
+        const vpCenterX = st.x + innerWidth/2;
+        const vpCenterY = st.y + innerHeight/2;
+        
+        const offsetX = 125 - (e.clientX - vpCenterX) * zoom;
+        const offsetY = 125 - (e.clientY - vpCenterY) * zoom;
         
         lc.innerHTML = cvs.innerHTML;
         lc.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom * st.sc})`;
