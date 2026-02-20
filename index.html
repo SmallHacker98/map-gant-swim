@@ -278,13 +278,13 @@
     const worldX = (e.clientX - st.x - innerWidth/2) / st.sc;
     const worldY = (e.clientY - st.y - innerHeight/2) / st.sc;
     
-    // 虫眼鏡内でカーソル位置（ワールド座標）を中心に表示
+    // 虫眼鏡内でカーソル位置（ワールド座標）が中心(125,125)に来るように変換
     const zoom = 3;
-    const offsetX = 125 - worldX * zoom * st.sc;
-    const offsetY = 125 - worldY * zoom * st.sc;
+    const tx = 125 - worldX * zoom * st.sc;
+    const ty = 125 - worldY * zoom * st.sc;
     
     lc.innerHTML = cvs.innerHTML;
-    lc.style.transform = `scale(${zoom}) translate(${offsetX/(zoom)}px, ${offsetY/(zoom)}px)`;
+    lc.style.transform = `translate(${tx}px, ${ty}px) scale(${zoom * st.sc})`;
     
     document.body.classList.add('magnify-cursor');
 } else {
@@ -726,9 +726,11 @@ function changeGanttScale(v){
     
     function addFreeNode(){
     const id=Date.now();
-    // ビューポート中央のワールド座標を計算
-    const cx = (innerWidth/2 - st.x - innerWidth/2) / st.sc;
-    const cy = (innerHeight/2 - st.y - innerHeight/2) / st.sc;
+    phy.act = false;  // 物理演算を明示的に停止
+    
+    // 画面中央のワールド座標
+    const cx = (-st.x + innerWidth/2) / st.sc;
+    const cy = (-st.y + innerHeight/2) / st.sc;
     
     st.nodes.push({
         id, 
@@ -748,7 +750,8 @@ function changeGanttScale(v){
     sel(id,false);
     ren();
     setTimeout(()=>openEditModal(id),50);
-}   
+}
+
     function deleteSelected(){
         if(st.sel.size===0||!confirm("削除しますか？"))return;
         st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));
@@ -804,19 +807,22 @@ function changeGanttScale(v){
     }
     function closeModal(){document.getElementById('modal').style.display='none';}
     function saveModal(){
-        const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
-        n.title=document.getElementById('m-tit').value;
-        setField(n,"担当部署",document.getElementById('m-dep').value);
-        setField(n,"予定開始",document.getElementById('m-s').value);
-        setField(n,"予定終了",document.getElementById('m-e').value);
-        setField(n,"期間",document.getElementById('m-d').value);
-        setField(n,"ステータス",document.getElementById('m-st').value);
-        setField(n,"進捗",document.getElementById('m-p').value);
-        setField(n,"実績開始",document.getElementById('m-as').value);
-        setField(n,"実績終了",document.getElementById('m-ae').value);
-        ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane();
-        closeModal(); phy.act=true; runPhy();
-    }
+    const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
+    n.title=document.getElementById('m-tit').value;
+    setField(n,"担当部署",document.getElementById('m-dep').value);
+    setField(n,"予定開始",document.getElementById('m-s').value);
+    setField(n,"予定終了",document.getElementById('m-e').value);
+    setField(n,"期間",document.getElementById('m-d').value);
+    setField(n,"ステータス",document.getElementById('m-st').value);
+    setField(n,"進捗",document.getElementById('m-p').value);
+    setField(n,"実績開始",document.getElementById('m-as').value);
+    setField(n,"実績終了",document.getElementById('m-ae').value);
+    ren(); 
+    if(mode==='gantt')renderGantt(); 
+    if(mode==='swim')renderSwimlane();
+    closeModal(); 
+    // phy.act=true; runPhy(); ← 削除（モーダル保存で物理演算を実行しない）
+}
     function syncDate(k){
         const s=document.getElementById('m-s').value, e=document.getElementById('m-e').value, d=parseInt(document.getElementById('m-d').value)||1;
         const sd=parseDate(s), ed=parseDate(e);
