@@ -527,6 +527,7 @@ function changeGanttScale(v){
                 const l=document.createElement('div');
                 l.className='g-month-sep';
                 l.style.left=`${i*px}px`;
+                l.style.left=`${i*px+200}px`;  // ← ここ
                 gb.appendChild(l);
             }
         }
@@ -538,6 +539,7 @@ function changeGanttScale(v){
                 const l=document.createElement('div');
                 l.className='g-quarter-sep';
                 l.style.left=`${i*px}px`;
+                l.style.left=`${i*px+200}px`;  // ← ここ
                 gb.appendChild(l);
             }
         }
