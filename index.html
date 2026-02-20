@@ -726,11 +726,11 @@ function changeGanttScale(v){
     
     function addFreeNode(){
     const id=Date.now();
+    phy.act = false;  // 既存の物理演算を停止
     
-    // 画面中央のワールド座標を計算
-    // ノードの中心が画面中央に来るように、左上座標を調整
-    const cx = -st.x / st.sc - 120;  // 240px幅の半分
-    const cy = -st.y / st.sc - 80;   // 160px高さの半分
+    // 画面中央のワールド座標を計算（少しランダムにずらす）
+    const cx = -st.x / st.sc - 120 + (Math.random() - 0.5) * 40;
+    const cy = -st.y / st.sc - 80 + (Math.random() - 0.5) * 40;
     
     st.nodes.push({
         id, 
@@ -748,14 +748,17 @@ function changeGanttScale(v){
         pIds:[]
     });
     sel(id,false);
-    ren();  // 有向グラフを描画
+    ren();
     
-    // 衝突回避のため物理演算を実行
-    phy.act = true;
-    runPhy();
+    // 物理演算を少し遅らせて確実に実行
+    setTimeout(() => {
+        phy.act = true;
+        runPhy();
+    }, 100);
     
-    setTimeout(()=>openEditModal(id),50);
+    setTimeout(()=>openEditModal(id),200);
 }
+
 
     function deleteSelected(){
         if(st.sel.size===0||!confirm("削除しますか？"))return;
@@ -947,9 +950,9 @@ function switchView(m){
     function runPhy(){
     let i=0; 
     const tick=()=>{
-        if(!phy.act||i>60){
+        if(!phy.act || i>100){  // 60→100に延長
             phy.act=false;
-            ren();  // 終了時に必ず描画
+            ren();
             return;
         }
         let mv=false;
@@ -957,17 +960,18 @@ function switchView(m){
             for(let b of st.nodes){
                 if(a===b)continue;
                 const dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy);
-                if(d<260 && d>0){
-                    const f=(260-d)*0.1, ang=Math.atan2(dy,dx);
+                if(d<280 && d>0.1){  // 260→280, d>0→d>0.1
+                    const f=(280-d)*0.15;  // 0.1→0.15（反発力を強化）
+                    const ang=Math.atan2(dy,dx);
                     a.x+=Math.cos(ang)*f; a.y+=Math.sin(ang)*f; mv=true;
                 }
             }
         }
         if(mv)ren(); 
         i++; 
-        if(!mv && i>10){
+        if(!mv && i>15){  // 10→15
             phy.act=false;
-            ren();  // 早期終了時も描画
+            ren();
             return;
         }
         requestAnimationFrame(tick);
