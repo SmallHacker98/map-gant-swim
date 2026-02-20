@@ -146,7 +146,7 @@
             <div class="m-row"><label>担当部署 (カンマ区切)</label><input type="text" id="m-dep" list="dl-dept"></div><datalist id="dl-dept"></datalist>
             <div style="display:flex;gap:10px;">
                 <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncDate('start')"></div>
-                <div class="m-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="m-d" min="0" onchange="syncDate('d')" oninput="syncDate('d')">
+                <div class="m-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="m-d" min="0" onchange="syncDate('d')" oninput="syncDate('d')"></div>
             </div>
             <div class="m-row"><label>予定終了</label><input type="date" id="m-e" onchange="syncDate('end')"></div>
             <div style="display:flex;gap:10px;">
@@ -594,7 +594,7 @@ if(gSc===1){
         }
     }
 }
-wp.appendChild(gb);wp.appendChild(gb);
+wp.appendChild(gb);
 
     const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
     svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
