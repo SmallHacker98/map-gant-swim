@@ -509,41 +509,42 @@ function changeGanttScale(v){
     c.appendChild(hd);
 
     const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
-    const gb=document.createElement('div'); gb.className='g-area'; gb.style.position='absolute'; gb.style.width='100%';
+    const gb=document.createElement('div'); 
+gb.className='g-area'; 
+gb.style.position='absolute'; 
+gb.style.width='100%';
+gb.style.marginLeft='200px';  // これを追加
+
     
     // グリッド線（月・四半期でも表示）
     if(gSc===1){
-        for(let i=0;i<=days;i++){
+    for(let i=0;i<=days;i++){
+        const l=document.createElement('div');
+        l.className='g-grid';
+        l.style.left=`${i*px}px`;  // そのまま
+        gb.appendChild(l);
+    }
+} else if(gSc===30){
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        if(d.getDate()===1){
             const l=document.createElement('div');
-            l.className='g-grid';
-            l.style.left=`${i*px}px`;
+            l.className='g-month-sep';
+            l.style.left=`${i*px}px`;  // そのまま
             gb.appendChild(l);
         }
-    } else if(gSc===30){
-        // 月表示：月初に太線
-        for(let i=0;i<=days;i++){
-            const d=addDays(mn,i);
-            if(d.getDate()===1){
-                const l=document.createElement('div');
-                l.className='g-month-sep';
-                l.style.left=`${i*px}px`;
-                l.style.left=`${i*px+200}px`;  // ← ここ
-                gb.appendChild(l);
-            }
-        }
-    } else {
-        // 四半期表示：四半期初に太線
-        for(let i=0;i<=days;i++){
-            const d=addDays(mn,i);
-            if(d.getDate()===1 && (d.getMonth()%3)===0){
-                const l=document.createElement('div');
-                l.className='g-quarter-sep';
-                l.style.left=`${i*px}px`;
-                l.style.left=`${i*px+200}px`;  // ← ここ
-                gb.appendChild(l);
-            }
+    }
+} else {
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        if(d.getDate()===1 && (d.getMonth()%3)===0){
+            const l=document.createElement('div');
+            l.className='g-quarter-sep';
+            l.style.left=`${i*px}px`;  // そのまま
+            gb.appendChild(l);
         }
     }
+}
     wp.appendChild(gb);
 
     const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
