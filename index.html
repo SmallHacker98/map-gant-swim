@@ -79,8 +79,8 @@
 
     /* Gantt */
     .g-wrap{position:relative;min-height:100%;}
-    .g-hdr{display:flex;height:30px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;}
-    .g-cell{flex-shrink:0;text-align:center;font-size:10px;line-height:30px;border-right:1px solid #eee;color:#555;}
+.g-hdr{display:flex;height:40px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;align-items:center;}
+.g-cell{flex-shrink:0;text-align:center;font-size:11px;line-height:40px;border-right:1px solid #eee;color:#555;}
     .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
     .g-row:hover{background:#f0f8ff;}
     .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;cursor:move;}
@@ -97,8 +97,8 @@
     .g-crit{border:2px solid var(--crit);}
     .g-month-sep{position:absolute;top:0;bottom:0;border-left:2px solid #bbb;z-index:1;}
     .g-quarter-sep{position:absolute;top:0;bottom:0;border-left:3px solid #7f8c8d;z-index:1;}
-    .g-month-lbl{position:absolute;top:5px;font-size:11px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:2px 6px;border-radius:3px;}
-    .g-quarter-lbl{position:absolute;top:5px;font-size:12px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:3px 8px;border-radius:4px;border:1px solid #ccc;}
+.g-month-lbl{position:absolute;top:10px;font-size:13px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:3px 8px;border-radius:3px;}
+.g-quarter-lbl{position:absolute;top:8px;font-size:14px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:4px;border:1px solid #ccc;}
     #g-scale{top:80px;right:20px;z-index:3000;}  /* ← クラス(.)ではなくID(#)に変更 */
     
     /* Swimlane */
@@ -444,78 +444,105 @@ function changeGanttScale(v){
     if(gSc===30)px=20;
     if(gSc===90)px=8;
     
-    const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='relative';
+const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='relative'; hd.style.height='40px';
     
     if(gSc===1){
-        for(let i=0;i<=days;i++){
-            const d=addDays(mn,i);
-            const ce=document.createElement('div');
-            ce.className='g-cell';
-            ce.style.width=px+'px';
-            ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;
-            hd.appendChild(ce);
-        }
-    } else if(gSc===30){
-        hd.style.minHeight='40px';
-        let curMonth=-1, curYear=-1;
-        for(let i=0;i<=days;i++){
-            const d=addDays(mn,i);
-            const m=d.getMonth(), y=d.getFullYear();
-            if(m!==curMonth || y!==curYear){
-                const lbl=document.createElement('div');
-                lbl.className='g-month-lbl';
-                lbl.style.left=(i*px)+'px';
-                lbl.innerText=`${y}/${m+1}月`;
-                hd.appendChild(lbl);
-                
-                const sep=document.createElement('div');
-                sep.className='g-month-sep';
-                sep.style.left=(i*px)+'px';
-                hd.appendChild(sep);
-                curMonth=m; curYear=y;
-            }
-        }
-    } else {
-        hd.style.minHeight='40px';
-        const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
-        let shown = new Set();
-        for(let i=0;i<=days;i++){
-            const d=addDays(mn,i);
-            const q=getQ(d), y=d.getFullYear();
-            const key=`${y}-Q${q}`;
-            if(!shown.has(key) && d.getDate()===1 && (d.getMonth()%3)===0){
-                const lbl=document.createElement('div');
-                lbl.className='g-quarter-lbl';
-                lbl.style.left=(i*px)+'px';
-                lbl.innerText=`${y}/Q${q}`;
-                hd.appendChild(lbl);
-                
-                const sep=document.createElement('div');
-                sep.className='g-quarter-sep';
-                sep.style.left=(i*px)+'px';
-                hd.appendChild(sep);
-                shown.add(key);
-            }
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        const ce=document.createElement('div');
+        ce.className='g-cell';
+        ce.style.width=px+'px';
+        ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;
+        hd.appendChild(ce);
+    }
+} else if(gSc===30){
+    let curMonth=-1, curYear=-1;
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        const m=d.getMonth(), y=d.getFullYear();
+        if(m!==curMonth || y!==curYear){
+            const lbl=document.createElement('div');
+            lbl.className='g-month-lbl';
+            lbl.style.left=(i*px)+'px';
+            lbl.innerText=`${y}/${m+1}月`;
+            hd.appendChild(lbl);
+            
+            const sep=document.createElement('div');
+            sep.className='g-month-sep';
+            sep.style.left=(i*px)+'px';
+            hd.appendChild(sep);
+            curMonth=m; curYear=y;
         }
     }
-    c.appendChild(hd);
+} else {
+    const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
+    let shown = new Set();
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        const q=getQ(d), y=d.getFullYear();
+        const key=`${y}-Q${q}`;
+        if(!shown.has(key) && d.getDate()===1 && (d.getMonth()%3)===0){
+            const lbl=document.createElement('div');
+            lbl.className='g-quarter-lbl';
+            lbl.style.left=(i*px)+'px';
+            lbl.innerText=`${y}/Q${q}`;
+            hd.appendChild(lbl);
+            
+            const sep=document.createElement('div');
+            sep.className='g-quarter-sep';
+            sep.style.left=(i*px)+'px';
+            hd.appendChild(sep);
+            shown.add(key);
+        }
+    }
+}
+c.appendChild(hd);
 
-    const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
-    const gb=document.createElement('div'); 
-    gb.className='g-area'; 
-    gb.style.position='absolute'; 
-    gb.style.width='100%';
-    gb.style.marginLeft='200px';
-    
-    if(gSc===1){
-        for(let i=0;i<=days;i++){
+const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
+const gb=document.createElement('div'); 
+gb.className='g-area'; 
+gb.style.position='absolute'; 
+gb.style.width='100%';
+gb.style.marginLeft='200px';
+
+// グリッド線をヘッダーと同じ条件で描画
+if(gSc===1){
+    for(let i=0;i<=days;i++){
+        const l=document.createElement('div');
+        l.className='g-grid';
+        l.style.left=`${i*px}px`;
+        gb.appendChild(l);
+    }
+} else if(gSc===30){
+    let curMonth=-1, curYear=-1;
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        const m=d.getMonth(), y=d.getFullYear();
+        if(m!==curMonth || y!==curYear){
             const l=document.createElement('div');
-            l.className='g-grid';
+            l.className='g-month-sep';
             l.style.left=`${i*px}px`;
             gb.appendChild(l);
+            curMonth=m; curYear=y;
         }
     }
-    wp.appendChild(gb);
+} else {
+    const getQ=(d)=>Math.floor(d.getMonth()/3)+1;
+    let shown = new Set();
+    for(let i=0;i<=days;i++){
+        const d=addDays(mn,i);
+        const q=getQ(d), y=d.getFullYear();
+        const key=`${y}-Q${q}`;
+        if(!shown.has(key) && d.getDate()===1 && (d.getMonth()%3)===0){
+            const l=document.createElement('div');
+            l.className='g-quarter-sep';
+            l.style.left=`${i*px}px`;
+            gb.appendChild(l);
+            shown.add(key);
+        }
+    }
+}
+wp.appendChild(gb);
 
     const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
     svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
