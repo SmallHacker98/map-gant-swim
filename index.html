@@ -266,31 +266,32 @@
     
     // Shift押下時に虫眼鏡表示
     if(mode==='map' && e.shiftKey){
-        const lp=document.getElementById('loupe');
-        const lc=document.getElementById('loupe-content');
-        
-        // 虫眼鏡の中心をカーソル位置に一致（250x250の半分=125）
-        lp.style.display='block';
-        lp.style.left=(e.clientX-125)+'px';
-        lp.style.top=(e.clientY-125)+'px';
-        
-        // カーソル位置（虫眼鏡の中心）を拡大の中心に
-        const zoom = 3;
-        const vpCenterX = st.x + innerWidth/2;
-        const vpCenterY = st.y + innerHeight/2;
-        
-        const offsetX = 125 - (e.clientX - vpCenterX) * zoom;
-        const offsetY = 125 - (e.clientY - vpCenterY) * zoom;
-        
-        lc.innerHTML = cvs.innerHTML;
-        lc.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${zoom * st.sc})`;
-        
-        // カーソルを十字に変更
-        document.body.classList.add('magnify-cursor');
-    } else {
-        document.getElementById('loupe').style.display='none';
-        document.body.classList.remove('magnify-cursor');
-    }
+    const lp=document.getElementById('loupe');
+    const lc=document.getElementById('loupe-content');
+    
+    // 虫眼鏡の中心をカーソル位置に一致
+    lp.style.display='block';
+    lp.style.left=(e.clientX-125)+'px';
+    lp.style.top=(e.clientY-125)+'px';
+    
+    // カーソル位置のワールド座標を計算
+    const worldX = (e.clientX - st.x - innerWidth/2) / st.sc;
+    const worldY = (e.clientY - st.y - innerHeight/2) / st.sc;
+    
+    // 虫眼鏡内でカーソル位置（ワールド座標）を中心に表示
+    const zoom = 3;
+    const offsetX = 125 - worldX * zoom * st.sc;
+    const offsetY = 125 - worldY * zoom * st.sc;
+    
+    lc.innerHTML = cvs.innerHTML;
+    lc.style.transform = `scale(${zoom}) translate(${offsetX/(zoom)}px, ${offsetY/(zoom)}px)`;
+    
+    document.body.classList.add('magnify-cursor');
+} else {
+    document.getElementById('loupe').style.display='none';
+    document.body.classList.remove('magnify-cursor');
+}
+
 };
         window.onmouseup = () => { panD.act=false; if(mapD && mapD.t==='node' && phy.act) runPhy(); mapD=null; };
         vp.onmousedown = e => { if(e.target===vp||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; if(pre.act)stopPresentation(); }};
@@ -725,10 +726,9 @@ function changeGanttScale(v){
     
     function addFreeNode(){
     const id=Date.now();
-    // ビューポートの中央座標（ワールド座標系）を計算
-    // ノードサイズ240x160の中心が画面中央に来るように調整
-    const cx = (-st.x + window.innerWidth/2)/st.sc - 120;
-    const cy = (-st.y + window.innerHeight/2)/st.sc - 80;
+    // ビューポート中央のワールド座標を計算
+    const cx = (innerWidth/2 - st.x - innerWidth/2) / st.sc;
+    const cy = (innerHeight/2 - st.y - innerHeight/2) / st.sc;
     
     st.nodes.push({
         id, 
@@ -748,9 +748,7 @@ function changeGanttScale(v){
     sel(id,false);
     ren();
     setTimeout(()=>openEditModal(id),50);
-}
-
-    
+}   
     function deleteSelected(){
         if(st.sel.size===0||!confirm("削除しますか？"))return;
         st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));
