@@ -1039,13 +1039,36 @@ function switchView(m){
     if(pre.act && m!=='map')stopPresentation();
 }
 
-    function fitSwimlane(){
-    const c=document.getElementById('s-cnt');
-    const con=c.querySelector('.s-cont');
-    if(!con)return;
+    ffunction fitSwimlane(){
     const vb=document.getElementById('s-view').querySelector('.v-body');
-    vb.scrollLeft=0;
-    vb.scrollTop=0;
+    const con=vb.querySelector('.s-cont');
+    if(!con)return;
+    
+    // 既存のtransformをリセット
+    con.style.transform = '';
+    con.style.transformOrigin = '';
+    
+    // 次のフレームで実際のサイズを取得（リセット後のサイズ）
+    setTimeout(() => {
+        const contentWidth = con.scrollWidth;
+        const contentHeight = con.scrollHeight;
+        
+        const viewWidth = vb.clientWidth;
+        const viewHeight = vb.clientHeight;
+        
+        // スケールを計算（余白を考慮して0.9倍）
+        const scaleX = (viewWidth / contentWidth) * 0.9;
+        const scaleY = (viewHeight / contentHeight) * 0.9;
+        const scale = Math.min(scaleX, scaleY, 1); // 拡大はしない
+        
+        if(scale < 1){
+            con.style.transform = `scale(${scale})`;
+            con.style.transformOrigin = 'top left';
+        }
+        
+        vb.scrollLeft = 0;
+        vb.scrollTop = 0;
+    }, 0);
 }
 
 
