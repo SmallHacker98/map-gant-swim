@@ -796,7 +796,8 @@ function changeGanttScale(v){
         ren();
     }
     
-    function openEditModal(id){
+function openEditModal(id, isNewNode = false){
+if(isNewNode) newNodeId = id;
         curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
         document.getElementById('m-tit').value=n.title;
         document.getElementById('m-dep').value=getField(n,"担当部署")||"";
@@ -813,7 +814,16 @@ function changeGanttScale(v){
         document.getElementById('modal').style.display='flex';
         document.getElementById('m-tit').focus();
     }
-    function closeModal(){document.getElementById('modal').style.display='none';}
+function closeModal(){
+    // キャンセル時に新規ノードなら削除
+    if(newNodeId !== null){
+        st.nodes = st.nodes.filter(n => n.id !== newNodeId);
+        st.sel.delete(newNodeId);
+        ren();
+    }
+    newNodeId = null;
+    document.getElementById('modal').style.display='none';
+}
     function saveModal(){
     newNodeId = null; // 保存時は新規フラグをクリア
     
