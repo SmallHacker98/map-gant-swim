@@ -18,10 +18,21 @@
 
     
     /* Layout */
-    #viewport{width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:20px 20px;}
+#viewport{
+    width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;
+    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+    background-size:20px 20px;
+}
     #viewport:active{cursor:grabbing;}
-    #canvas{transform-origin:0 0;position:absolute;top:0;left:0;}
-    .smooth{transition:transform 0.4s cubic-bezier(0.25,1,0.5,1);}
+#canvas{
+    transform-origin:0 0;
+    position:absolute;
+    top:0;
+    left:0;
+}
+.smooth{
+    transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
 
     /* Node */
     .node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:10;display:flex;flex-direction:column;overflow:hidden;}
@@ -306,16 +317,26 @@
 }
 
 };
-window.onmouseup = () => { 
-    panD.act=false; 
+
+        window.onmouseup = () => { 
+    panD.act=false;
+    vp.style.willChange = 'auto';  // 追加
+    
     if(mapD && mapD.t==='node'){
-        // ノード移動終了時は必ず物理演算を起動
         phy.act = true;
         runPhy();
     }
     mapD=null; 
 };
-        vp.onmousedown = e => { if(e.target===vp||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; if(pre.act)stopPresentation(); }};
+        
+vp.onmousedown = e => { 
+    if(e.target===vp||e.target.id==='canvas'){ 
+        mapD={t:'pan',x:e.clientX,y:e.clientY}; 
+        vp.style.willChange = 'background-position';  // 追加
+        if(pre.act)stopPresentation(); 
+    }
+};
+        
         vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); const os=st.sc; st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/os*st.sc; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/os*st.sc; ren(); };
         
     document.onkeydown = e => {
