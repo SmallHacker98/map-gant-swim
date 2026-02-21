@@ -1241,13 +1241,42 @@ function switchView(m){
 }
     
     function fitToScreen(){
-        if(!st.nodes.length)return;
-        let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
-        st.nodes.forEach(n=>{if(n.x<Mx)Mx=n.x; if(n.y<My)My=n.y; if(n.x+240>mx)mx=n.x+240; if(n.y+160>my)my=n.y+160;});
-        const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
-        st.sc=Math.max(0.1,sc); st.x=-(Mx+(mx-Mx)/2)*st.sc; st.y=-(My+(my-My)/2)*st.sc; ren();
-    }
-    function zoomIn(){st.sc*=1.2;ren();} function zoomOut(){st.sc*=0.8;ren();}
+    if(!st.nodes.length)return;
+    let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
+    st.nodes.forEach(n=>{if(n.x<Mx)Mx=n.x; if(n.y<My)My=n.y; if(n.x+240>mx)mx=n.x+240; if(n.y+160>my)my=n.y+160;});
+    const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
+    
+    // スムーズなアニメーション
+    const c = document.getElementById('canvas');
+    c.classList.add('smooth');
+    
+    st.sc=Math.max(0.1,sc); 
+    st.x=-(Mx+(mx-Mx)/2)*st.sc; 
+    st.y=-(My+(my-My)/2)*st.sc; 
+    ren();
+    
+    // アニメーション完了後にクラスを削除
+    setTimeout(() => {
+        c.classList.remove('smooth');
+    }, 400);
+}
+
+function zoomIn(){
+    const c = document.getElementById('canvas');
+    c.classList.add('smooth');
+    st.sc*=1.2;
+    ren();
+    setTimeout(() => c.classList.remove('smooth'), 400);
+}
+
+    function zoomOut(){
+    const c = document.getElementById('canvas');
+    c.classList.add('smooth');
+    st.sc = Math.max(0.1, st.sc * 0.8);  // 最小0.1倍まで
+    ren();
+    setTimeout(() => c.classList.remove('smooth'), 400);
+}
+
     function toggleScreenshotMode(){document.body.classList.toggle('sc-mode');alert("撮影モード(UI非表示)");}
     function jumpToNextMatch(auto=true){
         if(!qRes.length)return;
