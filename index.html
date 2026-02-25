@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v6.5</title>
+<title>Pro Map Suite v6.6</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -80,8 +80,8 @@
     .g-cell{flex-shrink:0;text-align:center;font-size:11px;line-height:40px;border-right:1px solid #eee;color:#555;font-weight:bold;}
     .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
     .g-row:hover{background:#f0f8ff;}
-    .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;cursor:move;}
-    .g-grp.all{background:#34495e;color:white;}
+    .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;cursor:grab;transition:background-color 0.2s;}
+    .g-grp.all{background:#34495e;color:white;cursor:default;}
     .g-lbl{width:200px;min-width:200px;padding:0 10px;border-right:1px solid #ddd;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:white;position:sticky;left:0;z-index:10;height:40px;display:flex;align-items:center;}
     .g-lbl.err{color:var(--crit);}
     .g-area{flex-grow:1;position:relative;height:100%;}
@@ -97,17 +97,23 @@
     .g-month-lbl{position:absolute;top:10px;font-size:13px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:3px 8px;border-radius:3px;}
     .g-quarter-lbl{position:absolute;top:8px;font-size:14px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:4px;border:1px solid #ccc;}
     
-    /* Swimlane (修正部分) */
+    /* Swimlane */
     .s-cont{display:flex;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
-    .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;}
-    /* 💡 top: 40px -> 0 に変更し、z-indexを強化 */
+    .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s, opacity 0.2s;}
     .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);cursor:grab;margin-top:-40px;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
 
-    .dept-arr{cursor:pointer;opacity:0.6;padding:0 8px;font-size:12px;user-select:none;color:white;}
-    .g-arr-btn{cursor:pointer;opacity:0.6;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;}
+    /* 💡 ドラッグ＆ドロップ時のフィードバック用スタイル */
+    .s-col.drag-over {
+        background-color: rgba(52, 152, 219, 0.15) !important;
+        box-shadow: inset 0 0 0 3px var(--accent);
+    }
+    .g-grp.drag-over {
+        background-color: #d6eaf8 !important;
+        box-shadow: inset 0 0 0 2px var(--accent);
+    }
 
     #modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:center;justify-content:center;}
     .m-cnt{background:white;padding:25px;border-radius:8px;width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
@@ -248,6 +254,7 @@
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
     let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;
     let gZoom = 1, sZoom = 1;
+    let dragDept = null, dragType = null; // 💡 ドラッグ&ドロップ用変数
     const cvs = document.getElementById('canvas'), vp = document.getElementById('viewport');
 
     function init() {
@@ -356,6 +363,53 @@
     function parseDate(s){if(!s)return null;const d=new Date(s);return isNaN(d)?null:d;}
     function addDays(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
     function diffDays(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
+
+    // 💡 ドラッグ＆ドロップ処理の統合関数
+    function dragStartDept(e, type) {
+        dragDept = e.currentTarget.dataset.dept;
+        dragType = type;
+        e.dataTransfer.effectAllowed = 'move';
+        
+        setTimeout(() => e.currentTarget.style.opacity = '0.4', 0); // 掴んでいる要素を半透明に
+        
+        // 誤った要素へのドロップを防ぐため、タスクカード等のポインターイベントを一時無効化
+        document.querySelectorAll(type === 's' ? '.s-node' : '.g-row, .g-area').forEach(el => el.style.pointerEvents = 'none');
+    }
+    function dragOverDept(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        return false;
+    }
+    function dragEnterDept(e) {
+        e.preventDefault();
+        if(e.currentTarget.dataset.dept !== dragDept) e.currentTarget.classList.add('drag-over');
+    }
+    function dragLeaveDept(e) {
+        e.currentTarget.classList.remove('drag-over');
+    }
+    function dropDept(e, type) {
+        e.stopPropagation();
+        e.currentTarget.classList.remove('drag-over');
+        const targetDept = e.currentTarget.dataset.dept;
+        
+        if (dragDept && dragDept !== targetDept && dragType === type) {
+            const arr = (type === 's') ? st.sOrd : st.gOrd;
+            const fromIdx = arr.indexOf(dragDept);
+            const toIdx = arr.indexOf(targetDept);
+            if (fromIdx !== -1 && toIdx !== -1) {
+                arr.splice(fromIdx, 1);
+                arr.splice(toIdx, 0, dragDept);
+                if (type === 's') renderSwimlane(); else renderGantt();
+            }
+        }
+        return false;
+    }
+    function dragEndDept(e) {
+        e.currentTarget.style.opacity = '1';
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        document.querySelectorAll('.s-node, .g-row, .g-area').forEach(el => el.style.pointerEvents = 'auto');
+        dragDept = null; dragType = null;
+    }
 
     function ren(){
         if(mode!=='map')return;
@@ -518,7 +572,6 @@
         }
 
         const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
-        // 💡 ズーム時のズレを防ぐため、ヘッダーをズームコンテナの内部に含める
         wp.appendChild(hd);
 
         const gb=document.createElement('div'); 
@@ -606,9 +659,24 @@
         items.forEach(it=>{
             const t=ts[it.n.id];
             if(it.d!==ld){
-                const gr=document.createElement('div'); gr.className='g-grp'+(it.d==='全体'?' all':'');
-                const arr=it.d!=='全体'?`<span class="g-arr-btn" onclick="mvD('g','${it.d}',-1)">▲</span><span class="g-arr-btn" onclick="mvD('g','${it.d}',1)">▼</span>`:'';
-                gr.innerHTML=`<div style="width:200px;padding-left:10px;">${arr} 📂 ${it.d}</div>`;
+                const gr=document.createElement('div'); 
+                gr.className='g-grp'+(it.d==='全体'?' all':'');
+                
+                // 💡 ドラッグ＆ドロップ用イベントの設定 (全体以外)
+                if(it.d !== '全体') {
+                    gr.draggable = true;
+                    gr.dataset.dept = it.d;
+                    gr.ondragstart = e => dragStartDept(e, 'g');
+                    gr.ondragover = dragOverDept;
+                    gr.ondragenter = dragEnterDept;
+                    gr.ondragleave = dragLeaveDept;
+                    gr.ondrop = e => dropDept(e, 'g');
+                    gr.ondragend = dragEndDept;
+                    gr.innerHTML=`<div style="width:200px;padding-left:10px;"><span style="opacity:0.4;margin-right:6px;">⣿</span> 📂 ${it.d}</div>`;
+                } else {
+                    gr.innerHTML=`<div style="width:200px;padding-left:10px;">📂 ${it.d}</div>`;
+                }
+                
                 wp.appendChild(gr); y+=30; ld=it.d;
             }
             const row=document.createElement('div'); row.className='g-row';
@@ -698,7 +766,6 @@
     function applyGanttZoom(){
         const wrap = document.querySelector('.g-wrap');
         if(!wrap) return;
-        // 💡 CSS zoom を用いてズーム時のレイアウト崩れを防ぐ
         if (CSS.supports("zoom", "1")) {
             wrap.style.zoom = gZoom;
         } else {
@@ -743,10 +810,20 @@
             col.className='s-col'; 
             col.style.background=dCols[i%6].bg; 
             
+            // 💡 ドラッグ＆ドロップ用イベントの設定
+            col.draggable = true;
+            col.dataset.dept = d;
+            col.ondragstart = e => dragStartDept(e, 's');
+            col.ondragover = dragOverDept;
+            col.ondragenter = dragEnterDept;
+            col.ondragleave = dragLeaveDept;
+            col.ondrop = e => dropDept(e, 's');
+            col.ondragend = dragEndDept;
+            
             const h=document.createElement('div'); 
             h.className='s-hdr'; 
             h.style.background=dCols[i%6].border;
-            h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span> ${d} <span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
+            h.innerHTML=`<span style="opacity:0.5; margin-right:6px;">⣿</span> ${d}`;
             
             col.appendChild(h);
             con.appendChild(col);
@@ -778,7 +855,6 @@
             
             while(collision){
                 collision = false;
-                // 💡 タスクがヘッダーの下に隠れないよう開始Y座標を下げる (60 -> 80)
                 const proposedY = lv * 220 + 80 + yOffset * 110;
                 
                 for(let p of placed[lv]){
@@ -821,7 +897,6 @@
         
         const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
         
-        // 💡 ズームアウト時に画面下部で背景が途切れないよう、ビューポート高さも考慮して高さを計算
         const viewH = c.clientHeight / (sZoom || 1);
         const totalHeight = Math.max(maxY + 200, viewH + 100);
         
@@ -870,12 +945,12 @@
 
     function swimZoomIn(){
         sZoom = Math.min(3, sZoom * 1.2);
-        renderSwimlane(); // 💡 ズーム値が変わった際に高さを再計算するため再描画
+        renderSwimlane(); 
     }
 
     function swimZoomOut(){
         sZoom = Math.max(0.5, sZoom * 0.8);
-        renderSwimlane(); // 💡 ズーム値が変わった際に高さを再計算するため再描画
+        renderSwimlane(); 
     }
 
     function fitSwimlane(){
@@ -893,7 +968,7 @@
         const scaleY = (viewHeight / contentHeight) * 0.9;
         sZoom = Math.min(scaleX, scaleY, 1);
         
-        renderSwimlane(); // 💡 ズーム値が変わった際に高さを再計算するため再描画
+        renderSwimlane(); 
         vb.scrollLeft = 0;
         vb.scrollTop = 0;
     }
@@ -930,10 +1005,6 @@
         act.forEach(d=>{if(!l.includes(d))l.push(d);});
         if(t==='swim')st.sOrd=l; else st.gOrd=l;
         return l.filter(d=>act.has(d));
-    }
-    function mvD(t,d,dir){
-        const l=t==='swim'?st.sOrd:st.gOrd; const i=l.indexOf(d);
-        if(i>-1 && i+dir>=0 && i+dir<l.length){ [l[i],l[i+dir]]=[l[i+dir],l[i]]; t==='swim'?renderSwimlane():renderGantt(); }
     }
     function sel(id,mul){
         if(!mul)st.sel.clear();
