@@ -105,15 +105,11 @@
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
 
-    /* 💡 ドラッグ＆ドロップ時のフィードバック用スタイル */
-    .s-col.drag-over {
-        background-color: rgba(52, 152, 219, 0.15) !important;
-        box-shadow: inset 0 0 0 3px var(--accent);
-    }
-    .g-grp.drag-over {
-        background-color: #d6eaf8 !important;
-        box-shadow: inset 0 0 0 2px var(--accent);
-    }
+    /* ドラッグ＆ドロップ時のフィードバック用スタイル */
+    .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
+    .g-grp.drag-over { background-color: #d6eaf8 !important; box-shadow: inset 0 0 0 2px var(--accent); }
+    /* ドラッグ中の子要素イベント無効化（チラつき防止） */
+    body.is-dragging .s-hdr, body.is-dragging .s-node, body.is-dragging .g-row, body.is-dragging .g-area { pointer-events: none !important; }
 
     #modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:center;justify-content:center;}
     .m-cnt{background:white;padding:25px;border-radius:8px;width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
@@ -254,8 +250,7 @@
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
     let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;
     let gZoom = 1, sZoom = 1;
-    let dragDept = null, dragType = null; // 💡 ドラッグ&ドロップ用変数
-    const cvs = document.getElementById('canvas'), vp = document.getElementById('viewport');
+    let dragDept = null, dragType = null; // ドラッグ状態管理
 
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
@@ -283,21 +278,16 @@
             if(mode==='map' && e.shiftKey){
                 const lp=document.getElementById('loupe');
                 const lc=document.getElementById('loupe-content');
-                
                 lp.style.display='block';
                 lp.style.left=(e.clientX-125)+'px';
                 lp.style.top=(e.clientY-125)+'px';
-                
                 const worldX = (e.clientX - st.x - innerWidth/2) / st.sc;
                 const worldY = (e.clientY - st.y - innerHeight/2) / st.sc;
-                
                 const zoom = 3;
                 const tx = 125 - worldX * zoom * st.sc;
                 const ty = 125 - worldY * zoom * st.sc;
-                
                 lc.innerHTML = cvs.innerHTML;
                 lc.style.transform = `translate(${tx}px, ${ty}px) scale(${zoom * st.sc})`;
-                
                 document.body.classList.add('magnify-cursor');
             } else {
                 document.getElementById('loupe').style.display='none';
@@ -325,14 +315,11 @@
         document.onkeydown = e => {
             const act=document.activeElement; 
             if (e.isComposing) return;
-            
             if(document.getElementById('modal').style.display!=='none'){ 
                 if(e.key==='Enter') { e.preventDefault(); saveModal(); return; }
                 if(e.key==='Escape') { e.preventDefault(); closeModal(); return; }
             }
-            
             if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
-            
             if(e.ctrlKey||e.metaKey){
                 if(e.key==='c'){ if(!act.tagName) e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
                 if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
@@ -364,29 +351,36 @@
     function addDays(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
     function diffDays(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
 
-    // 💡 ドラッグ＆ドロップ処理の統合関数
+    // --- ドラッグ＆ドロップ 処理 ---
     function dragStartDept(e, type) {
         dragDept = e.currentTarget.dataset.dept;
         dragType = type;
         e.dataTransfer.effectAllowed = 'move';
+        document.body.classList.add('is-dragging'); // チラつき防止クラス
         
-        setTimeout(() => e.currentTarget.style.opacity = '0.4', 0); // 掴んでいる要素を半透明に
-        
-        // 誤った要素へのドロップを防ぐため、タスクカード等のポインターイベントを一時無効化
-        document.querySelectorAll(type === 's' ? '.s-node' : '.g-row, .g-area').forEach(el => el.style.pointerEvents = 'none');
+        setTimeout(() => {
+            if (type === 's') e.currentTarget.parentElement.style.opacity = '0.4';
+            else e.currentTarget.style.opacity = '0.4';
+        }, 0);
     }
+    
     function dragOverDept(e) {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         return false;
     }
+    
     function dragEnterDept(e) {
         e.preventDefault();
-        if(e.currentTarget.dataset.dept !== dragDept) e.currentTarget.classList.add('drag-over');
+        if(e.currentTarget.dataset.dept !== dragDept) {
+            e.currentTarget.classList.add('drag-over');
+        }
     }
+    
     function dragLeaveDept(e) {
         e.currentTarget.classList.remove('drag-over');
     }
+    
     function dropDept(e, type) {
         e.stopPropagation();
         e.currentTarget.classList.remove('drag-over');
@@ -404,10 +398,14 @@
         }
         return false;
     }
+    
     function dragEndDept(e) {
-        e.currentTarget.style.opacity = '1';
+        if (dragType === 's') e.currentTarget.parentElement.style.opacity = '1';
+        else e.currentTarget.style.opacity = '1';
+        
+        document.body.classList.remove('is-dragging');
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        document.querySelectorAll('.s-node, .g-row, .g-area').forEach(el => el.style.pointerEvents = 'auto');
+        
         dragDept = null; dragType = null;
     }
 
@@ -662,7 +660,7 @@
                 const gr=document.createElement('div'); 
                 gr.className='g-grp'+(it.d==='全体'?' all':'');
                 
-                // 💡 ドラッグ＆ドロップ用イベントの設定 (全体以外)
+                // ガントチャートのドラッグ＆ドロップ
                 if(it.d !== '全体') {
                     gr.draggable = true;
                     gr.dataset.dept = it.d;
@@ -798,7 +796,6 @@
         }
         
         const placed = {};
-        
         const cw=300, con=document.createElement('div'); 
         con.className='s-cont'; 
         con.style.width=`${ord.length*cw}px`;
@@ -810,20 +807,23 @@
             col.className='s-col'; 
             col.style.background=dCols[i%6].bg; 
             
-            // 💡 ドラッグ＆ドロップ用イベントの設定
-            col.draggable = true;
+            // 💡 スイムレーンのドラッグ＆ドロップ（判定は列全体で行う）
             col.dataset.dept = d;
-            col.ondragstart = e => dragStartDept(e, 's');
             col.ondragover = dragOverDept;
             col.ondragenter = dragEnterDept;
             col.ondragleave = dragLeaveDept;
             col.ondrop = e => dropDept(e, 's');
-            col.ondragend = dragEndDept;
             
             const h=document.createElement('div'); 
             h.className='s-hdr'; 
             h.style.background=dCols[i%6].border;
             h.innerHTML=`<span style="opacity:0.5; margin-right:6px;">⣿</span> ${d}`;
+            
+            // 💡 ドラッグの開始はヘッダー部分を掴んだ時だけ
+            h.draggable = true;
+            h.dataset.dept = d;
+            h.ondragstart = e => dragStartDept(e, 's');
+            h.ondragend = dragEndDept;
             
             col.appendChild(h);
             con.appendChild(col);
@@ -831,7 +831,6 @@
         });
         
         const ui={};
-        
         const sortedNodes = [...st.nodes].sort((a,b) => levels[a.id] - levels[b.id]);
         
         sortedNodes.forEach(n=>{
@@ -839,10 +838,7 @@
             const mds=raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d);
             
             const deptIndices = mds.map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);
-            
-            if(deptIndices.length === 0){
-                deptIndices.push(0);
-            }
+            if(deptIndices.length === 0) deptIndices.push(0);
             
             const minI = deptIndices[0];
             const mx = deptIndices[deptIndices.length - 1];
@@ -856,11 +852,9 @@
             while(collision){
                 collision = false;
                 const proposedY = lv * 220 + 80 + yOffset * 110;
-                
                 for(let p of placed[lv]){
                     const horizontalOverlap = !(mx < p.minI || minI > p.maxI);
                     const verticalOverlap = Math.abs(proposedY - p.y) < 100;
-                    
                     if(horizontalOverlap && verticalOverlap){
                         collision = true;
                         yOffset++;
@@ -870,7 +864,6 @@
             }
             
             const finalY = lv * 220 + 80 + yOffset * 110;
-            
             placed[lv].push({minI, maxI: mx, y: finalY});
             
             const el=document.createElement('div'); 
@@ -896,7 +889,6 @@
         });
         
         const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
-        
         const viewH = c.clientHeight / (sZoom || 1);
         const totalHeight = Math.max(maxY + 200, viewH + 100);
         
@@ -923,10 +915,8 @@
                 if(p&&ch){
                     const sx=(p.l+p.r)/2, sy=p.b;
                     const ex=(ch.l+ch.r)/2, ey=ch.t;
-                    
                     const midY = (sy + ey) / 2;
                     const d = `M ${sx} ${sy} L ${sx} ${midY} L ${ex} ${midY} L ${ex} ${ey}`;
-                    
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
                     pt.setAttribute('d',d); 
                     pt.setAttribute('stroke','#7f8c8d'); 
