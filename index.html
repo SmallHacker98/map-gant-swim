@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v6.3</title>
+<title>Pro Map Suite v6.4</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -54,7 +54,6 @@
     path{fill:none;stroke:var(--line);stroke-width:2px;stroke-linecap:round;transition:stroke 0.2s;}
     path.crit{stroke:var(--high);stroke-width:3px;stroke-dasharray:5,3;} 
     path.err{stroke:var(--crit);stroke-width:3px;}
-    @keyframes dash{to{stroke-dashoffset:-8;}}
 
     /* Panels */
     .pnl{position:fixed;background:white;padding:6px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;gap:5px;z-index:1000;cursor:move;align-items:center;}
@@ -80,11 +79,11 @@
     .view{position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;display:none;flex-direction:column;}
     .v-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;padding-top:20px;}
     .v-title{font-size:18px;font-weight:bold;color:#333;}
-    .v-body{flex-grow:1;overflow:auto;position:relative;}
+    .v-body{flex-grow:1;overflow:auto;position:relative;min-height:100vh;}
 
     /* Gantt */
     .g-month-light{position:absolute;top:0;bottom:0;border-left:1px solid #ddd;z-index:1;}
-    .g-wrap{position:relative;min-height:100%;transform-origin:top left;transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}
+    .g-wrap{position:relative;min-height:100%;transform-origin:top left;}
     .g-hdr{display:flex;height:40px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;align-items:center;}
     .g-cell{flex-shrink:0;text-align:center;font-size:11px;line-height:40px;border-right:1px solid #eee;color:#555;font-weight:bold;}
     .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
@@ -97,7 +96,7 @@
     .g-grid{position:absolute;top:0;bottom:0;border-left:1px dashed #eee;z-index:0;}
     .g-bar-p{position:absolute;top:6px;height:10px;background:#bdc3c7;border-radius:2px;opacity:0.9;z-index:1;pointer-events:none;}
     .g-mil-p{position:absolute;top:6px;width:14px;height:14px;background:#bdc3c7;transform:rotate(45deg);z-index:1;border:1px solid #999;}
-    .g-bar-a{position:absolute;top:18px;height:14px;border-radius:3px;color:white;font-size:10px;line-height:14px;padding:0 2px;whitespace:nowrap;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.2);z-index:2;cursor:pointer;transition:transform 0.1s;}
+    .g-bar-a{position:absolute;top:18px;height:14px;border-radius:3px;color:white;font-size:10px;line-height:14px;padding:0 2px;white-space:nowrap;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.2);z-index:2;cursor:pointer;transition:transform 0.1s;}
     .g-bar-a:hover{transform:scale(1.02);z-index:3;}
     .g-mil-a{position:absolute;top:18px;width:16px;height:16px;transform:rotate(45deg);box-shadow:0 2px 4px rgba(0,0,0,0.2);z-index:2;cursor:pointer;border:2px solid #fff;}
     .g-crit{border:2px solid var(--crit);}
@@ -107,9 +106,9 @@
     .g-quarter-lbl{position:absolute;top:8px;font-size:14px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:4px;border:1px solid #ccc;}
     
     /* Swimlane */
-    .s-cont{display:flex;min-height:100%;padding-top:40px;transform-origin:top left;transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}
-    .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;position:relative;display:flex;flex-direction:column;min-height:100%;}
-    .s-hdr{position:absolute;top:0;width:300px;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:5;border-right:1px solid rgba(255,255,255,0.3);cursor:grab;}
+    .s-cont{display:flex;min-height:100%;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
+    .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;min-height:100%;}
+    .s-hdr{position:sticky;top:40px;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:10;border-right:1px solid rgba(255,255,255,0.3);cursor:grab;margin-top:-40px;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
@@ -226,7 +225,6 @@
         <div id="g-cnt" class="v-body"></div>
     </div>
 
-    <!-- Ganttスケールパネル -->
     <div id="g-scale" class="pnl" style="display:none;">
         <button onclick="changeGanttScale(1)" id="sc-day">日</button>
         <button onclick="changeGanttScale(30)" id="sc-month">月</button>
@@ -237,7 +235,6 @@
         <button onclick="ganttFitToScreen()" title="全体表示">◎</button>
     </div>
 
-    <!-- Swimlaneフィットパネル -->
     <div id="s-fit" class="pnl" style="display:none;">
         <button onclick="swimZoomIn()" title="拡大">＋</button>
         <button onclick="swimZoomOut()" title="縮小">－</button>
@@ -266,7 +263,7 @@
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
             const start = (e, cx, cy) => {
-                if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT')return;
+                if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
                 const rect = p.getBoundingClientRect();
                 panD = { act:true, el:p, ox:cx-rect.left, oy:cy-rect.top };
                 p.style.left = rect.left + 'px'; p.style.top = rect.top + 'px'; p.style.right = 'auto'; p.style.bottom = 'auto';
@@ -471,7 +468,7 @@
         if(gSc===30)px=20;
         if(gSc===90)px=8;
         
-        const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='relative'; hd.style.height='40px';
+        const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='sticky'; hd.style.top='0'; hd.style.height='40px';
         
         if(gSc===1){
             for(let i=0;i<=days;i++){
@@ -544,9 +541,11 @@
                 }
             }
         }
-        c.appendChild(hd);
 
         const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
+        // 💡 修正：ヘッダーを `g-wrap` の中に含めることで、ズームした際に一緒に拡大縮小されズレを防ぐ
+        wp.appendChild(hd);
+
         const gb=document.createElement('div'); 
         gb.className='g-area'; 
         gb.style.position='absolute'; 
@@ -628,7 +627,7 @@
             return ts[a.n.id].s-ts[b.n.id].s;
         });
         
-        let y=0, ld=null;
+        let y=40, ld=null; // header height 40px offset
         items.forEach(it=>{
             const t=ts[it.n.id];
             if(it.d!==ld){
@@ -688,8 +687,7 @@
         wp.appendChild(svg); 
         c.appendChild(wp);
         
-        // ズーム適用
-        setTimeout(() => applyGanttZoom(), 0);
+        applyGanttZoom();
     }
 
     function ganttZoomIn(){
@@ -707,8 +705,10 @@
         const wrap = vb.querySelector('.g-wrap');
         if(!wrap) return;
         
-        const contentWidth = wrap.scrollWidth / gZoom;
-        const contentHeight = wrap.scrollHeight / gZoom;
+        // zoomプロパティを一時解除して本来のサイズを取得
+        wrap.style.zoom = 1;
+        const contentWidth = wrap.scrollWidth;
+        const contentHeight = wrap.scrollHeight;
         const viewWidth = vb.clientWidth;
         const viewHeight = vb.clientHeight;
         
@@ -724,7 +724,16 @@
     function applyGanttZoom(){
         const wrap = document.querySelector('.g-wrap');
         if(!wrap) return;
-        wrap.style.transform = `scale(${gZoom})`;
+        // 💡 修正：transform の代わりに CSS zoom を使用し、sticky要素やスクロール領域の問題を解決
+        if (CSS.supports("zoom", "1")) {
+            wrap.style.zoom = gZoom;
+        } else {
+            // Firefoxの古いバージョン用フォールバック
+            wrap.style.transform = `scale(${gZoom})`;
+            wrap.style.transformOrigin = "top left";
+            wrap.style.marginBottom = `${wrap.scrollHeight * (gZoom - 1)}px`;
+            wrap.style.marginRight = `${wrap.scrollWidth * (gZoom - 1)}px`;
+        }
     }
     
     function renderSwimlane(){
@@ -754,17 +763,21 @@
         con.className='s-cont'; 
         con.style.width=`${ord.length*cw}px`;
         
+        const cols = []; 
+        
         ord.forEach((d,i)=>{
             const col=document.createElement('div'); 
             col.className='s-col'; 
-            col.style.background=dCols[i%6].bg;
+            col.style.background=dCols[i%6].bg; 
+            
             const h=document.createElement('div'); 
             h.className='s-hdr'; 
-            h.style.left=`${i*cw}px`; 
             h.style.background=dCols[i%6].border;
             h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span> ${d} <span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
-            con.appendChild(h); 
+            
+            col.appendChild(h);
             con.appendChild(col);
+            cols.push(col);
         });
         
         const ui={};
@@ -835,12 +848,16 @@
         const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
         const totalHeight = maxY + 100;
         con.style.minHeight=`${totalHeight}px`;
-        con.querySelectorAll('.s-col').forEach(col => {
-            col.style.minHeight=`${totalHeight}px`;
-            col.style.height=`${totalHeight}px`;  // heightも明示的に設定
-        });
+        
+        // 💡 修正：各列（部署）の高さを親要素の最大高さに合わせることで背景の途切れを防ぐ
+        cols.forEach(col => col.style.minHeight = `${totalHeight}px`);
         
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); 
+        svg.style.position='absolute';
+        svg.style.top='0';
+        svg.style.left='0';
+        svg.style.width='100%';
+        svg.style.height='100%';
         svg.style.zIndex=5;
         svg.innerHTML='<defs><marker id="sa" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs>';
 
@@ -867,8 +884,7 @@
         con.appendChild(svg); 
         c.appendChild(con);
         
-        // ズーム適用
-        setTimeout(() => applySwimZoom(), 0);
+        applySwimZoom();
     }
 
     function swimZoomIn(){
@@ -881,19 +897,14 @@
         applySwimZoom();
     }
 
-    function applySwimZoom(){
-        const con = document.querySelector('.s-cont');
-        if(!con) return;
-        con.style.transform = `scale(${sZoom})`;
-    }
-
     function fitSwimlane(){
         const vb = document.getElementById('s-view').querySelector('.v-body');
         const con = vb.querySelector('.s-cont');
         if(!con) return;
         
-        const contentWidth = con.scrollWidth / sZoom;
-        const contentHeight = con.scrollHeight / sZoom;
+        con.style.zoom = 1;
+        const contentWidth = con.scrollWidth;
+        const contentHeight = con.scrollHeight;
         const viewWidth = vb.clientWidth;
         const viewHeight = vb.clientHeight;
         
@@ -904,6 +915,20 @@
         applySwimZoom();
         vb.scrollLeft = 0;
         vb.scrollTop = 0;
+    }
+
+    function applySwimZoom(){
+        const con = document.querySelector('.s-cont');
+        if(!con) return;
+        // 💡 修正：こちらも CSS zoom を使用し、親コンテナサイズを適切に認識させる
+        if (CSS.supports("zoom", "1")) {
+            con.style.zoom = sZoom;
+        } else {
+            con.style.transform = `scale(${sZoom})`;
+            con.style.transformOrigin = "top left";
+            con.style.marginBottom = `${con.scrollHeight * (sZoom - 1)}px`;
+            con.style.marginRight = `${con.scrollWidth * (sZoom - 1)}px`;
+        }
     }
 
     function ana(){
