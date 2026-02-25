@@ -13,26 +13,18 @@
 
     /*Shift キーで虫眼鏡機能*/
     #loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9000;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
-#loupe-content{transform-origin:center center;width:100%;height:100%;position:absolute;}
-.magnify-cursor{cursor:crosshair !important;}
+    #loupe-content{transform-origin:center center;width:100%;height:100%;position:absolute;}
+    .magnify-cursor{cursor:crosshair !important;}
 
-    
     /* Layout */
-#viewport{
-    width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;
-    background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
-    background-size:20px 20px;
-}
+    #viewport{
+        width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;
+        background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+        background-size:20px 20px;
+    }
     #viewport:active{cursor:grabbing;}
-#canvas{
-    transform-origin:0 0;
-    position:absolute;
-    top:0;
-    left:0;
-}
-.smooth{
-    transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-}
+    #canvas{transform-origin:0 0;position:absolute;top:0;left:0;}
+    .smooth{transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}
 
     /* Node */
     .node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:10;display:flex;flex-direction:column;overflow:hidden;}
@@ -81,6 +73,8 @@
     #edit{bottom:20px;left:20px;}
     #pres{bottom:20px;left:50%;transform:translateX(-50%);display:none;}
     #pres-ind{position:fixed;top:0;left:0;width:100%;height:40px;background:var(--crit);color:white;display:none;align-items:center;justify-content:center;z-index:3000;pointer-events:none;font-weight:bold;}
+    #g-scale{top:80px;right:20px;z-index:3000;}
+    #s-fit{top:80px;right:20px;z-index:3000;}
     
     /* Views */
     .view{position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;display:none;flex-direction:column;}
@@ -90,9 +84,9 @@
 
     /* Gantt */
     .g-month-light{position:absolute;top:0;bottom:0;border-left:1px solid #ddd;z-index:1;}
-    .g-wrap{position:relative;min-height:100%;}
-.g-hdr{display:flex;height:40px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;align-items:center;}
-.g-cell{flex-shrink:0;text-align:center;font-size:11px;line-height:40px;border-right:1px solid #eee;color:#555;font-weight:bold;}
+    .g-wrap{position:relative;min-height:100%;transform-origin:top left;transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}
+    .g-hdr{display:flex;height:40px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;align-items:center;}
+    .g-cell{flex-shrink:0;text-align:center;font-size:11px;line-height:40px;border-right:1px solid #eee;color:#555;font-weight:bold;}
     .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
     .g-row:hover{background:#f0f8ff;}
     .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;cursor:move;}
@@ -109,13 +103,11 @@
     .g-crit{border:2px solid var(--crit);}
     .g-month-sep{position:absolute;top:0;bottom:0;border-left:2px solid #bbb;z-index:1;}
     .g-quarter-sep{position:absolute;top:0;bottom:0;border-left:3px solid #7f8c8d;z-index:1;}
-.g-month-lbl{position:absolute;top:10px;font-size:13px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:3px 8px;border-radius:3px;}
-.g-quarter-lbl{position:absolute;top:8px;font-size:14px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:4px;border:1px solid #ccc;}
-    #g-scale{top:80px;right:20px;z-index:3000;}  /* ← クラス(.)ではなくID(#)に変更 */
+    .g-month-lbl{position:absolute;top:10px;font-size:13px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:3px 8px;border-radius:3px;}
+    .g-quarter-lbl{position:absolute;top:8px;font-size:14px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:4px;border:1px solid #ccc;}
     
     /* Swimlane */
-    #s-fit{position:fixed;top:80px;right:20px;z-index:3000;}
-    .s-cont{display:flex;min-height:100%;padding-top:40px;}
+    .s-cont{display:flex;min-height:100%;padding-top:40px;transform-origin:top left;transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}
     .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;position:relative;display:flex;flex-direction:column;min-height:100%;}
     .s-hdr{position:absolute;top:0;width:300px;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:5;border-right:1px solid rgba(255,255,255,0.3);cursor:grab;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
@@ -137,7 +129,6 @@
     input[type="range"]{width:100%;}
 
     #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:6000;}
-    #loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9000;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
     
     /* ScreenShot Mode */
     .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
@@ -155,13 +146,13 @@
         <div class="m-cnt">
             <h3 style="margin-top:0; color:#2c3e50;">タスク詳細</h3>
             <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
-<div class="m-row">
-    <label>担当部署 (カンマ区切 or 選択)</label>
-    <input type="text" id="m-dep" placeholder="カンマ区切で複数入力可">
-    <select id="m-dep-list" style="margin-top:4px;" onchange="addDeptFromList()">
-        <option value="">-- 既存の部署から選択 --</option>
-    </select>
-</div>
+            <div class="m-row">
+                <label>担当部署 (カンマ区切 or 選択)</label>
+                <input type="text" id="m-dep" placeholder="カンマ区切で複数入力可">
+                <select id="m-dep-list" style="margin-top:4px;" onchange="addDeptFromList()">
+                    <option value="">-- 既存の部署から選択 --</option>
+                </select>
+            </div>
             <div style="display:flex;gap:10px;">
                 <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncDate('start')"></div>
                 <div class="m-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="m-d" min="0" onchange="syncDate('d')" oninput="syncDate('d')"></div>
@@ -228,24 +219,30 @@
         </div>
     </div>
 
-<div id="g-view" class="view">
-    <div class="v-head">
-        <div class="v-title">プロジェクト工程表 (Gantt)</div>
+    <div id="g-view" class="view">
+        <div class="v-head">
+            <div class="v-title">プロジェクト工程表 (Gantt)</div>
+        </div>
+        <div id="g-cnt" class="v-body"></div>
     </div>
-    <div id="g-cnt" class="v-body"></div>
-</div>
 
-    <!-- スケールパネルを独立させる（viewsパネルの後） -->
-<div id="g-scale" class="pnl" style="display:none;">
-    <button onclick="changeGanttScale(1)" id="sc-day">日</button>
-    <button onclick="changeGanttScale(30)" id="sc-month">月</button>
-    <button onclick="changeGanttScale(90)" id="sc-quarter">四半期</button>
-</div>
+    <!-- Ganttスケールパネル -->
+    <div id="g-scale" class="pnl" style="display:none;">
+        <button onclick="changeGanttScale(1)" id="sc-day">日</button>
+        <button onclick="changeGanttScale(30)" id="sc-month">月</button>
+        <button onclick="changeGanttScale(90)" id="sc-quarter">四半期</button>
+        <div class="sep"></div>
+        <button onclick="ganttZoomIn()" title="拡大">＋</button>
+        <button onclick="ganttZoomOut()" title="縮小">－</button>
+        <button onclick="ganttFitToScreen()" title="全体表示">◎</button>
+    </div>
 
-    <!-- スイムレーン用のフィットボタン -->
-<div id="s-fit" class="pnl" style="display:none;">
-    <button onclick="fitSwimlane()" title="全体表示">◎</button>
-</div>
+    <!-- Swimlaneフィットパネル -->
+    <div id="s-fit" class="pnl" style="display:none;">
+        <button onclick="swimZoomIn()" title="拡大">＋</button>
+        <button onclick="swimZoomOut()" title="縮小">－</button>
+        <button onclick="fitSwimlane()" title="全体表示">◎</button>
+    </div>
     
     <div id="s-view" class="view">
         <div class="v-head">
@@ -261,7 +258,8 @@
     const dCols = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
     let st = { sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], sel: new Set([1]) };
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
-    let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;  // ← ここに追加
+    let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;
+    let gZoom = 1, sZoom = 1;
     const cvs = document.getElementById('canvas'), vp = document.getElementById('viewport');
 
     // --- Core Funcs (Unified) ---
@@ -277,102 +275,97 @@
             p.ontouchstart = e => start(e, e.touches[0].clientX, e.touches[0].clientY);
         });
         window.onmousemove = e => {
-    if(panD.act && panD.el){ 
-        panD.el.style.left=(e.clientX-panD.ox)+'px'; 
-        panD.el.style.top=(e.clientY-panD.oy)+'px'; 
-        return; 
-    }
-    if(mapD){
-        if(mapD.t==='pan'){ st.x+=e.clientX-mapD.x; st.y+=e.clientY-mapD.y; }
-        else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id==id); if(n){n.x+=(e.clientX-mapD.x)/st.sc; n.y+=(e.clientY-mapD.y)/st.sc;} }); }
-        mapD.x=e.clientX; mapD.y=e.clientY; ren(); return;
-    }
-    
-    // Shift押下時に虫眼鏡表示
-    if(mode==='map' && e.shiftKey){
-    const lp=document.getElementById('loupe');
-    const lc=document.getElementById('loupe-content');
-    
-    // 虫眼鏡の中心をカーソル位置に一致
-    lp.style.display='block';
-    lp.style.left=(e.clientX-125)+'px';
-    lp.style.top=(e.clientY-125)+'px';
-    
-    // カーソル位置のワールド座標を計算
-    const worldX = (e.clientX - st.x - innerWidth/2) / st.sc;
-    const worldY = (e.clientY - st.y - innerHeight/2) / st.sc;
-    
-    // 虫眼鏡内でカーソル位置（ワールド座標）が中心(125,125)に来るように変換
-    const zoom = 3;
-    const tx = 125 - worldX * zoom * st.sc;
-    const ty = 125 - worldY * zoom * st.sc;
-    
-    lc.innerHTML = cvs.innerHTML;
-    lc.style.transform = `translate(${tx}px, ${ty}px) scale(${zoom * st.sc})`;
-    
-    document.body.classList.add('magnify-cursor');
-} else {
-    document.getElementById('loupe').style.display='none';
-    document.body.classList.remove('magnify-cursor');
-}
-
-};
+            if(panD.act && panD.el){ 
+                panD.el.style.left=(e.clientX-panD.ox)+'px'; 
+                panD.el.style.top=(e.clientY-panD.oy)+'px'; 
+                return; 
+            }
+            if(mapD){
+                if(mapD.t==='pan'){ st.x+=e.clientX-mapD.x; st.y+=e.clientY-mapD.y; }
+                else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id==id); if(n){n.x+=(e.clientX-mapD.x)/st.sc; n.y+=(e.clientY-mapD.y)/st.sc;} }); }
+                mapD.x=e.clientX; mapD.y=e.clientY; ren(); return;
+            }
+            
+            // Shift押下時に虫眼鏡表示
+            if(mode==='map' && e.shiftKey){
+                const lp=document.getElementById('loupe');
+                const lc=document.getElementById('loupe-content');
+                
+                lp.style.display='block';
+                lp.style.left=(e.clientX-125)+'px';
+                lp.style.top=(e.clientY-125)+'px';
+                
+                const worldX = (e.clientX - st.x - innerWidth/2) / st.sc;
+                const worldY = (e.clientY - st.y - innerHeight/2) / st.sc;
+                
+                const zoom = 3;
+                const tx = 125 - worldX * zoom * st.sc;
+                const ty = 125 - worldY * zoom * st.sc;
+                
+                lc.innerHTML = cvs.innerHTML;
+                lc.style.transform = `translate(${tx}px, ${ty}px) scale(${zoom * st.sc})`;
+                
+                document.body.classList.add('magnify-cursor');
+            } else {
+                document.getElementById('loupe').style.display='none';
+                document.body.classList.remove('magnify-cursor');
+            }
+        };
 
         window.onmouseup = () => { 
-    panD.act=false;
-    vp.style.willChange = 'auto';  // 追加
-    
-    if(mapD && mapD.t==='node'){
-        phy.act = true;
-        runPhy();
-    }
-    mapD=null; 
-};
+            panD.act=false;
+            vp.style.willChange = 'auto';
+            
+            if(mapD && mapD.t==='node'){
+                phy.act = true;
+                runPhy();
+            }
+            mapD=null; 
+        };
         
-vp.onmousedown = e => { 
-    if(e.target===vp||e.target.id==='canvas'){ 
-        mapD={t:'pan',x:e.clientX,y:e.clientY}; 
-        vp.style.willChange = 'background-position';  // 追加
-        if(pre.act)stopPresentation(); 
-    }
-};
+        vp.onmousedown = e => { 
+            if(e.target===vp||e.target.id==='canvas'){ 
+                mapD={t:'pan',x:e.clientX,y:e.clientY}; 
+                vp.style.willChange = 'background-position';
+                if(pre.act)stopPresentation(); 
+            }
+        };
         
         vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); const os=st.sc; st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/os*st.sc; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/os*st.sc; ren(); };
         
-    document.onkeydown = e => {
-    const act=document.activeElement; 
-    if (e.isComposing) return;
-    
-    // Modal Shortcuts (最優先処理)
-    if(document.getElementById('modal').style.display!=='none'){ 
-        if(e.key==='Enter') {
-            e.preventDefault();
-            saveModal();
-            return;
-        }
-        if(e.key==='Escape') {
-            e.preventDefault();
-            closeModal();
-            return;
-        }
-    }
-    
-    // INPUT/SELECTにフォーカスがある場合は他のショートカットをスキップ
-    if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
-    
-    if(e.ctrlKey||e.metaKey){
-        if(e.key==='c'){ if(!act.tagName) e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
-        if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
-        if(e.key==='s'){ e.preventDefault(); saveOver(); }
-        if(e.key==='o'){ e.preventDefault(); openFile(); }
-    }
-    if(st.sel.size>0 && act.tagName!=='INPUT'){ 
-        if(e.key==='Tab'){e.preventDefault(); addNode('child');}
-        if(e.key==='Enter'){e.preventDefault(); addNode('sibling');}
-        if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}
-    }
-    };
-
+        document.onkeydown = e => {
+            const act=document.activeElement; 
+            if (e.isComposing) return;
+            
+            // Modal Shortcuts (最優先処理)
+            if(document.getElementById('modal').style.display!=='none'){ 
+                if(e.key==='Enter') {
+                    e.preventDefault();
+                    saveModal();
+                    return;
+                }
+                if(e.key==='Escape') {
+                    e.preventDefault();
+                    closeModal();
+                    return;
+                }
+            }
+            
+            // INPUT/SELECTにフォーカスがある場合は他のショートカットをスキップ
+            if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
+            
+            if(e.ctrlKey||e.metaKey){
+                if(e.key==='c'){ if(!act.tagName) e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
+                if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
+                if(e.key==='s'){ e.preventDefault(); saveOver(); }
+                if(e.key==='o'){ e.preventDefault(); openFile(); }
+            }
+            if(st.sel.size>0 && act.tagName!=='INPUT'){ 
+                if(e.key==='Tab'){e.preventDefault(); addNode('child');}
+                if(e.key==='Enter'){e.preventDefault(); addNode('sibling');}
+                if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}
+            }
+        };
         
         const qIn = document.getElementById('q-in');
         qIn.oninput = e => {
@@ -406,18 +399,17 @@ vp.onmousedown = e => {
                 el=document.createElement('div'); el.className='node'; el.dataset.id=d.id;
                 el.innerHTML=`<div class="nh"></div><div class="nt"></div><div class="np"><div class="np-bar"></div></div><div class="nf"></div><div class="n-add">＋</div>`;
                 el.querySelector('.nh').onmousedown=e=>{
-    e.stopPropagation();
-    if(!e.ctrlKey && !e.metaKey && !st.sel.has(d.id)) sel(d.id,false);
-    else if(e.ctrlKey || e.metaKey) sel(d.id, true);
-    mapD={t:'node',x:e.clientX,y:e.clientY,ids:Array.from(st.sel)};
-};
+                    e.stopPropagation();
+                    if(!e.ctrlKey && !e.metaKey && !st.sel.has(d.id)) sel(d.id,false);
+                    else if(e.ctrlKey || e.metaKey) sel(d.id, true);
+                    mapD={t:'node',x:e.clientX,y:e.clientY,ids:Array.from(st.sel)};
+                };
                 el.onmousedown=e=>{
-    e.stopPropagation(); 
-    if(e.altKey){toggleConnection(d.id,true);return;}
-    if(lnk.act){toggleConnection(d.id,false);return;}
-    // Shiftを削除し、Ctrl/Cmdのみ複数選択
-    sel(d.id, e.ctrlKey||e.metaKey);
-};
+                    e.stopPropagation(); 
+                    if(e.altKey){toggleConnection(d.id,true);return;}
+                    if(lnk.act){toggleConnection(d.id,false);return;}
+                    sel(d.id, e.ctrlKey||e.metaKey);
+                };
                 el.ondblclick=e=>{e.stopPropagation();openEditModal(d.id);};
                 el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();};
                 c.appendChild(el);
@@ -455,402 +447,464 @@ vp.onmousedown = e => {
         pg.innerHTML=h;
     }
 
-function changeGanttScale(v){
-    gSc=v;
-    document.getElementById('sc-day').className = v===1?'act':'';
-    document.getElementById('sc-month').className = v===30?'act':'';
-    document.getElementById('sc-quarter').className = v===90?'act':'';
-    renderGantt();
-}
+    function changeGanttScale(v){
+        gSc=v;
+        document.getElementById('sc-day').className = v===1?'act':'';
+        document.getElementById('sc-month').className = v===30?'act':'';
+        document.getElementById('sc-quarter').className = v===90?'act':'';
+        renderGantt();
+    }
+
     function renderGantt(){
-    const c=document.getElementById('g-cnt'); c.innerHTML='';
-    const ord=getOrd('g'); const ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
-    st.nodes.forEach(n=>{
-        const s=parseDate(getField(n,"予定開始"))||new Date(todayStr), dur=parseInt(getField(n,"期間")||1);
-        const e=dur===0?s:addDays(s,dur-1); const as=parseDate(getField(n,"実績開始")), ae=parseDate(getField(n,"実績終了"));
-        ts[n.id]={n,s,e,as,ae,dur,st:getField(n,"ステータス")||"todo",pg:parseInt(getField(n,"進捗")||0)};
-        if(s<mn)mn=s; if(e>mx)mx=e; if(as&&as<mn)mn=as; if(ae&&ae>mx)mx=ae;
-    });
-    mn=addDays(mn,-5); mx=addDays(mx,30); 
-    const days=Math.max(10,Math.ceil((mx-mn)/86400000));
-    
-    let px=40; 
-    if(gSc===30)px=20;
-    if(gSc===90)px=8;
-    
-const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='relative'; hd.style.height='40px';
-    
-    if(gSc===1){
-    for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        const ce=document.createElement('div');
-        ce.className='g-cell';
-        ce.style.width=px+'px';
-        ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;
-        hd.appendChild(ce);
-    }
-} else if(gSc===30){
-    let curMonth=-1, curYear=-1;
-    for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        const m=d.getMonth(), y=d.getFullYear();
-        if(m!==curMonth || y!==curYear){
-            const lbl=document.createElement('div');
-            lbl.className='g-month-lbl';
-            lbl.style.left=(i*px)+'px';
-            lbl.innerText=`${y}/${m+1}月`;
-            hd.appendChild(lbl);
-            
-            const sep=document.createElement('div');
-            sep.className='g-month-sep';
-            sep.style.left=(i*px)+'px';
-            hd.appendChild(sep);
-            curMonth=m; curYear=y;
-        }
-    }
-// 1. ヘッダー部分（gbにはアクセスしない）
-} else {
-    // 四半期表示：タスク範囲内の四半期を全て表示
-    const getFiscalQ=(d)=>{
-        const m = d.getMonth();
-        if(m >= 3 && m <= 5) return 1;
-        if(m >= 6 && m <= 8) return 2;
-        if(m >= 9 && m <= 11) return 3;
-        return 4;
-    };
-    const getQMonths=(q)=>{
-        if(q===1) return '4-6月';
-        if(q===2) return '7-9月';
-        if(q===3) return '10-12月';
-        return '1-3月';
-    };
-    
-    let shown = new Set();
-    for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        const m=d.getMonth();
-        const q=getFiscalQ(d);
-        const y=d.getFullYear();
-        const fiscalYear = m < 3 ? y : y+1;
-        const key=`${fiscalYear}-FQ${q}`;
+        const c=document.getElementById('g-cnt'); c.innerHTML='';
+        const ord=getOrd('g'); const ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
+        st.nodes.forEach(n=>{
+            const s=parseDate(getField(n,"予定開始"))||new Date(todayStr), dur=parseInt(getField(n,"期間")||1);
+            const e=dur===0?s:addDays(s,dur-1); const as=parseDate(getField(n,"実績開始")), ae=parseDate(getField(n,"実績終了"));
+            ts[n.id]={n,s,e,as,ae,dur,st:getField(n,"ステータス")||"todo",pg:parseInt(getField(n,"進捗")||0)};
+            if(s<mn)mn=s; if(e>mx)mx=e; if(as&&as<mn)mn=as; if(ae&&ae>mx)mx=ae;
+        });
+        mn=addDays(mn,-5); mx=addDays(mx,30); 
+        const days=Math.max(10,Math.ceil((mx-mn)/86400000));
         
-        // 四半期の最初の月の1日、または範囲内で未表示の四半期
-        const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
-        const isFirstOccurrence = !shown.has(key) && (i===0 || isQuarterStart);
+        let px=40; 
+        if(gSc===30)px=20;
+        if(gSc===90)px=8;
         
-        if(isFirstOccurrence){
-            const lbl=document.createElement('div');
-            lbl.className='g-quarter-lbl';
-            lbl.style.left=(i*px)+'px';
-            lbl.innerHTML=`FY${fiscalYear}/Q${q}<br><span style="font-size:10px;color:#7f8c8d;">${getQMonths(q)}</span>`;
-            hd.appendChild(lbl);
-            
-            const sep=document.createElement('div');
-            sep.className='g-quarter-sep';
-            sep.style.left=(i*px)+'px';
-            hd.appendChild(sep);
-            
-            shown.add(key);
-        }
-    }
-}
-c.appendChild(hd);
-
-// 2. wp, gb を定義
-const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
-const gb=document.createElement('div'); 
-gb.className='g-area'; 
-gb.style.position='absolute'; 
-gb.style.width='100%';
-gb.style.marginLeft='200px';
-
-// 3. gbにグリッド線を追加（ここでgbを使う）
-if(gSc===1){
-    for(let i=0;i<=days;i++){
-        const l=document.createElement('div');
-        l.className='g-grid';
-        l.style.left=`${i*px}px`;
-        gb.appendChild(l);
-    }
-} else if(gSc===30){
-    let curMonth=-1, curYear=-1;
-    for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        const m=d.getMonth(), y=d.getFullYear();
-        if(m!==curMonth || y!==curYear){
-            const l=document.createElement('div');
-            l.className='g-month-sep';
-            l.style.left=`${i*px}px`;
-            gb.appendChild(l);
-            curMonth=m; curYear=y;
-        }
-    }
-} else {
-    // 四半期グリッド線（太線+薄線）
-    const getFiscalQ=(d)=>{
-        const m = d.getMonth();
-        if(m >= 3 && m <= 5) return 1;
-        if(m >= 6 && m <= 8) return 2;
-        if(m >= 9 && m <= 11) return 3;
-        return 4;
-    };
-    
-    let shownQuarter = new Set();
-    let shownMonth = new Set();
-    
-    for(let i=0;i<=days;i++){
-        const d=addDays(mn,i);
-        const m=d.getMonth();
-        const q=getFiscalQ(d);
-        const fiscalYear = m < 3 ? d.getFullYear() : d.getFullYear()+1;
-        const qKey=`${fiscalYear}-FQ${q}`;
-        const mKey=`${d.getFullYear()}-${m}`;
+        const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='relative'; hd.style.height='40px';
         
-        // 四半期の太線
-        const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
-        const isFirstQuarter = !shownQuarter.has(qKey) && (i===0 || isQuarterStart);
-        
-        if(isFirstQuarter){
-            const l=document.createElement('div');
-            l.className='g-quarter-sep';
-            l.style.left=`${i*px}px`;
-            gb.appendChild(l);
-            shownQuarter.add(qKey);
-        }
-        // 月の薄線（四半期開始月以外の毎月1日）
-        else if(!shownMonth.has(mKey) && d.getDate()===1){
-            const l=document.createElement('div');
-            l.className='g-month-light';
-            l.style.left=`${i*px}px`;
-            gb.appendChild(l);
-            shownMonth.add(mKey);
-        }
-    }
-}
-wp.appendChild(gb);
-
-    const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
-    svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
-    
-    let items=[];
-    st.nodes.forEach(n=>{
-        const ds=(getField(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
-        let d=ds.length>1?"全体":(ds[0]||"未配属"); items.push({n,d});
-    });
-    items.sort((a,b)=>{
-        if(a.d==="全体")return -1; if(b.d==="全体")return 1;
-        const ia=ord.indexOf(a.d), ib=ord.indexOf(b.d); if(ia!==ib)return (ia<0?999:ia)-(ib<0?999:ib);
-        return ts[a.n.id].s-ts[b.n.id].s;
-    });
-    
-    let y=0, ld=null;
-    items.forEach(it=>{
-        const t=ts[it.n.id];
-        if(it.d!==ld){
-            const gr=document.createElement('div'); gr.className='g-grp'+(it.d==='全体'?' all':'');
-            const arr=it.d!=='全体'?`<span class="g-arr-btn" onclick="mvD('g','${it.d}',-1)">▲</span><span class="g-arr-btn" onclick="mvD('g','${it.d}',1)">▼</span>`:'';
-            gr.innerHTML=`<div style="width:200px;padding-left:10px;">${arr} 📂 ${it.d}</div>`;
-            wp.appendChild(gr); y+=30; ld=it.d;
-        }
-        const row=document.createElement('div'); row.className='g-row';
-        const bad=it.n.pIds.some(pid=>ts[pid]&&ts[pid].e>t.s);
-        row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}">${it.n.title}</div>`;
-        const area=document.createElement('div'); area.className='g-area';
-        const off=Math.max(0,diffDays(mn,t.s)-1); const mil=t.dur===0;
-        
-        const minBarWidth = gSc===1?px:gSc===30?px*2:px*7;
-        
-        const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p';
-        p.style.left=mil?`${off*px-7}px`:`${off*px}px`; 
-        if(!mil)p.style.width=`${Math.max(minBarWidth,t.dur*px)}px`;
-        area.appendChild(p); 
-        t.ui={sx:220+off*px, ex:220+(off+Math.max(t.dur,minBarWidth/px))*px, y:y+20};
-        
-        if(t.as){
-            const ao=Math.max(0,diffDays(mn,t.as)-1);
-            const a=document.createElement('div'); a.className=mil?'g-mil-a':'g-bar-a';
-            a.style.left=mil?`${ao*px-8}px`:`${ao*px}px`;
-            if(!mil){
-                const ad=t.ae?diffDays(t.as,t.ae):Math.max(1,diffDays(t.as,new Date(todayStr))); 
-                a.style.width=`${Math.max(minBarWidth,ad*px)}px`;
+        if(gSc===1){
+            for(let i=0;i<=days;i++){
+                const d=addDays(mn,i);
+                const ce=document.createElement('div');
+                ce.className='g-cell';
+                ce.style.width=px+'px';
+                ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;
+                hd.appendChild(ce);
             }
-            const cl=`var(--st-${t.st})`; 
-            a.style.background=mil?cl:`linear-gradient(to right, ${cl} ${t.pg}%, #bdc3c7 ${t.pg}%)`;
-            if(bad)a.classList.add('g-crit'); 
-            a.onclick=e=>{e.stopPropagation();openEditModal(it.n.id);}; 
-            area.appendChild(a);
+        } else if(gSc===30){
+            let curMonth=-1, curYear=-1;
+            for(let i=0;i<=days;i++){
+                const d=addDays(mn,i);
+                const m=d.getMonth(), y=d.getFullYear();
+                if(m!==curMonth || y!==curYear){
+                    const lbl=document.createElement('div');
+                    lbl.className='g-month-lbl';
+                    lbl.style.left=(i*px)+'px';
+                    lbl.innerText=`${y}/${m+1}月`;
+                    hd.appendChild(lbl);
+                    
+                    const sep=document.createElement('div');
+                    sep.className='g-month-sep';
+                    sep.style.left=(i*px)+'px';
+                    hd.appendChild(sep);
+                    curMonth=m; curYear=y;
+                }
+            }
+        } else {
+            const getFiscalQ=(d)=>{
+                const m = d.getMonth();
+                if(m >= 3 && m <= 5) return 1;
+                if(m >= 6 && m <= 8) return 2;
+                if(m >= 9 && m <= 11) return 3;
+                return 4;
+            };
+            const getQMonths=(q)=>{
+                if(q===1) return '4-6月';
+                if(q===2) return '7-9月';
+                if(q===3) return '10-12月';
+                return '1-3月';
+            };
+            
+            let shown = new Set();
+            for(let i=0;i<=days;i++){
+                const d=addDays(mn,i);
+                const m=d.getMonth();
+                const q=getFiscalQ(d);
+                const y=d.getFullYear();
+                const fiscalYear = m < 3 ? y : y+1;
+                const key=`${fiscalYear}-FQ${q}`;
+                
+                const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
+                const isFirstOccurrence = !shown.has(key) && (i===0 || isQuarterStart);
+                
+                if(isFirstOccurrence){
+                    const lbl=document.createElement('div');
+                    lbl.className='g-quarter-lbl';
+                    lbl.style.left=(i*px)+'px';
+                    lbl.innerHTML=`FY${fiscalYear}/Q${q}<br><span style="font-size:10px;color:#7f8c8d;">${getQMonths(q)}</span>`;
+                    hd.appendChild(lbl);
+                    
+                    const sep=document.createElement('div');
+                    sep.className='g-quarter-sep';
+                    sep.style.left=(i*px)+'px';
+                    hd.appendChild(sep);
+                    
+                    shown.add(key);
+                }
+            }
         }
-        row.appendChild(area); row.onclick=()=>openEditModal(it.n.id); wp.appendChild(row); y+=40;
-    });
-    
-    if(gSc===1){
+        c.appendChild(hd);
+
+        const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
+        const gb=document.createElement('div'); 
+        gb.className='g-area'; 
+        gb.style.position='absolute'; 
+        gb.style.width='100%';
+        gb.style.marginLeft='200px';
+
+        if(gSc===1){
+            for(let i=0;i<=days;i++){
+                const l=document.createElement('div');
+                l.className='g-grid';
+                l.style.left=`${i*px}px`;
+                gb.appendChild(l);
+            }
+        } else if(gSc===30){
+            let curMonth=-1, curYear=-1;
+            for(let i=0;i<=days;i++){
+                const d=addDays(mn,i);
+                const m=d.getMonth(), y=d.getFullYear();
+                if(m!==curMonth || y!==curYear){
+                    const l=document.createElement('div');
+                    l.className='g-month-sep';
+                    l.style.left=`${i*px}px`;
+                    gb.appendChild(l);
+                    curMonth=m; curYear=y;
+                }
+            }
+        } else {
+            const getFiscalQ=(d)=>{
+                const m = d.getMonth();
+                if(m >= 3 && m <= 5) return 1;
+                if(m >= 6 && m <= 8) return 2;
+                if(m >= 9 && m <= 11) return 3;
+                return 4;
+            };
+            
+            let shownQuarter = new Set();
+            let shownMonth = new Set();
+            
+            for(let i=0;i<=days;i++){
+                const d=addDays(mn,i);
+                const m=d.getMonth();
+                const q=getFiscalQ(d);
+                const fiscalYear = m < 3 ? d.getFullYear() : d.getFullYear()+1;
+                const qKey=`${fiscalYear}-FQ${q}`;
+                const mKey=`${d.getFullYear()}-${m}`;
+                
+                const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
+                const isFirstQuarter = !shownQuarter.has(qKey) && (i===0 || isQuarterStart);
+                
+                if(isFirstQuarter){
+                    const l=document.createElement('div');
+                    l.className='g-quarter-sep';
+                    l.style.left=`${i*px}px`;
+                    gb.appendChild(l);
+                    shownQuarter.add(qKey);
+                }
+                else if(!shownMonth.has(mKey) && d.getDate()===1){
+                    const l=document.createElement('div');
+                    l.className='g-month-light';
+                    l.style.left=`${i*px}px`;
+                    gb.appendChild(l);
+                    shownMonth.add(mKey);
+                }
+            }
+        }
+        wp.appendChild(gb);
+
+        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
+        svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
+        
+        let items=[];
+        st.nodes.forEach(n=>{
+            const ds=(getField(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
+            let d=ds.length>1?"全体":(ds[0]||"未配属"); items.push({n,d});
+        });
+        items.sort((a,b)=>{
+            if(a.d==="全体")return -1; if(b.d==="全体")return 1;
+            const ia=ord.indexOf(a.d), ib=ord.indexOf(b.d); if(ia!==ib)return (ia<0?999:ia)-(ib<0?999:ib);
+            return ts[a.n.id].s-ts[b.n.id].s;
+        });
+        
+        let y=0, ld=null;
         items.forEach(it=>{
-            it.n.pIds.forEach(pid=>{
-                const p=ts[pid], child=ts[it.n.id];
-                if(p&&child&&p.ui&&child.ui){
-                    const sx=p.ui.ex, sy=p.ui.y, ex=child.ui.sx, ey=child.ui.y;
-                    const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
+            const t=ts[it.n.id];
+            if(it.d!==ld){
+                const gr=document.createElement('div'); gr.className='g-grp'+(it.d==='全体'?' all':'');
+                const arr=it.d!=='全体'?`<span class="g-arr-btn" onclick="mvD('g','${it.d}',-1)">▲</span><span class="g-arr-btn" onclick="mvD('g','${it.d}',1)">▼</span>`:'';
+                gr.innerHTML=`<div style="width:200px;padding-left:10px;">${arr} 📂 ${it.d}</div>`;
+                wp.appendChild(gr); y+=30; ld=it.d;
+            }
+            const row=document.createElement('div'); row.className='g-row';
+            const bad=it.n.pIds.some(pid=>ts[pid]&&ts[pid].e>t.s);
+            row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}">${it.n.title}</div>`;
+            const area=document.createElement('div'); area.className='g-area';
+            const off=Math.max(0,diffDays(mn,t.s)-1); const mil=t.dur===0;
+            
+            const minBarWidth = gSc===1?px:gSc===30?px*2:px*7;
+            
+            const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p';
+            p.style.left=mil?`${off*px-7}px`:`${off*px}px`; 
+            if(!mil)p.style.width=`${Math.max(minBarWidth,t.dur*px)}px`;
+            area.appendChild(p); 
+            t.ui={sx:220+off*px, ex:220+(off+Math.max(t.dur,minBarWidth/px))*px, y:y+20};
+            
+            if(t.as){
+                const ao=Math.max(0,diffDays(mn,t.as)-1);
+                const a=document.createElement('div'); a.className=mil?'g-mil-a':'g-bar-a';
+                a.style.left=mil?`${ao*px-8}px`:`${ao*px}px`;
+                if(!mil){
+                    const ad=t.ae?diffDays(t.as,t.ae):Math.max(1,diffDays(t.as,new Date(todayStr))); 
+                    a.style.width=`${Math.max(minBarWidth,ad*px)}px`;
+                }
+                const cl=`var(--st-${t.st})`; 
+                a.style.background=mil?cl:`linear-gradient(to right, ${cl} ${t.pg}%, #bdc3c7 ${t.pg}%)`;
+                if(bad)a.classList.add('g-crit'); 
+                a.onclick=e=>{e.stopPropagation();openEditModal(it.n.id);}; 
+                area.appendChild(a);
+            }
+            row.appendChild(area); row.onclick=()=>openEditModal(it.n.id); wp.appendChild(row); y+=40;
+        });
+        
+        if(gSc===1){
+            items.forEach(it=>{
+                it.n.pIds.forEach(pid=>{
+                    const p=ts[pid], child=ts[it.n.id];
+                    if(p&&child&&p.ui&&child.ui){
+                        const sx=p.ui.ex, sy=p.ui.y, ex=child.ui.sx, ey=child.ui.y;
+                        const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
+                        const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
+                        pt.setAttribute('d',d); 
+                        pt.setAttribute('stroke','#7f8c8d'); 
+                        pt.setAttribute('fill','none'); 
+                        pt.setAttribute('marker-end','url(#ga)'); 
+                        svg.appendChild(pt);
+                    }
+                });
+            });
+        }
+        wp.appendChild(svg); 
+        c.appendChild(wp);
+        
+        // ズーム適用
+        setTimeout(() => applyGanttZoom(), 0);
+    }
+
+    function ganttZoomIn(){
+        gZoom = Math.min(3, gZoom * 1.2);
+        applyGanttZoom();
+    }
+
+    function ganttZoomOut(){
+        gZoom = Math.max(0.5, gZoom * 0.8);
+        applyGanttZoom();
+    }
+
+    function ganttFitToScreen(){
+        const vb = document.getElementById('g-cnt');
+        const wrap = vb.querySelector('.g-wrap');
+        if(!wrap) return;
+        
+        const contentWidth = wrap.scrollWidth / gZoom;
+        const contentHeight = wrap.scrollHeight / gZoom;
+        const viewWidth = vb.clientWidth;
+        const viewHeight = vb.clientHeight;
+        
+        const scaleX = (viewWidth / contentWidth) * 0.95;
+        const scaleY = (viewHeight / contentHeight) * 0.95;
+        gZoom = Math.min(scaleX, scaleY, 1);
+        
+        applyGanttZoom();
+        vb.scrollLeft = 0;
+        vb.scrollTop = 0;
+    }
+
+    function applyGanttZoom(){
+        const wrap = document.querySelector('.g-wrap');
+        if(!wrap) return;
+        wrap.style.transform = `scale(${gZoom})`;
+    }
+    
+    function renderSwimlane(){
+        const c=document.getElementById('s-cnt'); c.innerHTML='';
+        const ord=getOrd('s'); 
+        
+        const levels = {};
+        st.nodes.forEach(n => levels[n.id] = 0);
+        
+        let changed = true;
+        for(let iter=0; iter<50 && changed; iter++){
+            changed = false;
+            st.nodes.forEach(n => {
+                if(n.pIds.length > 0){
+                    const maxParentLevel = Math.max(...n.pIds.map(pid => levels[pid] || 0));
+                    if(levels[n.id] !== maxParentLevel + 1){
+                        levels[n.id] = maxParentLevel + 1;
+                        changed = true;
+                    }
+                }
+            });
+        }
+        
+        const placed = {};
+        
+        const cw=300, con=document.createElement('div'); 
+        con.className='s-cont'; 
+        con.style.width=`${ord.length*cw}px`;
+        
+        ord.forEach((d,i)=>{
+            const col=document.createElement('div'); 
+            col.className='s-col'; 
+            col.style.background=dCols[i%6].bg;
+            const h=document.createElement('div'); 
+            h.className='s-hdr'; 
+            h.style.left=`${i*cw}px`; 
+            h.style.background=dCols[i%6].border;
+            h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span> ${d} <span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
+            con.appendChild(h); 
+            con.appendChild(col);
+        });
+        
+        const ui={};
+        
+        const sortedNodes = [...st.nodes].sort((a,b) => levels[a.id] - levels[b.id]);
+        
+        sortedNodes.forEach(n=>{
+            const raw=getField(n,"担当部署")||"未配属"; 
+            const mds=raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d);
+            
+            const deptIndices = mds.map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);
+            
+            if(deptIndices.length === 0){
+                deptIndices.push(0);
+            }
+            
+            const minI = deptIndices[0];
+            const mx = deptIndices[deptIndices.length - 1];
+            const lv = levels[n.id];
+            
+            if(!placed[lv]) placed[lv] = [];
+            
+            let yOffset = 0;
+            let collision = true;
+            
+            while(collision){
+                collision = false;
+                const proposedY = lv * 220 + 60 + yOffset * 110;
+                
+                for(let p of placed[lv]){
+                    const horizontalOverlap = !(mx < p.minI || minI > p.maxI);
+                    const verticalOverlap = Math.abs(proposedY - p.y) < 100;
+                    
+                    if(horizontalOverlap && verticalOverlap){
+                        collision = true;
+                        yOffset++;
+                        break;
+                    }
+                }
+            }
+            
+            const finalY = lv * 220 + 60 + yOffset * 110;
+            
+            placed[lv].push({minI, maxI: mx, y: finalY});
+            
+            const el=document.createElement('div'); 
+            el.className='node s-node';
+            el.style.width=`${(mx-minI+1)*cw-40}px`; 
+            el.style.left=`${minI*cw+20}px`; 
+            el.style.top=`${finalY}px`;
+            
+            let deptIndicator = '';
+            if(deptIndices.length > 1 && (mx - minI + 1) > deptIndices.length){
+                deptIndicator = '<div style="display:flex;gap:3px;padding:2px 5px;font-size:9px;">';
+                for(let i = minI; i <= mx; i++){
+                    const isActive = deptIndices.includes(i);
+                    deptIndicator += `<span style="width:6px;height:6px;border-radius:50%;background:${isActive?'#2c3e50':'#ddd'};"></span>`;
+                }
+                deptIndicator += '</div>';
+            }
+            
+            el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")}</div>`;
+            el.onclick=()=>openEditModal(n.id); 
+            con.appendChild(el);
+            ui[n.id]={l:minI*cw+20, r:(mx+1)*cw-20, t:finalY, b:finalY+60};
+        });
+        
+        const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
+        const totalHeight = maxY + 100;
+        con.style.minHeight=`${totalHeight}px`;
+        con.querySelectorAll('.s-col').forEach(col => {
+            col.style.minHeight=`${totalHeight}px`;
+            col.style.height=`${totalHeight}px`;  // heightも明示的に設定
+        });
+        
+        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); 
+        svg.style.zIndex=5;
+        svg.innerHTML='<defs><marker id="sa" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs>';
+
+        st.nodes.forEach(n=>{
+            n.pIds.forEach(pid=>{
+                const p=ui[pid], ch=ui[n.id];
+                if(p&&ch){
+                    const sx=(p.l+p.r)/2, sy=p.b;
+                    const ex=(ch.l+ch.r)/2, ey=ch.t;
+                    
+                    const midY = (sy + ey) / 2;
+                    const d = `M ${sx} ${sy} L ${sx} ${midY} L ${ex} ${midY} L ${ex} ${ey}`;
+                    
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
                     pt.setAttribute('d',d); 
                     pt.setAttribute('stroke','#7f8c8d'); 
                     pt.setAttribute('fill','none'); 
-                    pt.setAttribute('marker-end','url(#ga)'); 
+                    pt.setAttribute('marker-end','url(#sa)');
                     svg.appendChild(pt);
                 }
             });
         });
+
+        con.appendChild(svg); 
+        c.appendChild(con);
+        
+        // ズーム適用
+        setTimeout(() => applySwimZoom(), 0);
     }
-    wp.appendChild(svg); c.appendChild(wp);
-}
 
-    function renderSwimlane(){
-    const c=document.getElementById('s-cnt'); c.innerHTML='';
-    const ord=getOrd('s'); 
-    
-    // レベル計算（変更なし）
-    const levels = {};
-    st.nodes.forEach(n => levels[n.id] = 0);
-    
-    let changed = true;
-    for(let iter=0; iter<50 && changed; iter++){
-        changed = false;
-        st.nodes.forEach(n => {
-            if(n.pIds.length > 0){
-                const maxParentLevel = Math.max(...n.pIds.map(pid => levels[pid] || 0));
-                if(levels[n.id] !== maxParentLevel + 1){
-                    levels[n.id] = maxParentLevel + 1;
-                    changed = true;
-                }
-            }
-        });
+    function swimZoomIn(){
+        sZoom = Math.min(3, sZoom * 1.2);
+        applySwimZoom();
     }
-    
-    // レベルごとに配置済みタスクを記録
-    const placed = {}; // {level: [{minI, maxI, y}]}
-    
-    const cw=300, con=document.createElement('div'); 
-    con.className='s-cont'; 
-    con.style.width=`${ord.length*cw}px`;
-    
-    ord.forEach((d,i)=>{
-        const col=document.createElement('div'); 
-        col.className='s-col'; 
-        col.style.background=dCols[i%6].bg;
-        const h=document.createElement('div'); 
-        h.className='s-hdr'; 
-        h.style.left=`${i*cw}px`; 
-        h.style.background=dCols[i%6].border;
-        h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span> ${d} <span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
-        con.appendChild(h); 
-        con.appendChild(col);
-    });
-    
-    const ui={};
-    
-    // レベル順にソートしてから配置
-    const sortedNodes = [...st.nodes].sort((a,b) => levels[a.id] - levels[b.id]);
-    
-    sortedNodes.forEach(n=>{
-        const raw=getField(n,"担当部署")||"未配属"; 
-        const mds=raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d);
-        
-        const deptIndices = mds.map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);
-        
-        if(deptIndices.length === 0){
-            deptIndices.push(0);
-        }
-        
-        const minI = deptIndices[0];
-        const mx = deptIndices[deptIndices.length - 1];
-        const lv = levels[n.id];
-        
-        // このレベルで配置済みのタスクと衝突チェック
-        if(!placed[lv]) placed[lv] = [];
-        
-        let yOffset = 0;
-        let collision = true;
-        
-        while(collision){
-            collision = false;
-            const proposedY = lv * 220 + 60 + yOffset * 110;
-            
-            // 横位置が重なる既存タスクをチェック
-            for(let p of placed[lv]){
-                const horizontalOverlap = !(mx < p.minI || minI > p.maxI);
-                const verticalOverlap = Math.abs(proposedY - p.y) < 100;
-                
-                if(horizontalOverlap && verticalOverlap){
-                    collision = true;
-                    yOffset++;
-                    break;
-                }
-            }
-        }
-        
-        const finalY = lv * 220 + 60 + yOffset * 110;
-        
-        // 配置情報を記録
-        placed[lv].push({minI, maxI: mx, y: finalY});
-        
-        const el=document.createElement('div'); 
-        el.className='node s-node';
-        el.style.width=`${(mx-minI+1)*cw-40}px`; 
-        el.style.left=`${minI*cw+20}px`; 
-        el.style.top=`${finalY}px`;
-        
-        // 関連部署インジケーター
-        let deptIndicator = '';
-        if(deptIndices.length > 1 && (mx - minI + 1) > deptIndices.length){
-            deptIndicator = '<div style="display:flex;gap:3px;padding:2px 5px;font-size:9px;">';
-            for(let i = minI; i <= mx; i++){
-                const isActive = deptIndices.includes(i);
-                deptIndicator += `<span style="width:6px;height:6px;border-radius:50%;background:${isActive?'#2c3e50':'#ddd'};"></span>`;
-            }
-            deptIndicator += '</div>';
-        }
-        
-        el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")}</div>`;
-        el.onclick=()=>openEditModal(n.id); 
-        con.appendChild(el);
-        ui[n.id]={l:minI*cw+20, r:(mx+1)*cw-20, t:finalY, b:finalY+60};
-    });
-    
-    // 最終的な高さを計算
-    const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
-    con.style.minHeight=`${maxY+100}px`;
-    con.querySelectorAll('.s-col').forEach(col => col.style.minHeight=`${maxY+100}px`);
-    
-    // SVG描画（変更なし）
-    const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); 
-svg.style.zIndex=5;
-svg.innerHTML='<defs><marker id="sa" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs>';
 
-st.nodes.forEach(n=>{
-    n.pIds.forEach(pid=>{
-        const p=ui[pid], ch=ui[n.id];
-        if(p&&ch){
-            // 親タスクの下端中央から出発
-            const sx=(p.l+p.r)/2, sy=p.b;
-            // 子タスクの上端中央に到着
-            const ex=(ch.l+ch.r)/2, ey=ch.t;
-            
-            // シンプルな2セグメント経路
-            const midY = (sy + ey) / 2;
-            const d = `M ${sx} ${sy} L ${sx} ${midY} L ${ex} ${midY} L ${ex} ${ey}`;
-            
-            const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
-            pt.setAttribute('d',d); 
-            pt.setAttribute('stroke','#7f8c8d'); 
-            pt.setAttribute('fill','none'); 
-            pt.setAttribute('marker-end','url(#sa)');
-            svg.appendChild(pt);
-        }
-    });
-});
+    function swimZoomOut(){
+        sZoom = Math.max(0.5, sZoom * 0.8);
+        applySwimZoom();
+    }
 
-    con.appendChild(svg); 
-    c.appendChild(con);
-}
+    function applySwimZoom(){
+        const con = document.querySelector('.s-cont');
+        if(!con) return;
+        con.style.transform = `scale(${sZoom})`;
+    }
+
+    function fitSwimlane(){
+        const vb = document.getElementById('s-view').querySelector('.v-body');
+        const con = vb.querySelector('.s-cont');
+        if(!con) return;
+        
+        const contentWidth = con.scrollWidth / sZoom;
+        const contentHeight = con.scrollHeight / sZoom;
+        const viewWidth = vb.clientWidth;
+        const viewHeight = vb.clientHeight;
+        
+        const scaleX = (viewWidth / contentWidth) * 0.9;
+        const scaleY = (viewHeight / contentHeight) * 0.9;
+        sZoom = Math.min(scaleX, scaleY, 1);
+        
+        applySwimZoom();
+        vb.scrollLeft = 0;
+        vb.scrollTop = 0;
+    }
 
     function ana(){
         const ts={}; st.nodes.forEach(n=>ts[n.id]={s:parseDate(getField(n,"予定開始")), e:parseDate(getField(n,"予定終了"))});
@@ -914,40 +968,37 @@ st.nodes.forEach(n=>{
     }
     
     function addFreeNode(){
-    const id=Date.now();
-    phy.act = false;  // 既存の物理演算を停止
-    
-    // 画面中央のワールド座標を計算（少しランダムにずらす）
-    const cx = -st.x / st.sc - 120 + (Math.random() - 0.5) * 40;
-    const cy = -st.y / st.sc - 80 + (Math.random() - 0.5) * 40;
-    
-    st.nodes.push({
-        id, 
-        title:"Task", 
-        f:[
-            {l:"予定開始",v:todayStr},
-            {l:"期間",v:"1"},
-            {l:"予定終了",v:todayStr},
-            {l:"担当部署",v:"全体"},
-            {l:"ステータス",v:"todo"},
-            {l:"進捗",v:"0"}
-        ], 
-        x:cx, 
-        y:cy, 
-        pIds:[]
-    });
-    sel(id,false);
-    ren();
-    
-    // 物理演算を少し遅らせて確実に実行
-    setTimeout(() => {
-        phy.act = true;
-        runPhy();
-    }, 100);
-    
-    setTimeout(()=>openEditModal(id, true),200);
-}
-
+        const id=Date.now();
+        phy.act = false;
+        
+        const cx = -st.x / st.sc - 120 + (Math.random() - 0.5) * 40;
+        const cy = -st.y / st.sc - 80 + (Math.random() - 0.5) * 40;
+        
+        st.nodes.push({
+            id, 
+            title:"Task", 
+            f:[
+                {l:"予定開始",v:todayStr},
+                {l:"期間",v:"1"},
+                {l:"予定終了",v:todayStr},
+                {l:"担当部署",v:"全体"},
+                {l:"ステータス",v:"todo"},
+                {l:"進捗",v:"0"}
+            ], 
+            x:cx, 
+            y:cy, 
+            pIds:[]
+        });
+        sel(id,false);
+        ren();
+        
+        setTimeout(() => {
+            phy.act = true;
+            runPhy();
+        }, 100);
+        
+        setTimeout(()=>openEditModal(id, true),200);
+    }
 
     function deleteSelected(){
         if(st.sel.size===0||!confirm("削除しますか？"))return;
@@ -985,96 +1036,92 @@ st.nodes.forEach(n=>{
         ren();
     }
     
-function openEditModal(id, isNewNode = false){
-    if(isNewNode) newNodeId = id;
-    curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
-    document.getElementById('m-tit').value=n.title;
-    document.getElementById('m-dep').value=getField(n,"担当部署")||"";
-    document.getElementById('m-s').value=getField(n,"予定開始");
-    document.getElementById('m-e').value=getField(n,"予定終了");
-    document.getElementById('m-d').value=parseInt(getField(n,"期間"))||1;
-    document.getElementById('m-st').value=getField(n,"ステータス")||"todo";
-    document.getElementById('m-p').value=parseInt(getField(n,"進捗"))||0; 
-    document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
-    document.getElementById('m-as').value=getField(n,"実績開始")||'';
-    document.getElementById('m-ae').value=getField(n,"実績終了")||'';
-    
-    // 部署リストを構築
-    const dl=document.getElementById('m-dep-list');
-    dl.innerHTML='<option value="">-- 既存の部署から選択 --</option>';
-    const ds=new Set(); 
-    st.nodes.forEach(no=>(getField(no,"担当部署")||"").split(/[,、]/).forEach(d=>{
-        const trimmed=d.trim();
-        if(trimmed)ds.add(trimmed);
-    }));
-    ds.forEach(d=>{
-        const o=document.createElement('option'); 
-        o.value=d; 
-        o.innerText=d;
-        dl.appendChild(o);
-    });
-    
-    document.getElementById('modal').style.display='flex';
-    document.getElementById('m-tit').focus();
-}
+    function openEditModal(id, isNewNode = false){
+        if(isNewNode) newNodeId = id;
+        curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
+        document.getElementById('m-tit').value=n.title;
+        document.getElementById('m-dep').value=getField(n,"担当部署")||"";
+        document.getElementById('m-s').value=getField(n,"予定開始");
+        document.getElementById('m-e').value=getField(n,"予定終了");
+        document.getElementById('m-d').value=parseInt(getField(n,"期間"))||1;
+        document.getElementById('m-st').value=getField(n,"ステータス")||"todo";
+        document.getElementById('m-p').value=parseInt(getField(n,"進捗"))||0; 
+        document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
+        document.getElementById('m-as').value=getField(n,"実績開始")||'';
+        document.getElementById('m-ae').value=getField(n,"実績終了")||'';
+        
+        const dl=document.getElementById('m-dep-list');
+        dl.innerHTML='<option value="">-- 既存の部署から選択 --</option>';
+        const ds=new Set(); 
+        st.nodes.forEach(no=>(getField(no,"担当部署")||"").split(/[,、]/).forEach(d=>{
+            const trimmed=d.trim();
+            if(trimmed)ds.add(trimmed);
+        }));
+        ds.forEach(d=>{
+            const o=document.createElement('option'); 
+            o.value=d; 
+            o.innerText=d;
+            dl.appendChild(o);
+        });
+        
+        document.getElementById('modal').style.display='flex';
+        document.getElementById('m-tit').focus();
+    }
 
     function addDeptFromList(){
-    const sel=document.getElementById('m-dep-list');
-    const val=sel.value;
-    if(!val)return;
-    
-    const inp=document.getElementById('m-dep');
-    const current=inp.value.trim();
-    if(current){
-        // 既に入力がある場合はカンマで追加
-        const depts=current.split(/[,、]/).map(s=>s.trim());
-        if(!depts.includes(val)){
-            inp.value=current+', '+val;
+        const sel=document.getElementById('m-dep-list');
+        const val=sel.value;
+        if(!val)return;
+        
+        const inp=document.getElementById('m-dep');
+        const current=inp.value.trim();
+        if(current){
+            const depts=current.split(/[,、]/).map(s=>s.trim());
+            if(!depts.includes(val)){
+                inp.value=current+', '+val;
+            }
+        } else {
+            inp.value=val;
         }
-    } else {
-        inp.value=val;
+        sel.value='';
     }
-    sel.value='';  // 選択をリセット
-}
-
     
-function closeModal(){
-    // キャンセル時に新規ノードなら削除
-    if(newNodeId !== null){
-        st.nodes = st.nodes.filter(n => n.id !== newNodeId);
-        st.sel.delete(newNodeId);
-        ren();
+    function closeModal(){
+        if(newNodeId !== null){
+            st.nodes = st.nodes.filter(n => n.id !== newNodeId);
+            st.sel.delete(newNodeId);
+            ren();
+        }
+        newNodeId = null;
+        document.getElementById('modal').style.display='none';
     }
-    newNodeId = null;
-    document.getElementById('modal').style.display='none';
-}
+    
     function saveModal(){
-    newNodeId = null;
-    
-    const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
-    
-    // 保存前に期間を同期（終了日を再計算）
-    const s=document.getElementById('m-s').value;
-    const d=parseInt(document.getElementById('m-d').value)||1;
-    const sd=parseDate(s);
-    if(sd && !isNaN(d)){
-        document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10);
+        newNodeId = null;
+        
+        const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
+        
+        const s=document.getElementById('m-s').value;
+        const d=parseInt(document.getElementById('m-d').value)||1;
+        const sd=parseDate(s);
+        if(sd && !isNaN(d)){
+            document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10);
+        }
+        
+        n.title=document.getElementById('m-tit').value;
+        setField(n,"担当部署",document.getElementById('m-dep').value);
+        setField(n,"予定開始",document.getElementById('m-s').value);
+        setField(n,"予定終了",document.getElementById('m-e').value);
+        setField(n,"期間",document.getElementById('m-d').value);
+        setField(n,"ステータス",document.getElementById('m-st').value);
+        setField(n,"進捗",document.getElementById('m-p').value);
+        setField(n,"実績開始",document.getElementById('m-as').value);
+        setField(n,"実績終了",document.getElementById('m-ae').value);
+        ren(); 
+        if(mode==='gantt')renderGantt(); 
+        if(mode==='swim')renderSwimlane();
+        closeModal();
     }
-    
-    n.title=document.getElementById('m-tit').value;
-    setField(n,"担当部署",document.getElementById('m-dep').value);
-    setField(n,"予定開始",document.getElementById('m-s').value);
-    setField(n,"予定終了",document.getElementById('m-e').value);
-    setField(n,"期間",document.getElementById('m-d').value);
-    setField(n,"ステータス",document.getElementById('m-st').value);
-    setField(n,"進捗",document.getElementById('m-p').value);
-    setField(n,"実績開始",document.getElementById('m-as').value);
-    setField(n,"実績終了",document.getElementById('m-ae').value);
-    ren(); 
-    if(mode==='gantt')renderGantt(); 
-    if(mode==='swim')renderSwimlane();
-    closeModal();
-}
 
     function syncDate(k){
         const s=document.getElementById('m-s').value, e=document.getElementById('m-e').value, d=parseInt(document.getElementById('m-d').value)||1;
@@ -1082,221 +1129,178 @@ function closeModal(){
         if(k==='start'||k==='d'){ if(sd&&!isNaN(d)) document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10); }
         else if(k==='end'){ if(sd&&ed) document.getElementById('m-d').value=Math.max(1,diffDays(sd,ed)); }
     }
-function switchView(m){
-    mode=m; 
-    document.getElementById('b-map').className=m==='map'?'act':'';
-    document.getElementById('b-gantt').className=m==='gantt'?'act':'';
-    document.getElementById('b-swim').className=m==='swim'?'act':'';
-    document.getElementById('map-con').style.display=m==='map'?'block':'none';
-    document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
-    document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
-    document.getElementById('pres').style.display=m==='map'?'flex':'none';
-    document.getElementById('g-scale').style.display=m==='gantt'?'flex':'none';
-    document.getElementById('s-fit').style.display=m==='swim'?'flex':'none';  // 追加
-    if(m==='map')ren(); 
-    else if(m==='gantt'){
-        changeGanttScale(gSc);
-    } 
-    else renderSwimlane();
-    if(pre.act && m!=='map')stopPresentation();
-}
-
-    function fitSwimlane(){
-    const vb=document.getElementById('s-view').querySelector('.v-body');
-    const con=vb.querySelector('.s-cont');
-    if(!con)return;
     
-    // 既存のtransformをリセット
-    con.style.transform = '';
-    con.style.transformOrigin = '';
-    
-    // 次のフレームで実際のサイズを取得（リセット後のサイズ）
-    setTimeout(() => {
-        const contentWidth = con.scrollWidth;
-        const contentHeight = con.scrollHeight;
-        
-        const viewWidth = vb.clientWidth;
-        const viewHeight = vb.clientHeight;
-        
-        // スケールを計算（余白を考慮して0.9倍）
-        const scaleX = (viewWidth / contentWidth) * 0.9;
-        const scaleY = (viewHeight / contentHeight) * 0.9;
-        const scale = Math.min(scaleX, scaleY, 1); // 拡大はしない
-        
-        if(scale < 1){
-            con.style.transform = `scale(${scale})`;
-            con.style.transformOrigin = 'top left';
-        }
-        
-        vb.scrollLeft = 0;
-        vb.scrollTop = 0;
-    }, 0);
-}
-
+    function switchView(m){
+        mode=m; 
+        document.getElementById('b-map').className=m==='map'?'act':'';
+        document.getElementById('b-gantt').className=m==='gantt'?'act':'';
+        document.getElementById('b-swim').className=m==='swim'?'act':'';
+        document.getElementById('map-con').style.display=m==='map'?'block':'none';
+        document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
+        document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
+        document.getElementById('pres').style.display=m==='map'?'flex':'none';
+        document.getElementById('g-scale').style.display=m==='gantt'?'flex':'none';
+        document.getElementById('s-fit').style.display=m==='swim'?'flex':'none';
+        if(m==='map')ren(); 
+        else if(m==='gantt'){
+            changeGanttScale(gSc);
+        } 
+        else renderSwimlane();
+        if(pre.act && m!=='map')stopPresentation();
+    }
 
     function autoAlign(){
-    // 1. トポロジカルソートで厳密にレベルを決定
-    const inDegree = {};
-    const levels = {};
-    st.nodes.forEach(n => {
-        inDegree[n.id] = n.pIds.length;
-        levels[n.id] = 0;
-    });
-    
-    // 最長パスによるレベル計算
-    let changed = true;
-    for(let iter=0; iter<50 && changed; iter++){
-        changed = false;
+        const inDegree = {};
+        const levels = {};
         st.nodes.forEach(n => {
-            if(n.pIds.length > 0){
-                const maxParentLevel = Math.max(...n.pIds.map(pid => levels[pid] || 0));
-                if(levels[n.id] !== maxParentLevel + 1){
-                    levels[n.id] = maxParentLevel + 1;
-                    changed = true;
+            inDegree[n.id] = n.pIds.length;
+            levels[n.id] = 0;
+        });
+        
+        let changed = true;
+        for(let iter=0; iter<50 && changed; iter++){
+            changed = false;
+            st.nodes.forEach(n => {
+                if(n.pIds.length > 0){
+                    const maxParentLevel = Math.max(...n.pIds.map(pid => levels[pid] || 0));
+                    if(levels[n.id] !== maxParentLevel + 1){
+                        levels[n.id] = maxParentLevel + 1;
+                        changed = true;
+                    }
                 }
+            });
+        }
+        
+        const groups = {};
+        st.nodes.forEach(n => {
+            const lv = levels[n.id];
+            if(!groups[lv]) groups[lv] = [];
+            groups[lv].push(n);
+        });
+        
+        const maxLv = Math.max(...Object.keys(groups).map(k => parseInt(k)));
+        
+        for(let iter=0; iter<20; iter++){
+            for(let lv=1; lv<=maxLv; lv++){
+                if(!groups[lv]) continue;
+                groups[lv].forEach(n => {
+                    const parents = st.nodes.filter(p => n.pIds.includes(p.id));
+                    if(parents.length > 0){
+                        n._sortKey = parents.reduce((sum, p) => sum + (p._y || p.y), 0) / parents.length;
+                    } else {
+                        n._sortKey = n.y;
+                    }
+                });
+                groups[lv].sort((a, b) => a._sortKey - b._sortKey);
             }
-        });
-    }
-    
-    // 2. レベルごとにグループ化
-    const groups = {};
-    st.nodes.forEach(n => {
-        const lv = levels[n.id];
-        if(!groups[lv]) groups[lv] = [];
-        groups[lv].push(n);
-    });
-    
-    // 3. Barycenter法で交錯を最小化（20回反復）
-    const maxLv = Math.max(...Object.keys(groups).map(k => parseInt(k)));
-    
-    for(let iter=0; iter<20; iter++){
-        // 左から右へ（親の位置を基準に子を並べる）
-        for(let lv=1; lv<=maxLv; lv++){
-            if(!groups[lv]) continue;
-            groups[lv].forEach(n => {
-                const parents = st.nodes.filter(p => n.pIds.includes(p.id));
-                if(parents.length > 0){
-                    n._sortKey = parents.reduce((sum, p) => sum + (p._y || p.y), 0) / parents.length;
-                } else {
-                    n._sortKey = n.y;
-                }
-            });
-            groups[lv].sort((a, b) => a._sortKey - b._sortKey);
+            
+            for(let lv=maxLv-1; lv>=0; lv--){
+                if(!groups[lv]) continue;
+                groups[lv].forEach(n => {
+                    const children = st.nodes.filter(c => c.pIds.includes(n.id));
+                    if(children.length > 0){
+                        n._sortKey = children.reduce((sum, c) => sum + (c._y || c.y), 0) / children.length;
+                    } else {
+                        n._sortKey = n._y || n.y;
+                    }
+                });
+                groups[lv].sort((a, b) => a._sortKey - b._sortKey);
+            }
         }
         
-        // 右から左へ（子の位置を基準に親を並べる）
-        for(let lv=maxLv-1; lv>=0; lv--){
-            if(!groups[lv]) continue;
-            groups[lv].forEach(n => {
-                const children = st.nodes.filter(c => c.pIds.includes(n.id));
-                if(children.length > 0){
-                    n._sortKey = children.reduce((sum, c) => sum + (c._y || c.y), 0) / children.length;
-                } else {
-                    n._sortKey = n._y || n.y;
-                }
-            });
-            groups[lv].sort((a, b) => a._sortKey - b._sortKey);
-        }
-    }
-    
-    // 4. 最終的な座標を割り当て
-    const c = document.getElementById('canvas');
-    c.classList.add('smooth');
-    
-    Object.keys(groups).forEach(lv => {
-        const nodes = groups[lv];
-        const spacing = 250;
-        const totalHeight = (nodes.length - 1) * spacing;
-        const startY = -totalHeight / 2;
+        const c = document.getElementById('canvas');
+        c.classList.add('smooth');
         
-        nodes.forEach((n, i) => {
-            n.x = parseInt(lv) * 380;
-            n.y = startY + i * spacing;
-            n._y = n.y;
+        Object.keys(groups).forEach(lv => {
+            const nodes = groups[lv];
+            const spacing = 250;
+            const totalHeight = (nodes.length - 1) * spacing;
+            const startY = -totalHeight / 2;
+            
+            nodes.forEach((n, i) => {
+                n.x = parseInt(lv) * 380;
+                n.y = startY + i * spacing;
+                n._y = n.y;
+            });
         });
-    });
-    
-    setTimeout(() => {
-        c.classList.remove('smooth');
+        
+        setTimeout(() => {
+            c.classList.remove('smooth');
+            ren();
+            phy.act = true;
+            runPhy();
+            setTimeout(() => fitToScreen(), 500);
+        }, 400);
+        
         ren();
-        // 整列後に物理演算を実行
-        phy.act = true;
-        runPhy();
-        // 全体を画面に収める
-        setTimeout(() => fitToScreen(), 500);  // 物理演算完了を待つ
-    }, 400);
-    
-    ren();
-}
+    }
 
     function runPhy(){
-    let i=0; 
-    const tick=()=>{
-        if(!phy.act || i>100){  // 60→100に延長
-            phy.act=false;
-            ren();
-            return;
-        }
-        let mv=false;
-        for(let a of st.nodes){
-            for(let b of st.nodes){
-                if(a===b)continue;
-                const dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy);
-                if(d<280 && d>0.1){  // 260→280, d>0→d>0.1
-                    const f=(280-d)*0.15;  // 0.1→0.15（反発力を強化）
-                    const ang=Math.atan2(dy,dx);
-                    a.x+=Math.cos(ang)*f; a.y+=Math.sin(ang)*f; mv=true;
+        let i=0; 
+        const tick=()=>{
+            if(!phy.act || i>100){
+                phy.act=false;
+                ren();
+                return;
+            }
+            let mv=false;
+            for(let a of st.nodes){
+                for(let b of st.nodes){
+                    if(a===b)continue;
+                    const dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy);
+                    if(d<280 && d>0.1){
+                        const f=(280-d)*0.15;
+                        const ang=Math.atan2(dy,dx);
+                        a.x+=Math.cos(ang)*f; a.y+=Math.sin(ang)*f; mv=true;
+                    }
                 }
             }
-        }
-        if(mv)ren(); 
-        i++; 
-        if(!mv && i>15){  // 10→15
-            phy.act=false;
-            ren();
-            return;
-        }
-        requestAnimationFrame(tick);
-    }; 
-    tick();
-}
+            if(mv)ren(); 
+            i++; 
+            if(!mv && i>15){
+                phy.act=false;
+                ren();
+                return;
+            }
+            requestAnimationFrame(tick);
+        }; 
+        tick();
+    }
     
     function fitToScreen(){
-    if(!st.nodes.length)return;
-    let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
-    st.nodes.forEach(n=>{if(n.x<Mx)Mx=n.x; if(n.y<My)My=n.y; if(n.x+240>mx)mx=n.x+240; if(n.y+160>my)my=n.y+160;});
-    const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
-    
-    // スムーズなアニメーション
-    const c = document.getElementById('canvas');
-    c.classList.add('smooth');
-    
-    st.sc=Math.max(0.1,sc); 
-    st.x=-(Mx+(mx-Mx)/2)*st.sc; 
-    st.y=-(My+(my-My)/2)*st.sc; 
-    ren();
-    
-    // アニメーション完了後にクラスを削除
-    setTimeout(() => {
-        c.classList.remove('smooth');
-    }, 400);
-}
+        if(!st.nodes.length)return;
+        let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
+        st.nodes.forEach(n=>{if(n.x<Mx)Mx=n.x; if(n.y<My)My=n.y; if(n.x+240>mx)mx=n.x+240; if(n.y+160>my)my=n.y+160;});
+        const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
+        
+        const c = document.getElementById('canvas');
+        c.classList.add('smooth');
+        
+        st.sc=Math.max(0.1,sc); 
+        st.x=-(Mx+(mx-Mx)/2)*st.sc; 
+        st.y=-(My+(my-My)/2)*st.sc; 
+        ren();
+        
+        setTimeout(() => {
+            c.classList.remove('smooth');
+        }, 400);
+    }
 
-function zoomIn(){
-    const c = document.getElementById('canvas');
-    c.classList.add('smooth');
-    st.sc*=1.2;
-    ren();
-    setTimeout(() => c.classList.remove('smooth'), 400);
-}
+    function zoomIn(){
+        const c = document.getElementById('canvas');
+        c.classList.add('smooth');
+        st.sc*=1.2;
+        ren();
+        setTimeout(() => c.classList.remove('smooth'), 400);
+    }
 
     function zoomOut(){
-    const c = document.getElementById('canvas');
-    c.classList.add('smooth');
-    st.sc = Math.max(0.1, st.sc * 0.8);  // 最小0.1倍まで
-    ren();
-    setTimeout(() => c.classList.remove('smooth'), 400);
-}
+        const c = document.getElementById('canvas');
+        c.classList.add('smooth');
+        st.sc = Math.max(0.1, st.sc * 0.8);
+        ren();
+        setTimeout(() => c.classList.remove('smooth'), 400);
+    }
 
     function toggleScreenshotMode(){document.body.classList.toggle('sc-mode');alert("撮影モード(UI非表示)");}
     function jumpToNextMatch(auto=true){
@@ -1342,7 +1346,6 @@ function zoomIn(){
         try{
             const j=JSON.parse(t); 
             if(j.nodes){
-                // Migrate old format if needed
                 j.nodes.forEach(n=>{
                     if(!n.f && n.fields) n.f = n.fields;
                     if(!n.pIds && n.parentIds) n.pIds = n.parentIds;
