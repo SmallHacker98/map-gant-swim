@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v6.6</title>
+<title>Pro Map Suite v6.7</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -250,7 +250,7 @@
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
     let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;
     let gZoom = 1, sZoom = 1;
-    let dragDept = null, dragType = null; // ドラッグ状態管理
+    let dragDept = null, dragType = null; 
 
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
@@ -286,7 +286,7 @@
                 const zoom = 3;
                 const tx = 125 - worldX * zoom * st.sc;
                 const ty = 125 - worldY * zoom * st.sc;
-                lc.innerHTML = cvs.innerHTML;
+                lc.innerHTML = document.getElementById('canvas').innerHTML;
                 lc.style.transform = `translate(${tx}px, ${ty}px) scale(${zoom * st.sc})`;
                 document.body.classList.add('magnify-cursor');
             } else {
@@ -297,11 +297,13 @@
 
         window.onmouseup = () => { 
             panD.act=false;
+            const vp = document.getElementById('viewport');
             vp.style.willChange = 'auto';
             if(mapD && mapD.t==='node'){ phy.act = true; runPhy(); }
             mapD=null; 
         };
         
+        const vp = document.getElementById('viewport');
         vp.onmousedown = e => { 
             if(e.target===vp||e.target.id==='canvas'){ 
                 mapD={t:'pan',x:e.clientX,y:e.clientY}; 
@@ -322,7 +324,7 @@
             if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
             if(e.ctrlKey||e.metaKey){
                 if(e.key==='c'){ if(!act.tagName) e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
-                if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.random(); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
+                if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.floor(Math.random()*1000); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
                 if(e.key==='s'){ e.preventDefault(); saveOver(); }
                 if(e.key==='o'){ e.preventDefault(); openFile(); }
             }
@@ -351,12 +353,11 @@
     function addDays(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
     function diffDays(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
 
-    // --- ドラッグ＆ドロップ 処理 ---
     function dragStartDept(e, type) {
         dragDept = e.currentTarget.dataset.dept;
         dragType = type;
         e.dataTransfer.effectAllowed = 'move';
-        document.body.classList.add('is-dragging'); // チラつき防止クラス
+        document.body.classList.add('is-dragging'); 
         
         setTimeout(() => {
             if (type === 's') e.currentTarget.parentElement.style.opacity = '0.4';
@@ -364,22 +365,11 @@
         }, 0);
     }
     
-    function dragOverDept(e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        return false;
-    }
+    function dragOverDept(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
     
-    function dragEnterDept(e) {
-        e.preventDefault();
-        if(e.currentTarget.dataset.dept !== dragDept) {
-            e.currentTarget.classList.add('drag-over');
-        }
-    }
+    function dragEnterDept(e) { e.preventDefault(); if(e.currentTarget.dataset.dept !== dragDept) e.currentTarget.classList.add('drag-over'); }
     
-    function dragLeaveDept(e) {
-        e.currentTarget.classList.remove('drag-over');
-    }
+    function dragLeaveDept(e) { e.currentTarget.classList.remove('drag-over'); }
     
     function dropDept(e, type) {
         e.stopPropagation();
@@ -405,20 +395,25 @@
         
         document.body.classList.remove('is-dragging');
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        
         dragDept = null; dragType = null;
     }
 
     function ren(){
         if(mode!=='map')return;
         const an=ana(); const c=document.getElementById('canvas');
+        if(!c) return; // セーフティネット
+        
+        const vp = document.getElementById('viewport');
         c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
         vp.style.backgroundSize=`${20*st.sc}px ${20*st.sc}px`; 
         vp.style.backgroundPosition=`${st.x+innerWidth/2}px ${st.y+innerHeight/2}px`;
 
-        const ex=c.querySelectorAll('.node'); ex.forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
+        const ex=c.querySelectorAll('.node'); 
+        ex.forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
+        
         st.nodes.forEach(d=>{
-            let el=c.querySelector(`.node[data-id="${d.id}"]`);
+            // IDにドット等が含まれていても安全にクエリをかける
+            let el=c.querySelector(`.node[data-id="${CSS.escape(d.id)}"]`);
             if(!el){
                 el=document.createElement('div'); el.className='node'; el.dataset.id=d.id;
                 el.innerHTML=`<div class="nh"></div><div class="nt"></div><div class="np"><div class="np-bar"></div></div><div class="nf"></div><div class="n-add">＋</div>`;
@@ -454,8 +449,9 @@
                 }
                 nf.appendChild(r);
             });
-            el.style.left=d.x+'px'; el.style.top=d.y+'px';
+            el.style.left=(d.x||0)+'px'; el.style.top=(d.y||0)+'px';
         });
+        
         const pg=document.getElementById('p-grp'); pg.innerHTML=''; let h='';
         st.nodes.forEach(n=>{
             n.pIds.forEach(pid=>{
@@ -463,7 +459,7 @@
                 if(p){
                     const cr=an.crt.has(`${pid}-${n.id}`);
                     const er=an.err.has(n.id) && an.err.has(pid);
-                    const sx=p.x+240, sy=p.y+30, ex=n.x, ey=n.y+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
+                    const sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
                     h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
                 }
             });
@@ -660,7 +656,6 @@
                 const gr=document.createElement('div'); 
                 gr.className='g-grp'+(it.d==='全体'?' all':'');
                 
-                // ガントチャートのドラッグ＆ドロップ
                 if(it.d !== '全体') {
                     gr.draggable = true;
                     gr.dataset.dept = it.d;
@@ -807,7 +802,7 @@
             col.className='s-col'; 
             col.style.background=dCols[i%6].bg; 
             
-            // 💡 スイムレーンのドラッグ＆ドロップ（判定は列全体で行う）
+            // スイムレーンのドラッグ＆ドロップ（判定は列全体で行う）
             col.dataset.dept = d;
             col.ondragover = dragOverDept;
             col.ondragenter = dragEnterDept;
@@ -819,7 +814,7 @@
             h.style.background=dCols[i%6].border;
             h.innerHTML=`<span style="opacity:0.5; margin-right:6px;">⣿</span> ${d}`;
             
-            // 💡 ドラッグの開始はヘッダー部分を掴んだ時だけ
+            // ドラッグの開始はヘッダー部分を掴んだ時だけ
             h.draggable = true;
             h.dataset.dept = d;
             h.ondragstart = e => dragStartDept(e, 's');
@@ -983,12 +978,14 @@
             const s=ts[n.id].s;
             n.pIds.forEach(pid=>{
                 const p=ts[pid];
-                if(p.e && s && p.e>s){err.add(n.id); err.add(pid);}
-                if(p.e && s && diffDays(p.e,s)<=1) crt.add(`${pid}-${n.id}`);
+                // セーフティネット：親ノードが見つからない場合のクラッシュ防止
+                if(p && p.e && s && p.e>s){err.add(n.id); err.add(pid);}
+                if(p && p.e && s && diffDays(p.e,s)<=1) crt.add(`${pid}-${n.id}`);
             });
         });
         return {err,crt};
     }
+    
     function getOrd(t){
         const act=new Set(); st.nodes.forEach(n=>(getField(n,"担当部署")||"").split(/[,、]/).forEach(d=>act.add(d.trim())));
         let l = t==='swim'?st.sOrd:st.gOrd; if(!l)l=[];
@@ -1006,8 +1003,9 @@
     function addNode(type){
         if(st.sel.size===0)return;
         const p=st.nodes.find(n=>n.id==Array.from(st.sel)[0]); if(!p)return;
-        const id=Date.now(), isC=type==='child';
-        const nx=isC?p.x+300:p.x, ny=isC?p.y:p.y+160;
+        // 整数IDを生成し、querySelector等のエラーを防ぐ
+        const id=Date.now() + Math.floor(Math.random()*1000), isC=type==='child';
+        const nx=isC?(p.x||0)+300:(p.x||0), ny=isC?(p.y||0):(p.y||0)+160;
         let s=todayStr;
         if(isC) {
             const pe = parseDate(getField(p,"予定終了"));
@@ -1034,11 +1032,11 @@
     }
     
     function addFreeNode(){
-        const id=Date.now();
+        const id=Date.now() + Math.floor(Math.random()*1000);
         phy.act = false;
         
-        const cx = -st.x / st.sc - 120 + (Math.random() - 0.5) * 40;
-        const cy = -st.y / st.sc - 80 + (Math.random() - 0.5) * 40;
+        const cx = -(st.x||0) / (st.sc||1) - 120 + (Math.random() - 0.5) * 40;
+        const cy = -(st.y||0) / (st.sc||1) - 80 + (Math.random() - 0.5) * 40;
         
         st.nodes.push({
             id, 
@@ -1313,11 +1311,11 @@
             for(let a of st.nodes){
                 for(let b of st.nodes){
                     if(a===b)continue;
-                    const dx=a.x-b.x, dy=a.y-b.y, d=Math.sqrt(dx*dx+dy*dy);
+                    const dx=(a.x||0)-(b.x||0), dy=(a.y||0)-(b.y||0), d=Math.sqrt(dx*dx+dy*dy);
                     if(d<280 && d>0.1){
                         const f=(280-d)*0.15;
                         const ang=Math.atan2(dy,dx);
-                        a.x+=Math.cos(ang)*f; a.y+=Math.sin(ang)*f; mv=true;
+                        a.x=(a.x||0)+Math.cos(ang)*f; a.y=(a.y||0)+Math.sin(ang)*f; mv=true;
                     }
                 }
             }
@@ -1336,7 +1334,10 @@
     function fitToScreen(){
         if(!st.nodes.length)return;
         let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
-        st.nodes.forEach(n=>{if(n.x<Mx)Mx=n.x; if(n.y<My)My=n.y; if(n.x+240>mx)mx=n.x+240; if(n.y+160>my)my=n.y+160;});
+        st.nodes.forEach(n=>{
+            const nx=n.x||0, ny=n.y||0;
+            if(nx<Mx)Mx=nx; if(ny<My)My=ny; if(nx+240>mx)mx=nx+240; if(ny+160>my)my=ny+160;
+        });
         const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
         
         const c = document.getElementById('canvas');
@@ -1375,7 +1376,7 @@
         const id=qRes[qIdx];
         if(mode!=='map')switchView('map');
         sel(id,false); const n=st.nodes.find(x=>x.id==id);
-        if(n){st.x=-n.x*st.sc; st.y=-n.y*st.sc; ren();}
+        if(n){st.x=-(n.x||0)*st.sc; st.y=-(n.y||0)*st.sc; ren();}
         document.getElementById('q-cnt').innerText=`${qIdx+1}/${qRes.length}`;
     }
 
@@ -1455,7 +1456,7 @@
     function focusP(){
         const n=st.nodes[pre.idx]; sel(n.id,false);
         document.getElementById('s-num').innerText=`${pre.idx+1}/${st.nodes.length}`;
-        st.sc=1.5; st.x=-n.x*st.sc; st.y=-n.y*st.sc; ren();
+        st.sc=1.5; st.x=-(n.x||0)*st.sc; st.y=-(n.y||0)*st.sc; ren();
     }
 
     init();
