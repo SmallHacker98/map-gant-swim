@@ -5,18 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v6.4</title>
+<title>Pro Map Suite v6.5</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
     body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:sans-serif;user-select:none;}
 
-    /*Shift キーで虫眼鏡機能*/
     #loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9000;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
     #loupe-content{transform-origin:center center;width:100%;height:100%;position:absolute;}
     .magnify-cursor{cursor:crosshair !important;}
 
-    /* Layout */
     #viewport{
         width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;
         background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
@@ -26,7 +24,6 @@
     #canvas{transform-origin:0 0;position:absolute;top:0;left:0;}
     .smooth{transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}
 
-    /* Node */
     .node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:10;display:flex;flex-direction:column;overflow:hidden;}
     .node:hover{box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:20;}
     .node.sel{border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(52,152,219,0.3);}
@@ -49,13 +46,11 @@
     .n-add:hover{color:var(--accent);background:#f0f0f0;}
     .np{height:4px;background:#eee;} .np-bar{height:100%;background:#2ecc71;transition:width 0.3s;}
 
-    /* SVG */
     svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
     path{fill:none;stroke:var(--line);stroke-width:2px;stroke-linecap:round;transition:stroke 0.2s;}
     path.crit{stroke:var(--high);stroke-width:3px;stroke-dasharray:5,3;} 
     path.err{stroke:var(--crit);stroke-width:3px;}
 
-    /* Panels */
     .pnl{position:fixed;background:white;padding:6px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;gap:5px;z-index:1000;cursor:move;align-items:center;}
     .pnl button{border:none;background:#ecf0f1;min-width:36px;height:36px;border-radius:4px;font-size:16px;cursor:pointer;color:#2c3e50;font-weight:bold;padding:0 8px;}
     .pnl button:hover{background:#dcdcdc;}
@@ -64,7 +59,6 @@
     @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
     .sep{width:1px;height:20px;background:#ddd;margin:0 2px;} .sep-h{width:20px;height:1px;background:#ddd;margin:2px 0;}
 
-    /* Positions */
     #menu{top:20px;left:20px;flex-wrap:wrap;max-width:320px;}
     #search{top:20px;left:50%;transform:translateX(-50%);}
     #views{top:20px;right:20px; z-index: 3000;} 
@@ -75,13 +69,11 @@
     #g-scale{top:80px;right:20px;z-index:3000;}
     #s-fit{top:80px;right:20px;z-index:3000;}
     
-    /* Views */
     .view{position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;display:none;flex-direction:column;}
     .v-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;padding-top:20px;}
     .v-title{font-size:18px;font-weight:bold;color:#333;}
     .v-body{flex-grow:1;overflow:auto;position:relative;min-height:100vh;}
 
-    /* Gantt */
     .g-month-light{position:absolute;top:0;bottom:0;border-left:1px solid #ddd;z-index:1;}
     .g-wrap{position:relative;min-height:100%;transform-origin:top left;}
     .g-hdr{display:flex;height:40px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;align-items:center;}
@@ -105,10 +97,11 @@
     .g-month-lbl{position:absolute;top:10px;font-size:13px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:3px 8px;border-radius:3px;}
     .g-quarter-lbl{position:absolute;top:8px;font-size:14px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:4px;border:1px solid #ccc;}
     
-    /* Swimlane */
-    .s-cont{display:flex;min-height:100%;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
-    .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;min-height:100%;}
-    .s-hdr{position:sticky;top:40px;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:10;border-right:1px solid rgba(255,255,255,0.3);cursor:grab;margin-top:-40px;}
+    /* Swimlane (修正部分) */
+    .s-cont{display:flex;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
+    .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;}
+    /* 💡 top: 40px -> 0 に変更し、z-indexを強化 */
+    .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);cursor:grab;margin-top:-40px;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
@@ -116,7 +109,6 @@
     .dept-arr{cursor:pointer;opacity:0.6;padding:0 8px;font-size:12px;user-select:none;color:white;}
     .g-arr-btn{cursor:pointer;opacity:0.6;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;}
 
-    /* Modal */
     #modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:center;justify-content:center;}
     .m-cnt{background:white;padding:25px;border-radius:8px;width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
     .m-row{margin-bottom:12px;}
@@ -129,7 +121,6 @@
 
     #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:6000;}
     
-    /* ScreenShot Mode */
     .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
     .sc-mode .view{margin-top:0;}
     .sc-mode .view-header{padding-top:10px;}
@@ -259,7 +250,6 @@
     let gZoom = 1, sZoom = 1;
     const cvs = document.getElementById('canvas'), vp = document.getElementById('viewport');
 
-    // --- Core Funcs (Unified) ---
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
             const start = (e, cx, cy) => {
@@ -283,7 +273,6 @@
                 mapD.x=e.clientX; mapD.y=e.clientY; ren(); return;
             }
             
-            // Shift押下時に虫眼鏡表示
             if(mode==='map' && e.shiftKey){
                 const lp=document.getElementById('loupe');
                 const lc=document.getElementById('loupe-content');
@@ -312,11 +301,7 @@
         window.onmouseup = () => { 
             panD.act=false;
             vp.style.willChange = 'auto';
-            
-            if(mapD && mapD.t==='node'){
-                phy.act = true;
-                runPhy();
-            }
+            if(mapD && mapD.t==='node'){ phy.act = true; runPhy(); }
             mapD=null; 
         };
         
@@ -334,21 +319,11 @@
             const act=document.activeElement; 
             if (e.isComposing) return;
             
-            // Modal Shortcuts (最優先処理)
             if(document.getElementById('modal').style.display!=='none'){ 
-                if(e.key==='Enter') {
-                    e.preventDefault();
-                    saveModal();
-                    return;
-                }
-                if(e.key==='Escape') {
-                    e.preventDefault();
-                    closeModal();
-                    return;
-                }
+                if(e.key==='Enter') { e.preventDefault(); saveModal(); return; }
+                if(e.key==='Escape') { e.preventDefault(); closeModal(); return; }
             }
             
-            // INPUT/SELECTにフォーカスがある場合は他のショートカットをスキップ
             if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
             
             if(e.ctrlKey||e.metaKey){
@@ -543,7 +518,7 @@
         }
 
         const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
-        // 💡 修正：ヘッダーを `g-wrap` の中に含めることで、ズームした際に一緒に拡大縮小されズレを防ぐ
+        // 💡 ズーム時のズレを防ぐため、ヘッダーをズームコンテナの内部に含める
         wp.appendChild(hd);
 
         const gb=document.createElement('div'); 
@@ -627,7 +602,7 @@
             return ts[a.n.id].s-ts[b.n.id].s;
         });
         
-        let y=40, ld=null; // header height 40px offset
+        let y=40, ld=null; 
         items.forEach(it=>{
             const t=ts[it.n.id];
             if(it.d!==ld){
@@ -705,7 +680,6 @@
         const wrap = vb.querySelector('.g-wrap');
         if(!wrap) return;
         
-        // zoomプロパティを一時解除して本来のサイズを取得
         wrap.style.zoom = 1;
         const contentWidth = wrap.scrollWidth;
         const contentHeight = wrap.scrollHeight;
@@ -724,11 +698,10 @@
     function applyGanttZoom(){
         const wrap = document.querySelector('.g-wrap');
         if(!wrap) return;
-        // 💡 修正：transform の代わりに CSS zoom を使用し、sticky要素やスクロール領域の問題を解決
+        // 💡 CSS zoom を用いてズーム時のレイアウト崩れを防ぐ
         if (CSS.supports("zoom", "1")) {
             wrap.style.zoom = gZoom;
         } else {
-            // Firefoxの古いバージョン用フォールバック
             wrap.style.transform = `scale(${gZoom})`;
             wrap.style.transformOrigin = "top left";
             wrap.style.marginBottom = `${wrap.scrollHeight * (gZoom - 1)}px`;
@@ -805,7 +778,8 @@
             
             while(collision){
                 collision = false;
-                const proposedY = lv * 220 + 60 + yOffset * 110;
+                // 💡 タスクがヘッダーの下に隠れないよう開始Y座標を下げる (60 -> 80)
+                const proposedY = lv * 220 + 80 + yOffset * 110;
                 
                 for(let p of placed[lv]){
                     const horizontalOverlap = !(mx < p.minI || minI > p.maxI);
@@ -819,7 +793,7 @@
                 }
             }
             
-            const finalY = lv * 220 + 60 + yOffset * 110;
+            const finalY = lv * 220 + 80 + yOffset * 110;
             
             placed[lv].push({minI, maxI: mx, y: finalY});
             
@@ -839,18 +813,25 @@
                 deptIndicator += '</div>';
             }
             
-            el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")}</div>`;
+            el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")} 日</div>`;
             el.onclick=()=>openEditModal(n.id); 
             con.appendChild(el);
             ui[n.id]={l:minI*cw+20, r:(mx+1)*cw-20, t:finalY, b:finalY+60};
         });
         
         const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
-        const totalHeight = maxY + 100;
+        
+        // 💡 ズームアウト時に画面下部で背景が途切れないよう、ビューポート高さも考慮して高さを計算
+        const viewH = c.clientHeight / (sZoom || 1);
+        const totalHeight = Math.max(maxY + 200, viewH + 100);
+        
+        con.style.height=`${totalHeight}px`;
         con.style.minHeight=`${totalHeight}px`;
         
-        // 💡 修正：各列（部署）の高さを親要素の最大高さに合わせることで背景の途切れを防ぐ
-        cols.forEach(col => col.style.minHeight = `${totalHeight}px`);
+        cols.forEach(col => {
+            col.style.height = `${totalHeight}px`;
+            col.style.minHeight = `${totalHeight}px`;
+        });
         
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); 
         svg.style.position='absolute';
@@ -889,12 +870,12 @@
 
     function swimZoomIn(){
         sZoom = Math.min(3, sZoom * 1.2);
-        applySwimZoom();
+        renderSwimlane(); // 💡 ズーム値が変わった際に高さを再計算するため再描画
     }
 
     function swimZoomOut(){
         sZoom = Math.max(0.5, sZoom * 0.8);
-        applySwimZoom();
+        renderSwimlane(); // 💡 ズーム値が変わった際に高さを再計算するため再描画
     }
 
     function fitSwimlane(){
@@ -912,7 +893,7 @@
         const scaleY = (viewHeight / contentHeight) * 0.9;
         sZoom = Math.min(scaleX, scaleY, 1);
         
-        applySwimZoom();
+        renderSwimlane(); // 💡 ズーム値が変わった際に高さを再計算するため再描画
         vb.scrollLeft = 0;
         vb.scrollTop = 0;
     }
@@ -920,7 +901,6 @@
     function applySwimZoom(){
         const con = document.querySelector('.s-cont');
         if(!con) return;
-        // 💡 修正：こちらも CSS zoom を使用し、親コンテナサイズを適切に認識させる
         if (CSS.supports("zoom", "1")) {
             con.style.zoom = sZoom;
         } else {
