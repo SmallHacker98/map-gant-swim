@@ -105,11 +105,17 @@
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
 
-    /* ドラッグ＆ドロップ時のフィードバック用スタイル */
+    /* 💡 ドラッグ＆ドロップ時のフィードバック用スタイル */
     .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
     .g-grp.drag-over { background-color: #d6eaf8 !important; box-shadow: inset 0 0 0 2px var(--accent); }
-    /* ドラッグ中の子要素イベント無効化（チラつき防止） */
-    body.is-dragging .s-hdr, body.is-dragging .s-node, body.is-dragging .g-row, body.is-dragging .g-area { pointer-events: none !important; }
+    
+    /* 💡 修正：ドラッグ中のイベント無効化からヘッダー要素を除外（ドラッグが途中で解除されるバグの修正） */
+    body.is-dragging .s-node, body.is-dragging .g-row, body.is-dragging .g-area { pointer-events: none !important; }
+
+    .dept-arr{cursor:pointer;opacity:0.8;padding:0 8px;font-size:12px;user-select:none;color:white;border-radius:4px;transition:0.2s;}
+    .dept-arr:hover{background:rgba(0,0,0,0.2);}
+    .g-arr-btn{cursor:pointer;opacity:0.8;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;transition:0.2s;}
+    .g-arr-btn:hover{background:#eee;}
 
     #modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:center;justify-content:center;}
     .m-cnt{background:white;padding:25px;border-radius:8px;width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
@@ -353,6 +359,7 @@
     function addDays(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
     function diffDays(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
 
+    // --- ドラッグ＆ドロップ 処理 ---
     function dragStartDept(e, type) {
         dragDept = e.currentTarget.dataset.dept;
         dragType = type;
@@ -401,7 +408,7 @@
     function ren(){
         if(mode!=='map')return;
         const an=ana(); const c=document.getElementById('canvas');
-        if(!c) return; // セーフティネット
+        if(!c) return; 
         
         const vp = document.getElementById('viewport');
         c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
@@ -412,7 +419,6 @@
         ex.forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
         
         st.nodes.forEach(d=>{
-            // IDにドット等が含まれていても安全にクエリをかける
             let el=c.querySelector(`.node[data-id="${CSS.escape(d.id)}"]`);
             if(!el){
                 el=document.createElement('div'); el.className='node'; el.dataset.id=d.id;
@@ -656,6 +662,7 @@
                 const gr=document.createElement('div'); 
                 gr.className='g-grp'+(it.d==='全体'?' all':'');
                 
+                // 💡 矢印ボタン ＋ D&D 対応
                 if(it.d !== '全体') {
                     gr.draggable = true;
                     gr.dataset.dept = it.d;
@@ -665,7 +672,9 @@
                     gr.ondragleave = dragLeaveDept;
                     gr.ondrop = e => dropDept(e, 'g');
                     gr.ondragend = dragEndDept;
-                    gr.innerHTML=`<div style="width:200px;padding-left:10px;"><span style="opacity:0.4;margin-right:6px;">⣿</span> 📂 ${it.d}</div>`;
+                    
+                    const arr=`<span class="g-arr-btn" onclick="mvD('g','${it.d}',-1)">▲</span><span class="g-arr-btn" onclick="mvD('g','${it.d}',1)">▼</span>`;
+                    gr.innerHTML=`<div style="width:200px;padding-left:10px;">${arr}<span style="opacity:0.4;margin-right:6px;cursor:grab;">⣿</span> 📂 ${it.d}</div>`;
                 } else {
                     gr.innerHTML=`<div style="width:200px;padding-left:10px;">📂 ${it.d}</div>`;
                 }
@@ -802,7 +811,7 @@
             col.className='s-col'; 
             col.style.background=dCols[i%6].bg; 
             
-            // スイムレーンのドラッグ＆ドロップ（判定は列全体で行う）
+            // 💡 スイムレーンのドラッグ＆ドロップ（判定は列全体で行う）
             col.dataset.dept = d;
             col.ondragover = dragOverDept;
             col.ondragenter = dragEnterDept;
@@ -812,7 +821,9 @@
             const h=document.createElement('div'); 
             h.className='s-hdr'; 
             h.style.background=dCols[i%6].border;
-            h.innerHTML=`<span style="opacity:0.5; margin-right:6px;">⣿</span> ${d}`;
+            
+            // 💡 矢印ボタン ＋ D&D 対応
+            h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span> <span style="opacity:0.5; margin-right:6px; cursor:grab;">⣿</span> ${d} <span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
             
             // ドラッグの開始はヘッダー部分を掴んだ時だけ
             h.draggable = true;
@@ -978,7 +989,6 @@
             const s=ts[n.id].s;
             n.pIds.forEach(pid=>{
                 const p=ts[pid];
-                // セーフティネット：親ノードが見つからない場合のクラッシュ防止
                 if(p && p.e && s && p.e>s){err.add(n.id); err.add(pid);}
                 if(p && p.e && s && diffDays(p.e,s)<=1) crt.add(`${pid}-${n.id}`);
             });
@@ -1003,7 +1013,6 @@
     function addNode(type){
         if(st.sel.size===0)return;
         const p=st.nodes.find(n=>n.id==Array.from(st.sel)[0]); if(!p)return;
-        // 整数IDを生成し、querySelector等のエラーを防ぐ
         const id=Date.now() + Math.floor(Math.random()*1000), isC=type==='child';
         const nx=isC?(p.x||0)+300:(p.x||0), ny=isC?(p.y||0):(p.y||0)+160;
         let s=todayStr;
