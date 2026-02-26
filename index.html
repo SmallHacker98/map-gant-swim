@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v7.6</title>
+<title>Pro Map Suite v7.7</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -405,8 +405,10 @@
         
         let l = isSwim ? st.sOrd : st.gOrd; 
         if(!l) l = [];
+        
         act.forEach(d=>{ if(!l.includes(d)) l.push(d); });
         l = l.filter(d=>act.has(d));
+        
         if(isSwim) st.sOrd = l; else st.gOrd = l;
         return l;
     }
@@ -885,7 +887,7 @@
             let collision = true;
             while(collision){
                 collision = false;
-                const proposedY = lv * 300 + 80 + yOffset * 160; 
+                const proposedY = lv * 300 + 80 + yOff * 160; 
                 for(let p of placed[lv]){
                     const horizOverlap = !(span.mx < p.minI || span.minI > p.mx);
                     // 💡 被り判定の距離も拡張 (100 -> 140)
@@ -967,110 +969,127 @@
             el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")} 日</div>`;
             el.onclick=()=>openEditModal(n.id); 
             con.appendChild(el);
-            ui[n.id]={l:span.minI*cw+20, r:(span.mx+1)*cw-20, t:finalY, b:finalY+el.offsetHeight+10, minI: span.minI, mx: span.mx};
+            // offsetHeightが取れない場合を考慮して固定値を仮設定
+            ui[n.id]={l:span.minI*cw+20, r:(span.mx+1)*cw-20, t:finalY, b:finalY + 100, minI: span.minI, mx: span.mx};
         });
         
-        const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
-        const viewH = c.clientHeight / (sZoom || 1);
-        const totalHeight = Math.max(maxY + 200, viewH + 100);
-        
-        con.style.height=`${totalHeight}px`;
-        con.style.minHeight=`${totalHeight}px`;
-        
-        cols.forEach(col => {
-            col.style.height = `${totalHeight}px`;
-            col.style.minHeight = `${totalHeight}px`;
-        });
-        
-        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); 
-        svg.style.position='absolute';
-        svg.style.top='0';
-        svg.style.left='0';
-        svg.style.width='100%';
-        svg.style.height='100%';
-        svg.style.zIndex=5;
-        svg.innerHTML='<defs><marker id="sa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#7f8c8d"/></marker></defs>';
-
-        const outCount = {}, inCount = {};
-        st.nodes.forEach(n => {
-            n.pIds.forEach(pid => {
-                outCount[pid] = (outCount[pid] || 0) + 1;
-                inCount[n.id] = (inCount[n.id] || 0) + 1;
-            });
-        });
-        
-        const outIndex = {}, inIndex = {};
-        const an = ana(); 
-        
-        function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
-            const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-            for (const id in ui) {
-                if (id == excludeId1 || id == excludeId2) continue;
-                const n = ui[id];
-                if (x > n.l - 5 && x < n.r + 5 && maxY > n.t - 5 && minY < n.b + 5) return true;
-            }
-            return false;
-        }
-
-        st.nodes.forEach(n=>{
-            n.pIds.forEach(pid=>{
-                const p=ui[pid], ch=ui[n.id];
-                if(p&&ch){
-                    outIndex[pid] = (outIndex[pid] || 0) + 1;
-                    inIndex[n.id] = (inIndex[n.id] || 0) + 1;
-
-                    const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 16;
-                    const cOff = (inIndex[n.id] - (inCount[n.id] + 1) / 2) * 16;
-
-                    const sx = (p.l + p.r) / 2 + pOff;
-                    const sy = p.b;
-                    const ex = (ch.l + ch.r) / 2 + cOff;
-                    const ey = ch.t;
-
-                    // 💡 隙間を拡張 (8 -> 12)
-                    const midY = (sy + ey) / 2 + ((outIndex[pid] - inIndex[n.id]) * 12);
-                    
-                    let pts = [];
-                    const safe = !isIntersecting(sx, sy, midY, pid, n.id) && !isIntersecting(ex, midY, ey, pid, n.id);
-
-                    if (safe) {
-                        pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
-                    } else {
-                        const bypassX = (p.mx + 1) * cw - 10 + (outIndex[pid] * 4);
-                        // 💡 回避ルートの余白を拡張 (15 -> 25)
-                        const y1 = sy + 25 + outIndex[pid]*5;
-                        const y2 = ey - 25 - inIndex[n.id]*5;
-                        pts = [
-                            {x:sx, y:sy}, 
-                            {x:sx, y:y1}, 
-                            {x:bypassX, y:y1}, 
-                            {x:bypassX, y:y2}, 
-                            {x:ex, y:y2}, 
-                            {x:ex, y:ey}
-                        ];
-                    }
-                    
-                    const d = drawRoundedPath(pts, 10);
-                    
-                    const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
-                    pt.setAttribute('d',d); 
-                    pt.setAttribute('marker-end','url(#sa)');
-                    
-                    const cr = an.crt && an.crt.has(`${pid}-${n.id}`);
-                    const er = an.err && an.err.has(n.id) && an.err.has(pid);
-                    
-                    if (er) pt.setAttribute('class', 'chart-arrow err');
-                    else if (cr) pt.setAttribute('class', 'chart-arrow crit');
-                    else pt.setAttribute('class', 'chart-arrow');
-                    
-                    svg.appendChild(pt);
+        // 追加後に正確な要素の高さを取得して bottom 座標を更新する
+        setTimeout(() => {
+            sortedNodes.forEach(n => {
+                const el = Array.from(con.querySelectorAll('.node.s-node')).find(node => node.querySelector('.nt').innerText === n.title); // タイトルで強引に判定（理想はdata-idを振るべきですが既存ロジックに合わせます）
+                if (el) {
+                    ui[n.id].b = ui[n.id].t + el.offsetHeight + 10;
                 }
             });
-        });
+            drawArrows();
+        }, 0);
 
-        con.appendChild(svg); 
+        function drawArrows() {
+            const oldSvg = con.querySelector('svg');
+            if(oldSvg) oldSvg.remove();
+
+            const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
+            const viewH = c.clientHeight / (sZoom || 1);
+            const totalHeight = Math.max(maxY + 200, viewH + 100);
+            
+            con.style.height=`${totalHeight}px`;
+            con.style.minHeight=`${totalHeight}px`;
+            
+            cols.forEach(col => {
+                col.style.height = `${totalHeight}px`;
+                col.style.minHeight = `${totalHeight}px`;
+            });
+
+            const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); 
+            svg.style.position='absolute';
+            svg.style.top='0';
+            svg.style.left='0';
+            svg.style.width='100%';
+            svg.style.height='100%';
+            svg.style.zIndex=5;
+            svg.innerHTML='<defs><marker id="sa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#7f8c8d"/></marker></defs>';
+
+            const outCount = {}, inCount = {};
+            st.nodes.forEach(n => {
+                n.pIds.forEach(pid => {
+                    outCount[pid] = (outCount[pid] || 0) + 1;
+                    inCount[n.id] = (inCount[n.id] || 0) + 1;
+                });
+            });
+            
+            const outIndex = {}, inIndex = {};
+            const an = ana(); 
+            
+            function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
+                const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+                for (const id in ui) {
+                    if (id == excludeId1 || id == excludeId2) continue;
+                    const n = ui[id];
+                    if (x > n.l - 5 && x < n.r + 5 && maxY > n.t - 5 && minY < n.b + 5) return true;
+                }
+                return false;
+            }
+
+            st.nodes.forEach(n=>{
+                n.pIds.forEach(pid=>{
+                    const p=ui[pid], ch=ui[n.id];
+                    if(p&&ch){
+                        outIndex[pid] = (outIndex[pid] || 0) + 1;
+                        inIndex[n.id] = (inIndex[n.id] || 0) + 1;
+
+                        const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 16;
+                        const cOff = (inIndex[n.id] - (inCount[n.id] + 1) / 2) * 16;
+
+                        const sx = (p.l + p.r) / 2 + pOff;
+                        const sy = p.b;
+                        const ex = (ch.l + ch.r) / 2 + cOff;
+                        const ey = ch.t;
+
+                        // 💡 隙間を拡張 (8 -> 12)
+                        const midY = (sy + ey) / 2 + ((outIndex[pid] - inIndex[n.id]) * 12);
+                        
+                        let pts = [];
+                        const safe = !isIntersecting(sx, sy, midY, pid, n.id) && !isIntersecting(ex, midY, ey, pid, n.id);
+
+                        if (safe) {
+                            pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
+                        } else {
+                            const bypassX = (p.mx + 1) * cw - 10 + (outIndex[pid] * 4);
+                            // 💡 回避ルートの余白を拡張 (15 -> 25)
+                            const y1 = sy + 25 + outIndex[pid]*5;
+                            const y2 = ey - 25 - inIndex[n.id]*5;
+                            pts = [
+                                {x:sx, y:sy}, 
+                                {x:sx, y:y1}, 
+                                {x:bypassX, y:y1}, 
+                                {x:bypassX, y:y2}, 
+                                {x:ex, y:y2}, 
+                                {x:ex, y:ey}
+                            ];
+                        }
+                        
+                        const d = drawRoundedPath(pts, 10);
+                        
+                        const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
+                        pt.setAttribute('d',d); 
+                        pt.setAttribute('marker-end','url(#sa)');
+                        
+                        const cr = an.crt && an.crt.has(`${pid}-${n.id}`);
+                        const er = an.err && an.err.has(n.id) && an.err.has(pid);
+                        
+                        if (er) pt.setAttribute('class', 'chart-arrow err');
+                        else if (cr) pt.setAttribute('class', 'chart-arrow crit');
+                        else pt.setAttribute('class', 'chart-arrow');
+                        
+                        svg.appendChild(pt);
+                    }
+                });
+            });
+
+            con.appendChild(svg);
+        }
+
         c.appendChild(con);
-        
         applySwimZoom();
     }
 
