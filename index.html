@@ -1005,103 +1005,124 @@
             svg.innerHTML='<defs><marker id="sa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#7f8c8d"/></marker></defs>';
 
             const outCount = {}, inCount = {};
+            // 💡 描画順を安定させるためにエッジリストを作成
+            const edges = [];
             st.nodes.forEach(n => {
                 n.pIds.forEach(pid => {
                     outCount[pid] = (outCount[pid] || 0) + 1;
                     inCount[n.id] = (inCount[n.id] || 0) + 1;
+                    edges.push({p: pid, c: n.id});
                 });
             });
             
             const outIndex = {}, inIndex = {};
             const an = ana(); 
             
-            // 💡 指定した座標が他のノードと被っていないかチェック
+            // 💡 衝突判定を厳密化。ノードの周囲10pxを「不可侵バリア」とする
             function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
                 const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
                 for (const id in ui) {
                     if (id == excludeId1 || id == excludeId2) continue;
                     const n = ui[id];
-                    if (x > n.l - 5 && x < n.r + 5 && maxY > n.t - 5 && minY < n.b + 5) return true;
+                    if (x > n.l - 10 && x < n.r + 10 && maxY > n.t - 10 && minY < n.b + 10) return true;
+                }
+                return false;
+            }
+            function horizIntersecting(y, x1, x2, excludeId1, excludeId2) {
+                const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+                for (const id in ui) {
+                    if (id == excludeId1 || id == excludeId2) continue;
+                    const n = ui[id];
+                    if (y > n.t - 10 && y < n.b + 10 && maxX > n.l - 10 && minX < n.r + 10) return true;
                 }
                 return false;
             }
 
-            // 💡 線ごとにユニークなオフセットを持たせるためのインデックス
-            let lineIndex = 0;
+            // 💡 すべての線に固有のトラック番号を割り当てる
+            edges.forEach((edge, edgeIdx) => {
+                const pid = edge.p;
+                const cid = edge.c;
+                const p = ui[pid], ch = ui[cid];
+                
+                if(p && ch){
+                    outIndex[pid] = (outIndex[pid] || 0) + 1;
+                    inIndex[cid] = (inIndex[cid] || 0) + 1;
 
-            st.nodes.forEach(n=>{
-                n.pIds.forEach(pid=>{
-                    const p=ui[pid], ch=ui[n.id];
-                    if(p&&ch){
-                        lineIndex++;
-                        outIndex[pid] = (outIndex[pid] || 0) + 1;
-                        inIndex[n.id] = (inIndex[n.id] || 0) + 1;
+                    // 出入り口のポート間隔を20pxに設定
+                    const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20;
+                    const cOff = (inIndex[cid] - (inCount[cid] + 1) / 2) * 20;
 
-                        // 💡 出入り口（ポート）を20px間隔に広げて密集を防ぐ
-                        const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20;
-                        const cOff = (inIndex[n.id] - (inCount[n.id] + 1) / 2) * 20;
+                    const sx = (p.l + p.r) / 2 + pOff;
+                    const sy = p.b;
+                    const ex = (ch.l + ch.r) / 2 + cOff;
+                    const ey = ch.t;
 
-                        const sx = (p.l + p.r) / 2 + pOff;
-                        const sy = p.b;
-                        const ex = (ch.l + ch.r) / 2 + cOff;
-                        const ey = ch.t;
+                    const pLv = levels[pid];
+                    const cLv = levels[cid];
 
-                        const pLv = levels[pid];
-                        const cLv = levels[n.id];
+                    // 💡 トラック分散：横線と縦線のY座標・X座標を完全に重ならないようにする
+                    const trackY = (edgeIdx % 10) * 8; // 0 ~ 72pxの分散
+                    const trackX = ((edgeIdx % 6) - 2.5) * 8; // -20 ~ +20pxの分散
 
-                        // 💡 横線のY座標を線ごとにずらし、完全に重なるのを防ぐ
-                        const yOffset = (lineIndex % 12) * 6; // 0 ~ 66px ズラす
-                        
-                        let midY;
-                        if (pLv === cLv) {
-                            midY = Math.min(p.t, ch.t) - 20 - yOffset;
-                        } else {
-                            midY = levelStartY[cLv] - 20 - yOffset; 
-                        }
-                        
-                        let pts = [];
-                        const safe1 = !isIntersecting(sx, sy, midY, pid, n.id);
-                        const safe2 = !isIntersecting(ex, midY, ey, pid, n.id);
-
-                        if (safe1 && safe2) {
-                            pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
-                        } else {
-                            // 💡 ノードを避けるバイパスルート
-                            // X座標はノードに隣接しないよう、境界線から少しずらした位置を通す
-                            const isRightward = ex > sx;
-                            const xOffset = ((lineIndex % 5) - 2) * 6; // -12, -6, 0, 6, 12 のバラつき
-                            const bypassX = isRightward ? (p.mx + 1) * cw + xOffset : p.minI * cw + xOffset;
-                            
-                            // 曲がる高さをノードの下（安全地帯）に設定
-                            const y1 = p.t + 120 + ((lineIndex % 6) * 5); // 120 ~ 145
-                            const y2 = midY;
-                            
-                            pts = [
-                                {x:sx, y:sy}, 
-                                {x:sx, y:y1}, 
-                                {x:bypassX, y:y1}, 
-                                {x:bypassX, y:y2}, 
-                                {x:ex, y:y2}, 
-                                {x:ex, y:ey}
-                            ];
-                        }
-                        
-                        const d = drawRoundedPath(pts, 10);
-                        
-                        const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
-                        pt.setAttribute('d',d); 
-                        pt.setAttribute('marker-end','url(#sa)');
-                        
-                        const cr = an.crt && an.crt.has(`${pid}-${n.id}`);
-                        const er = an.err && an.err.has(n.id) && an.err.has(pid);
-                        
-                        if (er) pt.setAttribute('class', 'chart-arrow err');
-                        else if (cr) pt.setAttribute('class', 'chart-arrow crit');
-                        else pt.setAttribute('class', 'chart-arrow');
-                        
-                        svg.appendChild(pt);
+                    let midY;
+                    if (pLv === cLv) {
+                        midY = Math.min(p.t, ch.t) - 30 - trackY;
+                    } else if (pLv < cLv) {
+                        // 順方向：親ノードの下の「安全地帯」を通る
+                        midY = p.b + 30 + trackY;
+                    } else {
+                        // 逆方向（ループ）
+                        midY = p.b + 30 + trackY;
                     }
-                });
+                    
+                    let pts = [];
+                    // 直通ルートがノード（のバリア）に触れないか確認
+                    const safe = !isIntersecting(sx, sy, midY, pid, cid) && 
+                                 !horizIntersecting(midY, sx, ex, pid, cid) && 
+                                 !isIntersecting(ex, midY, ey, pid, cid);
+
+                    if (safe) {
+                        pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
+                    } else {
+                        // 💡 ノードを避けるためのバイパスルート
+                        // 迂回X座標は、列の境界線からトラック分散値（trackX）分ずらして設定
+                        const dir = ex > sx ? 1 : -1;
+                        let bypassX;
+                        if (dir > 0) {
+                            bypassX = (p.mx + 1) * cw - 15 + trackX;
+                        } else {
+                            bypassX = p.minI * cw + 15 + trackX;
+                        }
+
+                        // 下側の空き地を使って迂回
+                        const y1 = p.b + 20 + trackY;
+                        const y2 = ch.t - 20 - trackY;
+
+                        pts = [
+                            {x:sx, y:sy}, 
+                            {x:sx, y:y1}, 
+                            {x:bypassX, y:y1}, 
+                            {x:bypassX, y:y2}, 
+                            {x:ex, y:y2}, 
+                            {x:ex, y:ey}
+                        ];
+                    }
+                    
+                    const d = drawRoundedPath(pts, 10);
+                    
+                    const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
+                    pt.setAttribute('d',d); 
+                    pt.setAttribute('marker-end','url(#sa)');
+                    
+                    const cr = an.crt && an.crt.has(`${pid}-${cid}`);
+                    const er = an.err && an.err.has(cid) && an.err.has(pid);
+                    
+                    if (er) pt.setAttribute('class', 'chart-arrow err');
+                    else if (cr) pt.setAttribute('class', 'chart-arrow crit');
+                    else pt.setAttribute('class', 'chart-arrow');
+                    
+                    svg.appendChild(pt);
+                }
             });
 
             con.appendChild(svg);
