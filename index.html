@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v7.0</title>
+<title>Pro Map Suite v7.1 (Debug)</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -106,7 +106,7 @@
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
 
-    /* 💡 完璧に機能するドラッグ＆ドロップ用のスタイル制御 */
+    /* 💡 ドラッグ＆ドロップ時のフィードバックと誤判定防止 */
     .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
     .g-grp.drag-over { background-color: #d6eaf8 !important; box-shadow: inset 0 0 0 2px var(--accent); }
     
@@ -356,12 +356,10 @@
     function addDays(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
     function diffDays(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
 
-    // 💡 確実にリストを同期・更新するための修正版getOrd関数
     function getOrd(t){
         const act=new Set(); 
         st.nodes.forEach(n=>{
             const ds = (getField(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
-            // Ganttは複数部署を「全体」にまとめるため除外
             if(t === 'gantt' || t === 'g') {
                 if (ds.length <= 1) act.add(ds[0] || "未配属");
             } else {
@@ -380,14 +378,14 @@
         return l;
     }
 
-    // --- ドラッグ＆ドロップ 処理（完全版） ---
+    // --- ドラッグ＆ドロップ 処理（デバッグ用ログ出力付き） ---
     function onDragStartDept(e, type, dept) {
+        console.log(`🟢 [Drag Start] 種類: ${type}, 掴んだ部署: ${dept}`);
         dragDept = dept;
         dragType = type;
         e.dataTransfer.effectAllowed = 'move';
         if(e.dataTransfer.setData) e.dataTransfer.setData('text/plain', dept);
         
-        // setTimeoutでドラッグ開始後のスタイル適用を保証
         setTimeout(() => {
             document.body.classList.add('is-dragging'); 
             if (type === 's') e.target.parentElement.style.opacity = '0.6';
@@ -403,6 +401,7 @@
     
     function onDragEnterDept(e, dept) { 
         e.preventDefault(); 
+        console.log(`🟡 [Drag Enter] 通過中: ${dept}`);
         if(dept !== dragDept) e.currentTarget.classList.add('drag-over'); 
     }
     
@@ -411,22 +410,31 @@
     }
     
     function onDropDept(e, type, targetDept) {
+        console.log(`🔵 [Drop] 離した場所: ${targetDept}`);
         e.preventDefault();
         e.stopPropagation();
         e.currentTarget.classList.remove('drag-over');
         
         if (dragDept && dragDept !== targetDept && dragType === type) {
             let arr = getOrd(type === 's' ? 'swim' : 'gantt'); 
+            console.log(`📊 [Drop前] 現在の並び順:`, JSON.stringify(arr));
+            
             const fromIdx = arr.indexOf(dragDept);
             const toIdx = arr.indexOf(targetDept);
+            console.log(`🔄 移動インデックス: ${fromIdx} から ${toIdx} へ`);
             
             if (fromIdx !== -1 && toIdx !== -1) {
                 arr.splice(fromIdx, 1);
                 arr.splice(toIdx, 0, dragDept);
+                console.log(`✨ [Drop後] 新しい並び順:`, JSON.stringify(arr));
                 
                 if (type === 's') { st.sOrd = arr; renderSwimlane(); } 
                 else { st.gOrd = arr; renderGantt(); }
+            } else {
+                console.warn(`⚠️ エラー: インデックスが見つかりません！`);
             }
+        } else {
+            console.log(`⚪ [Dropキャンセル] 条件不一致 (同じ場所、または種類違い)`);
         }
         dragDept = null; 
         dragType = null;
@@ -434,6 +442,7 @@
     }
     
     function onDragEndDept(e) {
+        console.log(`🔴 [Drag End] ドラッグ終了`);
         if (dragType === 's') e.target.parentElement.style.opacity = '1';
         else e.target.style.opacity = '1';
         
@@ -700,7 +709,6 @@
                 const gr=document.createElement('div'); 
                 gr.className='g-grp'+(it.d==='全体'?' all':'');
                 
-                // 💡 ガントチャートのドラッグ＆ドロップ設定
                 if(it.d !== '全体') {
                     gr.draggable = true;
                     gr.ondragstart = e => onDragStartDept(e, 'g', it.d);
@@ -846,7 +854,6 @@
             col.className='s-col'; 
             col.style.background=dCols[i%6].bg; 
             
-            // 💡 スイムレーンのドラッグ＆ドロップは列(.s-col)全体をドロップ先とする
             col.ondragover = onDragOverDept;
             col.ondragenter = e => onDragEnterDept(e, d);
             col.ondragleave = onDragLeaveDept;
@@ -857,7 +864,6 @@
             h.style.background=dCols[i%6].border;
             h.innerHTML=`<span style="opacity:0.5; margin-right:6px; cursor:grab;">⣿</span> ${d}`;
             
-            // 💡 ドラッグの開始はヘッダー部分を掴んだ時だけ
             h.draggable = true;
             h.ondragstart = e => onDragStartDept(e, 's', d);
             h.ondragend = onDragEndDept;
