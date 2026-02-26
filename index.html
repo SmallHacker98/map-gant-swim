@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v7.5</title>
+<title>Pro Map Suite v7.6</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -405,10 +405,8 @@
         
         let l = isSwim ? st.sOrd : st.gOrd; 
         if(!l) l = [];
-        
         act.forEach(d=>{ if(!l.includes(d)) l.push(d); });
         l = l.filter(d=>act.has(d));
-        
         if(isSwim) st.sOrd = l; else st.gOrd = l;
         return l;
     }
@@ -876,6 +874,7 @@
             nodeSpan[n.id] = { minI: deptIndices[0], mx: deptIndices[deptIndices.length - 1], deptIndices };
         });
 
+        // 💡 縦の基本スペースを拡張 (160px/行 + 100pxマージン)
         const placed = {};
         for(let i=0; i<=maxLv; i++) placed[i] = [];
         
@@ -886,23 +885,26 @@
             let collision = true;
             while(collision){
                 collision = false;
+                const proposedY = lv * 300 + 80 + yOffset * 160; 
                 for(let p of placed[lv]){
                     const horizOverlap = !(span.mx < p.minI || span.minI > p.mx);
-                    if(horizOverlap && p.yOff === yOff){
+                    // 💡 被り判定の距離も拡張 (100 -> 140)
+                    if(horizOverlap && Math.abs(proposedY - p.y) < 140 && p.yOff === yOff){
                         collision = true;
                         yOff++;
                         break;
                     }
                 }
             }
-            placed[lv].push({minI: span.minI, mx: span.mx, yOff, id: n.id});
+            // 衝突判定用に実際のYを一時保存
+            placed[lv].push({minI: span.minI, mx: span.mx, yOff, id: n.id, y: lv * 300 + 80 + yOff * 160});
             span.yOff = yOff;
         });
 
         const levelHeights = {};
         for(let i=0; i<=maxLv; i++) {
             const maxOff = placed[i].length > 0 ? Math.max(...placed[i].map(p=>p.yOff)) : 0;
-            levelHeights[i] = (maxOff + 1) * 90 + 60;
+            levelHeights[i] = (maxOff + 1) * 160 + 100;
         }
 
         const levelStartY = { 0: 80 };
@@ -944,7 +946,7 @@
         sortedNodes.forEach(n=>{
             const span = nodeSpan[n.id];
             const lv = levels[n.id];
-            const finalY = levelStartY[lv] + span.yOff * 90;
+            const finalY = levelStartY[lv] + span.yOff * 160;
             
             const el=document.createElement('div'); 
             el.className='node s-node';
@@ -965,7 +967,7 @@
             el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")} 日</div>`;
             el.onclick=()=>openEditModal(n.id); 
             con.appendChild(el);
-            ui[n.id]={l:span.minI*cw+20, r:(span.mx+1)*cw-20, t:finalY, b:finalY+60, minI: span.minI, mx: span.mx};
+            ui[n.id]={l:span.minI*cw+20, r:(span.mx+1)*cw-20, t:finalY, b:finalY+el.offsetHeight+10, minI: span.minI, mx: span.mx};
         });
         
         const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
@@ -987,7 +989,6 @@
         svg.style.width='100%';
         svg.style.height='100%';
         svg.style.zIndex=5;
-        // 💡 矢印のマーカーサイズを小さく調整
         svg.innerHTML='<defs><marker id="sa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#7f8c8d"/></marker></defs>';
 
         const outCount = {}, inCount = {};
@@ -1018,7 +1019,6 @@
                     outIndex[pid] = (outIndex[pid] || 0) + 1;
                     inIndex[n.id] = (inIndex[n.id] || 0) + 1;
 
-                    // 💡 出発点・到着点を等間隔にずらして重なりを回避
                     const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 16;
                     const cOff = (inIndex[n.id] - (inCount[n.id] + 1) / 2) * 16;
 
@@ -1027,20 +1027,19 @@
                     const ex = (ch.l + ch.r) / 2 + cOff;
                     const ey = ch.t;
 
-                    // 中間の高さをずらして横線同士の重なりを防ぐ
-                    const midY = (sy + ey) / 2 + ((outIndex[pid] - inIndex[n.id]) * 8);
+                    // 💡 隙間を拡張 (8 -> 12)
+                    const midY = (sy + ey) / 2 + ((outIndex[pid] - inIndex[n.id]) * 12);
                     
                     let pts = [];
-                    // 直通ルートが安全かチェック
                     const safe = !isIntersecting(sx, sy, midY, pid, n.id) && !isIntersecting(ex, midY, ey, pid, n.id);
 
                     if (safe) {
                         pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
                     } else {
-                        // 💡 ノードにぶつかる場合は、親カラムの右端（レーンの境界線）を使って迂回するバイパスルート
                         const bypassX = (p.mx + 1) * cw - 10 + (outIndex[pid] * 4);
-                        const y1 = sy + 15 + outIndex[pid]*4;
-                        const y2 = ey - 15 - inIndex[n.id]*4;
+                        // 💡 回避ルートの余白を拡張 (15 -> 25)
+                        const y1 = sy + 25 + outIndex[pid]*5;
+                        const y2 = ey - 25 - inIndex[n.id]*5;
                         pts = [
                             {x:sx, y:sy}, 
                             {x:sx, y:y1}, 
@@ -1051,7 +1050,6 @@
                         ];
                     }
                     
-                    // 💡 角丸付き直角パスの生成
                     const d = drawRoundedPath(pts, 10);
                     
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
