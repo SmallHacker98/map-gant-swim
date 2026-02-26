@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v7.6</title>
+<title>Pro Map Suite v7.5</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -413,7 +413,6 @@
         return l;
     }
 
-    // --- ドラッグ＆ドロップ 処理 ---
     function onDragStartDept(e, type, dept) {
         dragDept = dept;
         dragType = type;
@@ -1019,6 +1018,7 @@
                     outIndex[pid] = (outIndex[pid] || 0) + 1;
                     inIndex[n.id] = (inIndex[n.id] || 0) + 1;
 
+                    // 💡 出発点・到着点を等間隔にずらして重なりを回避
                     const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 16;
                     const cOff = (inIndex[n.id] - (inCount[n.id] + 1) / 2) * 16;
 
@@ -1027,14 +1027,17 @@
                     const ex = (ch.l + ch.r) / 2 + cOff;
                     const ey = ch.t;
 
+                    // 中間の高さをずらして横線同士の重なりを防ぐ
                     const midY = (sy + ey) / 2 + ((outIndex[pid] - inIndex[n.id]) * 8);
                     
                     let pts = [];
+                    // 直通ルートが安全かチェック
                     const safe = !isIntersecting(sx, sy, midY, pid, n.id) && !isIntersecting(ex, midY, ey, pid, n.id);
 
                     if (safe) {
                         pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
                     } else {
+                        // 💡 ノードにぶつかる場合は、親カラムの右端（レーンの境界線）を使って迂回するバイパスルート
                         const bypassX = (p.mx + 1) * cw - 10 + (outIndex[pid] * 4);
                         const y1 = sy + 15 + outIndex[pid]*4;
                         const y2 = ey - 15 - inIndex[n.id]*4;
@@ -1048,6 +1051,7 @@
                         ];
                     }
                     
+                    // 💡 角丸付き直角パスの生成
                     const d = drawRoundedPath(pts, 10);
                     
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
@@ -1180,7 +1184,7 @@
                 {l:"予定開始",v:todayStr},
                 {l:"期間",v:"1"},
                 {l:"予定終了",v:todayStr},
-                {l:"担当部署",v:全体"},
+                {l:"担当部署",v:"全体"},
                 {l:"ステータス",v:"todo"},
                 {l:"進捗",v:"0"}
             ], 
