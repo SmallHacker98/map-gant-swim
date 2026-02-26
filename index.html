@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v7.4</title>
+<title>Pro Map Suite v7.5</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -104,8 +104,9 @@
     .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
     
-    .chart-arrow{stroke:#7f8c8d;stroke-width:2;fill:none;}
-    .chart-arrow.crit{stroke:var(--high);stroke-width:3px;}
+    /* 💡 丸みのある矢印を美しく表示するため少し太くする */
+    .chart-arrow{stroke:#7f8c8d;stroke-width:2.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
+    .chart-arrow.crit{stroke:var(--high);stroke-width:3px;stroke-dasharray:5,3;}
     .chart-arrow.err{stroke:var(--crit);stroke-width:3px;}
 
     .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
@@ -254,6 +255,41 @@
     let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;
     let gZoom = 1, sZoom = 1;
     let dragDept = null, dragType = null; 
+
+    // 💡 直角の線に角丸（Radius）をつけるユーティリティ関数
+    function drawRoundedPath(points, r) {
+        let d = `M ${points[0].x} ${points[0].y}`;
+        for (let i = 1; i < points.length - 1; i++) {
+            const p0 = points[i - 1];
+            const p1 = points[i];
+            const p2 = points[i + 1];
+
+            const dx1 = p1.x - p0.x;
+            const dy1 = p1.y - p0.y;
+            const len1 = Math.sqrt(dx1*dx1 + dy1*dy1);
+            
+            const dx2 = p2.x - p1.x;
+            const dy2 = p2.y - p1.y;
+            const len2 = Math.sqrt(dx2*dx2 + dy2*dy2);
+
+            const actualR = Math.min(r, len1 / 2, len2 / 2);
+
+            if (actualR <= 0.1) {
+                d += ` L ${p1.x} ${p1.y}`;
+                continue;
+            }
+
+            const startX = p1.x - (dx1 / len1) * actualR;
+            const startY = p1.y - (dy1 / len1) * actualR;
+            const endX = p1.x + (dx2 / len2) * actualR;
+            const endY = p1.y + (dy2 / len2) * actualR;
+
+            d += ` L ${startX} ${startY} Q ${p1.x} ${p1.y} ${endX} ${endY}`;
+        }
+        const last = points[points.length - 1];
+        d += ` L ${last.x} ${last.y}`;
+        return d;
+    }
 
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
@@ -831,13 +867,59 @@
             });
         }
         
+        const maxLv = Math.max(...Object.values(levels), 0);
+        const sortedNodes = [...st.nodes].sort((a,b) => levels[a.id] - levels[b.id]);
+        
+        // 💡 各ノードの水平方向の占有範囲を事前計算
+        const nodeSpan = {};
+        sortedNodes.forEach(n => {
+            const raw = getField(n, "担当部署") || "未配属"; 
+            const mds = raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d);
+            const deptIndices = mds.map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);
+            if(deptIndices.length === 0) deptIndices.push(0);
+            nodeSpan[n.id] = { minI: deptIndices[0], mx: deptIndices[deptIndices.length - 1], deptIndices };
+        });
+
+        // 💡 縦方向に絶対に被らないレイアウト計算
         const placed = {};
+        for(let i=0; i<=maxLv; i++) placed[i] = [];
+        
+        sortedNodes.forEach(n => {
+            const lv = levels[n.id];
+            const span = nodeSpan[n.id];
+            let yOff = 0;
+            let collision = true;
+            while(collision){
+                collision = false;
+                for(let p of placed[lv]){
+                    const horizOverlap = !(span.mx < p.minI || span.minI > p.mx);
+                    if(horizOverlap && p.yOff === yOff){
+                        collision = true;
+                        yOff++;
+                        break;
+                    }
+                }
+            }
+            placed[lv].push({minI: span.minI, mx: span.mx, yOff, id: n.id});
+            span.yOff = yOff;
+        });
+
+        const levelHeights = {};
+        for(let i=0; i<=maxLv; i++) {
+            const maxOff = placed[i].length > 0 ? Math.max(...placed[i].map(p=>p.yOff)) : 0;
+            levelHeights[i] = (maxOff + 1) * 90 + 60; // 1行90px + 階層間のマージン60px
+        }
+
+        const levelStartY = { 0: 80 };
+        for(let i=1; i<=maxLv; i++) {
+            levelStartY[i] = levelStartY[i-1] + levelHeights[i-1];
+        }
+        
         const cw=300, con=document.createElement('div'); 
         con.className='s-cont'; 
         con.style.width=`${ord.length*cw}px`;
         
         const cols = []; 
-        
         ord.forEach((d,i)=>{
             const col=document.createElement('div'); 
             col.className='s-col'; 
@@ -863,52 +945,23 @@
         });
         
         const ui={};
-        const sortedNodes = [...st.nodes].sort((a,b) => levels[a.id] - levels[b.id]);
         
         sortedNodes.forEach(n=>{
-            const raw=getField(n,"担当部署")||"未配属"; 
-            const mds=raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d);
-            
-            const deptIndices = mds.map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);
-            if(deptIndices.length === 0) deptIndices.push(0);
-            
-            const minI = deptIndices[0];
-            const mx = deptIndices[deptIndices.length - 1];
+            const span = nodeSpan[n.id];
             const lv = levels[n.id];
-            
-            if(!placed[lv]) placed[lv] = [];
-            
-            let yOffset = 0;
-            let collision = true;
-            
-            while(collision){
-                collision = false;
-                const proposedY = lv * 220 + 80 + yOffset * 110;
-                for(let p of placed[lv]){
-                    const horizontalOverlap = !(mx < p.minI || minI > p.maxI);
-                    const verticalOverlap = Math.abs(proposedY - p.y) < 100;
-                    if(horizontalOverlap && verticalOverlap){
-                        collision = true;
-                        yOffset++;
-                        break;
-                    }
-                }
-            }
-            
-            const finalY = lv * 220 + 80 + yOffset * 110;
-            placed[lv].push({minI, maxI: mx, y: finalY});
+            const finalY = levelStartY[lv] + span.yOff * 90;
             
             const el=document.createElement('div'); 
             el.className='node s-node';
-            el.style.width=`${(mx-minI+1)*cw-40}px`; 
-            el.style.left=`${minI*cw+20}px`; 
+            el.style.width=`${(span.mx - span.minI + 1) * cw - 40}px`; 
+            el.style.left=`${span.minI * cw + 20}px`; 
             el.style.top=`${finalY}px`;
             
             let deptIndicator = '';
-            if(deptIndices.length > 1 && (mx - minI + 1) > deptIndices.length){
+            if(span.deptIndices.length > 1 && (span.mx - span.minI + 1) > span.deptIndices.length){
                 deptIndicator = '<div style="display:flex;gap:3px;padding:2px 5px;font-size:9px;">';
-                for(let i = minI; i <= mx; i++){
-                    const isActive = deptIndices.includes(i);
+                for(let i = span.minI; i <= span.mx; i++){
+                    const isActive = span.deptIndices.includes(i);
                     deptIndicator += `<span style="width:6px;height:6px;border-radius:50%;background:${isActive?'#2c3e50':'#ddd'};"></span>`;
                 }
                 deptIndicator += '</div>';
@@ -917,7 +970,7 @@
             el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")} 日</div>`;
             el.onclick=()=>openEditModal(n.id); 
             con.appendChild(el);
-            ui[n.id]={l:minI*cw+20, r:(mx+1)*cw-20, t:finalY, b:finalY+60};
+            ui[n.id]={l:span.minI*cw+20, r:(span.mx+1)*cw-20, t:finalY, b:finalY+60, minI: span.minI, mx: span.mx};
         });
         
         const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
@@ -951,6 +1004,17 @@
         
         const outIndex = {}, inIndex = {};
         const an = ana(); 
+        
+        // 💡 動的衝突判定関数
+        function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
+            const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+            for (const id in ui) {
+                if (id == excludeId1 || id == excludeId2) continue;
+                const n = ui[id];
+                if (x > n.l - 5 && x < n.r + 5 && maxY > n.t - 5 && minY < n.b + 5) return true;
+            }
+            return false;
+        }
 
         st.nodes.forEach(n=>{
             n.pIds.forEach(pid=>{
@@ -959,7 +1023,7 @@
                     outIndex[pid] = (outIndex[pid] || 0) + 1;
                     inIndex[n.id] = (inIndex[n.id] || 0) + 1;
 
-                    // 💡 出発点・到着点を等間隔にずらして重なりを回避
+                    // 💡 出発点・到着点を等間隔にずらす
                     const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 16;
                     const cOff = (inIndex[n.id] - (inCount[n.id] + 1) / 2) * 16;
 
@@ -968,26 +1032,32 @@
                     const ex = (ch.l + ch.r) / 2 + cOff;
                     const ey = ch.t;
 
-                    // 💡 水平に走る線（横線）のY座標をずらして重なりを回避
-                    const midY = (sy + ey) / 2 + ((outIndex[pid] - inIndex[n.id]) * 10);
+                    // 中間の高さをずらして横線同士の重なりを防ぐ
+                    const midY = (sy + ey) / 2 + ((outIndex[pid] - inIndex[n.id]) * 8);
+                    
+                    let pts = [];
+                    // 直通ルートが安全かチェック
+                    const safe = !isIntersecting(sx, sy, midY, pid, n.id) && !isIntersecting(ex, midY, ey, pid, n.id);
 
-                    // 💡 角丸付きの直角線の生成
-                    let d = "";
-                    if (Math.abs(sx - ex) < 2) {
-                        d = `M ${sx} ${sy} L ${ex} ${ey}`;
+                    if (safe) {
+                        pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
                     } else {
-                        const r = 8; // 角丸の半径
-                        const dirX = ex > sx ? 1 : -1;
-                        const absX = Math.abs(ex - sx);
-                        const actualR = Math.min(r, absX / 2, Math.abs(midY - sy) / 2, Math.abs(ey - midY) / 2);
-                        
-                        d = `M ${sx} ${sy} 
-                             L ${sx} ${midY - actualR} 
-                             Q ${sx} ${midY} ${sx + dirX * actualR} ${midY} 
-                             L ${ex - dirX * actualR} ${midY} 
-                             Q ${ex} ${midY} ${ex} ${midY + actualR} 
-                             L ${ex} ${ey}`;
+                        // 💡 ノードにぶつかる場合は、親カラムの右端（レーンの境界線）を使って迂回するバイパスルート
+                        const bypassX = (p.mx + 1) * cw - 10 + (outIndex[pid] * 4);
+                        const y1 = sy + 15 + outIndex[pid]*4;
+                        const y2 = ey - 15 - inIndex[n.id]*4;
+                        pts = [
+                            {x:sx, y:sy}, 
+                            {x:sx, y:y1}, 
+                            {x:bypassX, y:y1}, 
+                            {x:bypassX, y:y2}, 
+                            {x:ex, y:y2}, 
+                            {x:ex, y:ey}
+                        ];
                     }
+                    
+                    // 💡 角丸付き直角パスの生成
+                    const d = drawRoundedPath(pts, 10);
                     
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
                     pt.setAttribute('d',d); 
