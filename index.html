@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v8.0</title>
+<title>Pro Map Suite v8.1</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -47,9 +47,14 @@
     .np{height:4px;background:#eee;} .np-bar{height:100%;background:#2ecc71;transition:width 0.3s;}
 
     svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
-    path{fill:none;stroke:var(--line);stroke-width:2px;stroke-linecap:round;transition:stroke 0.2s;}
-    path.crit{stroke:var(--high);stroke-width:3px;stroke-dasharray:5,3;} 
-    path.err{stroke:var(--crit);stroke-width:3px;}
+    
+    /* 💡 矢印のホバーエフェクト（マウスを乗せると光って見やすくなる） */
+    .chart-arrow { stroke:#7f8c8d; stroke-width:2.5px; fill:none; stroke-linejoin:round; stroke-linecap:round; transition: stroke 0.2s, stroke-width 0.2s; pointer-events: visibleStroke; cursor: pointer; }
+    .chart-arrow:hover { stroke: var(--accent); stroke-width: 4.5px; }
+    .chart-arrow.crit { stroke:var(--high); stroke-width:3px; stroke-dasharray:5,3; }
+    .chart-arrow.crit:hover { stroke: #d35400; stroke-width: 5px; }
+    .chart-arrow.err { stroke:var(--crit); stroke-width:3px; }
+    .chart-arrow.err:hover { stroke: #c0392b; stroke-width: 5px; }
 
     .pnl{position:fixed;background:white;padding:6px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;gap:5px;z-index:1000;cursor:move;align-items:center;}
     .pnl button{border:none;background:#ecf0f1;min-width:36px;height:36px;border-radius:4px;font-size:16px;cursor:pointer;color:#2c3e50;font-weight:bold;padding:0 8px;}
@@ -103,10 +108,6 @@
     .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
     .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
-    
-    .chart-arrow{stroke:#7f8c8d;stroke-width:2.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
-    .chart-arrow.crit{stroke:var(--high);stroke-width:3px;stroke-dasharray:5,3;}
-    .chart-arrow.err{stroke:var(--crit);stroke-width:3px;}
 
     .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
     .g-grp.drag-over { background-color: #d6eaf8 !important; box-shadow: inset 0 0 0 2px var(--accent); }
@@ -255,33 +256,23 @@
     let gZoom = 1, sZoom = 1;
     let dragDept = null, dragType = null; 
 
+    // 角丸付きパス描画
     function drawRoundedPath(points, r) {
         let d = `M ${points[0].x} ${points[0].y}`;
         for (let i = 1; i < points.length - 1; i++) {
-            const p0 = points[i - 1];
-            const p1 = points[i];
-            const p2 = points[i + 1];
-
-            const dx1 = p1.x - p0.x;
-            const dy1 = p1.y - p0.y;
-            const len1 = Math.sqrt(dx1*dx1 + dy1*dy1);
-            
-            const dx2 = p2.x - p1.x;
-            const dy2 = p2.y - p1.y;
-            const len2 = Math.sqrt(dx2*dx2 + dy2*dy2);
+            const p0 = points[i - 1], p1 = points[i], p2 = points[i + 1];
+            const dx1 = p1.x - p0.x, dy1 = p1.y - p0.y, len1 = Math.sqrt(dx1*dx1 + dy1*dy1);
+            const dx2 = p2.x - p1.x, dy2 = p2.y - p1.y, len2 = Math.sqrt(dx2*dx2 + dy2*dy2);
 
             const actualR = Math.min(r, len1 / 2, len2 / 2);
-
             if (actualR <= 0.1) {
                 d += ` L ${p1.x} ${p1.y}`;
                 continue;
             }
-
             const startX = p1.x - (dx1 / len1) * actualR;
             const startY = p1.y - (dy1 / len1) * actualR;
             const endX = p1.x + (dx2 / len2) * actualR;
             const endY = p1.y + (dy2 / len2) * actualR;
-
             d += ` L ${startX} ${startY} Q ${p1.x} ${p1.y} ${endX} ${endY}`;
         }
         const last = points[points.length - 1];
@@ -311,7 +302,6 @@
                 else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id==id); if(n){n.x+=(e.clientX-mapD.x)/st.sc; n.y+=(e.clientY-mapD.y)/st.sc;} }); }
                 mapD.x=e.clientX; mapD.y=e.clientY; ren(); return;
             }
-            
             if(mode==='map' && e.shiftKey){
                 const lp=document.getElementById('loupe');
                 const lc=document.getElementById('loupe-content');
@@ -426,20 +416,9 @@
         }, 0);
     }
     
-    function onDragOverDept(e) { 
-        e.preventDefault(); 
-        e.dataTransfer.dropEffect = 'move'; 
-        return false; 
-    }
-    
-    function onDragEnterDept(e, dept) { 
-        e.preventDefault(); 
-        if(dept !== dragDept) e.currentTarget.classList.add('drag-over'); 
-    }
-    
-    function onDragLeaveDept(e) { 
-        e.currentTarget.classList.remove('drag-over'); 
-    }
+    function onDragOverDept(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
+    function onDragEnterDept(e, dept) { e.preventDefault(); if(dept !== dragDept) e.currentTarget.classList.add('drag-over'); }
+    function onDragLeaveDept(e) { e.currentTarget.classList.remove('drag-over'); }
     
     function onDropDept(e, type, targetDept) {
         e.preventDefault();
@@ -459,19 +438,16 @@
                 else { st.gOrd = arr; renderGantt(); }
             }
         }
-        dragDept = null; 
-        dragType = null;
+        dragDept = null; dragType = null;
         document.body.classList.remove('is-dragging');
     }
     
     function onDragEndDept(e) {
         if (dragType === 's') e.target.parentElement.style.opacity = '1';
         else e.target.style.opacity = '1';
-        
         document.body.classList.remove('is-dragging');
         document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        dragDept = null; 
-        dragType = null;
+        dragDept = null; dragType = null;
     }
 
     function ren(){
@@ -949,6 +925,7 @@
             
             const el=document.createElement('div'); 
             el.className='node s-node';
+            el.dataset.id = n.id;
             el.style.width=`${(span.mx - span.minI + 1) * cw - 40}px`; 
             el.style.left=`${span.minI * cw + 20}px`; 
             el.style.top=`${finalY}px`;
@@ -971,15 +948,26 @@
         
         setTimeout(() => {
             sortedNodes.forEach(n => {
-                const el = Array.from(con.querySelectorAll('.node.s-node')).find(node => node.querySelector('.nt').innerText === n.title); 
+                const el = Array.from(con.querySelectorAll('.node.s-node')).find(node => node.dataset.id == n.id); 
                 if (el) {
                     ui[n.id].b = ui[n.id].t + el.offsetHeight;
                 }
             });
-            drawArrows();
+
+            // 各レベルにおけるノードの最も深い(下)位置を記録（安全地帯の計算用）
+            const levelMaxB = {};
+            for(let i=0; i<=maxLv; i++) levelMaxB[i] = levelStartY[i];
+            sortedNodes.forEach(n => {
+                const lv = levels[n.id];
+                if (ui[n.id].b > levelMaxB[lv]) {
+                    levelMaxB[lv] = ui[n.id].b;
+                }
+            });
+
+            drawArrows(levelMaxB);
         }, 0);
 
-        function drawArrows() {
+        function drawArrows(levelMaxB) {
             const oldSvg = con.querySelector('svg');
             if(oldSvg) oldSvg.remove();
 
@@ -1005,7 +993,6 @@
             svg.innerHTML='<defs><marker id="sa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#7f8c8d"/></marker></defs>';
 
             const outCount = {}, inCount = {};
-            // 💡 描画順を安定させるためにエッジリストを作成
             const edges = [];
             st.nodes.forEach(n => {
                 n.pIds.forEach(pid => {
@@ -1018,7 +1005,7 @@
             const outIndex = {}, inIndex = {};
             const an = ana(); 
             
-            // 💡 衝突判定を厳密化。ノードの周囲10pxを「不可侵バリア」とする
+            // 💡 厳格な衝突バリア判定 (ノードの周囲10pxは立ち入り禁止)
             function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
                 const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
                 for (const id in ui) {
@@ -1038,7 +1025,6 @@
                 return false;
             }
 
-            // 💡 すべての線に固有のトラック番号を割り当てる
             edges.forEach((edge, edgeIdx) => {
                 const pid = edge.p;
                 const cid = edge.c;
@@ -1048,7 +1034,7 @@
                     outIndex[pid] = (outIndex[pid] || 0) + 1;
                     inIndex[cid] = (inIndex[cid] || 0) + 1;
 
-                    // 出入り口のポート間隔を20pxに設定
+                    // ポート間隔
                     const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20;
                     const cOff = (inIndex[cid] - (inCount[cid] + 1) / 2) * 20;
 
@@ -1060,55 +1046,81 @@
                     const pLv = levels[pid];
                     const cLv = levels[cid];
 
-                    // 💡 トラック分散：横線と縦線のY座標・X座標を完全に重ならないようにする
-                    const trackY = (edgeIdx % 10) * 8; // 0 ~ 72pxの分散
-                    const trackX = ((edgeIdx % 6) - 2.5) * 8; // -20 ~ +20pxの分散
+                    // 💡 トラック分散による線の完全分離 (車線システム)
+                    const trackY1 = (edgeIdx % 10) * 8; // 0 ~ 72px
+                    const trackY2 = (edgeIdx % 7) * 8;  // 0 ~ 48px
+                    const trackX = ((edgeIdx % 5) - 2) * 8; // -16 ~ +16px
 
-                    let midY;
-                    if (pLv === cLv) {
-                        midY = Math.min(p.t, ch.t) - 30 - trackY;
-                    } else if (pLv < cLv) {
-                        // 順方向：親ノードの下の「安全地帯」を通る
-                        midY = p.b + 30 + trackY;
-                    } else {
-                        // 逆方向（ループ）
-                        midY = p.b + 30 + trackY;
-                    }
-                    
                     let pts = [];
-                    // 直通ルートがノード（のバリア）に触れないか確認
-                    const safe = !isIntersecting(sx, sy, midY, pid, cid) && 
-                                 !horizIntersecting(midY, sx, ex, pid, cid) && 
-                                 !isIntersecting(ex, midY, ey, pid, cid);
 
-                    if (safe) {
-                        pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
-                    } else {
-                        // 💡 ノードを避けるためのバイパスルート
-                        // 迂回X座標は、列の境界線からトラック分散値（trackX）分ずらして設定
-                        const dir = ex > sx ? 1 : -1;
-                        let bypassX;
-                        if (dir > 0) {
-                            bypassX = (p.mx + 1) * cw - 15 + trackX;
+                    if (pLv === cLv) {
+                        // 同じ階層での移動
+                        const botY = Math.max(p.b, ch.b) + 20 + trackY1;
+                        pts = [{x:sx, y:sy}, {x:sx, y:botY}, {x:ex, y:botY}, {x:ex, y:ey}];
+                    } else if (pLv < cLv) {
+                        // 順方向の移動
+                        const midY = sy + 25 + trackY1; 
+                        const midY2 = ey - 25 - trackY2; 
+                        
+                        const isSafe1 = !isIntersecting(sx, sy, midY2, pid, cid);
+                        const isSafe2 = !isIntersecting(ex, midY, ey, pid, cid);
+                        const isSafeCross1 = !horizIntersecting(midY, sx, ex, pid, cid);
+                        const isSafeCross2 = !horizIntersecting(midY2, sx, ex, pid, cid);
+
+                        if (isSafe2 && isSafeCross1) {
+                            // 親のすぐ下の空間を利用
+                            pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
+                        } else if (isSafe1 && isSafeCross2) {
+                            // 子のすぐ上の空間を利用
+                            pts = [{x:sx, y:sy}, {x:sx, y:midY2}, {x:ex, y:midY2}, {x:ex, y:ey}];
                         } else {
-                            bypassX = p.minI * cw + 15 + trackX;
+                            // 💡 どちらの隙間も塞がれている場合は「垂直チャネル」へ逃げる
+                            const dir = ex > sx ? 1 : -1;
+                            let bypassX = (dir > 0 ? (p.mx + 1) * cw : p.minI * cw) + trackX;
+                            
+                            // 遠回りを防ぐための補正
+                            if (dir > 0 && ch.minI > p.mx + 1) bypassX = (p.mx + 1) * cw + trackX;
+                            if (dir < 0 && ch.mx < p.minI - 1) bypassX = p.minI * cw + trackX;
+
+                            let outY = p.b + 15 + (trackY1 % 20);
+                            // 垂直チャネルへ逃げるための横線がぶつかるなら、階層下の絶対安全地帯へ下ろす
+                            if (horizIntersecting(outY, sx, bypassX, pid, cid)) {
+                                outY = levelMaxB[pLv] + 20 + (trackY1 % 20);
+                            }
+                            
+                            let inY = ch.t - 15 - (trackY2 % 20);
+                            if (horizIntersecting(inY, bypassX, ex, pid, cid)) {
+                                inY = levelStartY[cLv] - 20 - (trackY2 % 20);
+                            }
+
+                            pts = [
+                                {x:sx, y:sy},
+                                {x:sx, y:outY},
+                                {x:bypassX, y:outY},
+                                {x:bypassX, y:inY},
+                                {x:ex, y:inY},
+                                {x:ex, y:ey}
+                            ];
                         }
-
-                        // 下側の空き地を使って迂回
-                        const y1 = p.b + 20 + trackY;
-                        const y2 = ch.t - 20 - trackY;
-
+                    } else {
+                        // 逆方向の移動（下から上へ戻るループ線）
+                        const botY = sy + 25 + trackY1; 
+                        const topY = ey - 25 - trackY2; 
+                        
+                        const dir = ex > sx ? 1 : -1;
+                        let colEdgeX = (dir > 0 ? Math.max(p.mx, ch.mx) + 1 : Math.min(p.minI, ch.minI)) * cw + trackX; 
+                        
                         pts = [
-                            {x:sx, y:sy}, 
-                            {x:sx, y:y1}, 
-                            {x:bypassX, y:y1}, 
-                            {x:bypassX, y:y2}, 
-                            {x:ex, y:y2}, 
+                            {x:sx, y:sy},
+                            {x:sx, y:botY},
+                            {x:colEdgeX, y:botY},
+                            {x:colEdgeX, y:topY},
+                            {x:ex, y:topY},
                             {x:ex, y:ey}
                         ];
                     }
                     
-                    const d = drawRoundedPath(pts, 10);
+                    const d = drawRoundedPath(pts, 12);
                     
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
                     pt.setAttribute('d',d); 
