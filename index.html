@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v7.8</title>
+<title>Pro Map Suite v7.9</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -876,6 +876,7 @@
             nodeSpan[n.id] = { minI: deptIndices[0], mx: deptIndices[deptIndices.length - 1], deptIndices };
         });
 
+        // 💡 縦の基本スペースを拡張 (160px/行)
         const placed = {};
         for(let i=0; i<=maxLv; i++) placed[i] = [];
         
@@ -903,6 +904,7 @@
         const levelHeights = {};
         for(let i=0; i<=maxLv; i++) {
             const maxOff = placed[i].length > 0 ? Math.max(...placed[i].map(p=>p.yOff)) : 0;
+            // 💡 階層間のマージンを確保 (100px)
             levelHeights[i] = (maxOff + 1) * 160 + 100;
         }
 
@@ -973,7 +975,7 @@
             sortedNodes.forEach(n => {
                 const el = Array.from(con.querySelectorAll('.node.s-node')).find(node => node.querySelector('.nt').innerText === n.title); 
                 if (el) {
-                    ui[n.id].b = ui[n.id].t + el.offsetHeight + 10;
+                    ui[n.id].b = ui[n.id].t + el.offsetHeight;
                 }
             });
             drawArrows();
@@ -1020,6 +1022,7 @@
                 for (const id in ui) {
                     if (id == excludeId1 || id == excludeId2) continue;
                     const n = ui[id];
+                    // 💡 X座標だけでなく、Y座標もノードの範囲内にあるか厳密にチェック
                     if (x > n.l - 5 && x < n.r + 5 && maxY > n.t - 5 && minY < n.b + 5) return true;
                 }
                 return false;
@@ -1032,28 +1035,40 @@
                         outIndex[pid] = (outIndex[pid] || 0) + 1;
                         inIndex[n.id] = (inIndex[n.id] || 0) + 1;
 
-                        // 💡 出発点・到着点を等間隔にずらして重なりを回避 (間隔を 16 -> 32 に拡張して見やすく)
-                        const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 32;
-                        const cOff = (inIndex[n.id] - (inCount[n.id] + 1) / 2) * 32;
+                        // 💡 出発点・到着点を等間隔にずらして重なりを回避 (ノード幅を超えないよう20px間隔に)
+                        const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20;
+                        const cOff = (inIndex[n.id] - (inCount[n.id] + 1) / 2) * 20;
 
                         const sx = (p.l + p.r) / 2 + pOff;
                         const sy = p.b;
                         const ex = (ch.l + ch.r) / 2 + cOff;
                         const ey = ch.t;
 
-                        // 💡 横線の重なり回避のためのY座標のズレも拡張 (12 -> 16)
-                        const midY = (sy + ey) / 2 + ((outIndex[pid] - inIndex[n.id]) * 16);
+                        const pLv = levels[pid];
+                        const cLv = levels[n.id];
+
+                        let midY;
+                        if (pLv === cLv) {
+                            // 同じレベル内での移動時はノードより上の空間を使う
+                            midY = Math.max(p.t, ch.t) - 30 + ((outIndex[pid] - inIndex[n.id]) * 6);
+                        } else {
+                            // 💡 階層間の安全地帯 (子ノードのレベルの開始位置の少し上) を確実に通す
+                            midY = levelStartY[cLv] - 50 + ((outIndex[pid] - inIndex[n.id]) * 6);
+                        }
                         
                         let pts = [];
-                        const safe = !isIntersecting(sx, sy, midY, pid, n.id) && !isIntersecting(ex, midY, ey, pid, n.id);
+                        // 直通ルートが安全かチェック
+                        const safe1 = !isIntersecting(sx, sy, midY, pid, n.id);
+                        const safe2 = !isIntersecting(ex, midY, ey, pid, n.id);
 
-                        if (safe) {
+                        if (safe1 && safe2) {
                             pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
                         } else {
-                            // 💡 迂回ルート（バイパス）の線同士の隙間も拡張
-                            const bypassX = (p.mx + 1) * cw - 5 + (outIndex[pid] * 8);
-                            const y1 = sy + 30 + outIndex[pid]*8;
-                            const y2 = ey - 30 - inIndex[n.id]*8;
+                            // 💡 迂回ルート：親ノードの属する行の「下側の安全地帯」を通る
+                            const bypassX = (p.mx + 1) * cw - 5 + (outIndex[pid] * 6);
+                            // 親ノードの行の高さは160pxなので、t + 130 付近は確実に空いている
+                            const y1 = p.t + 130 + outIndex[pid]*4;
+                            const y2 = midY;
                             pts = [
                                 {x:sx, y:sy}, 
                                 {x:sx, y:y1}, 
