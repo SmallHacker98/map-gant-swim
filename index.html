@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v6.8</title>
+<title>Pro Map Suite v6.9</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -80,8 +80,8 @@
     .g-cell{flex-shrink:0;text-align:center;font-size:11px;line-height:40px;border-right:1px solid #eee;color:#555;font-weight:bold;}
     .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
     .g-row:hover{background:#f0f8ff;}
-    .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;}
-    .g-grp.all{background:#34495e;color:white;}
+    .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;transition:background-color 0.2s;}
+    .g-grp.all{background:#34495e;color:white;cursor:default;}
     .g-lbl{width:200px;min-width:200px;padding:0 10px;border-right:1px solid #ddd;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:white;position:sticky;left:0;z-index:10;height:40px;display:flex;align-items:center;}
     .g-lbl.err{color:var(--crit);}
     .g-area{flex-grow:1;position:relative;height:100%;}
@@ -99,16 +99,23 @@
     
     /* Swimlane */
     .s-cont{display:flex;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
-    .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s, opacity 0.2s;}
+    .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
     .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
 
-    .dept-arr{cursor:pointer;opacity:0.8;padding:0 8px;font-size:12px;user-select:none;color:white;border-radius:4px;transition:0.2s;}
-    .dept-arr:hover{background:rgba(0,0,0,0.2);}
-    .g-arr-btn{cursor:pointer;opacity:0.8;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;transition:0.2s;}
-    .g-arr-btn:hover{background:#eee;}
+    /* 💡 ドラッグ＆ドロップ時のフィードバックと誤判定防止 */
+    .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
+    .g-grp.drag-over { background-color: #d6eaf8 !important; box-shadow: inset 0 0 0 2px var(--accent); }
+    
+    body.is-dragging .s-node, 
+    body.is-dragging .g-row, 
+    body.is-dragging .g-area, 
+    body.is-dragging .s-hdr > *, 
+    body.is-dragging .g-grp > * { 
+        pointer-events: none !important; 
+    }
 
     #modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:center;justify-content:center;}
     .m-cnt{background:white;padding:25px;border-radius:8px;width:380px;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
@@ -249,6 +256,7 @@
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
     let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;
     let gZoom = 1, sZoom = 1;
+    let dragDept = null, dragType = null; 
 
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
@@ -350,6 +358,83 @@
     function parseDate(s){if(!s)return null;const d=new Date(s);return isNaN(d)?null:d;}
     function addDays(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
     function diffDays(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
+
+    // 💡 確実にリストを同期・更新するための修正版getOrd関数
+    function getOrd(t){
+        const act=new Set(); 
+        st.nodes.forEach(n=>{
+            const ds = getField(n,"担当部署")||"未配属";
+            ds.split(/[,、]/).forEach(d=>{
+                const trimD = d.trim();
+                if(trimD) act.add(trimD);
+            });
+        });
+        
+        let l = t==='swim' ? st.sOrd : st.gOrd; 
+        if(!l) l = [];
+        
+        // 新規追加されたものをリストの末尾に追加
+        act.forEach(d=>{ if(!l.includes(d)) l.push(d); });
+        // 現在存在しないものをリストから削除
+        l = l.filter(d=>act.has(d));
+        
+        // 配列の実体をstateに保存し直す
+        if(t==='swim') st.sOrd = l; else st.gOrd = l;
+        return l;
+    }
+
+    // --- ドラッグ＆ドロップ 処理 ---
+    function onDragStartDept(e, type, dept) {
+        dragDept = dept;
+        dragType = type;
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', dept);
+        document.body.classList.add('is-dragging'); 
+        
+        setTimeout(() => {
+            if (type === 's') e.target.parentElement.style.opacity = '0.5';
+            else e.target.style.opacity = '0.5';
+        }, 0);
+    }
+    
+    function onDragOverDept(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
+    
+    function onDragEnterDept(e, dept) { 
+        e.preventDefault(); 
+        if(dept !== dragDept) e.currentTarget.classList.add('drag-over'); 
+    }
+    
+    function onDragLeaveDept(e) { e.currentTarget.classList.remove('drag-over'); }
+    
+    function onDropDept(e, type, targetDept) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.currentTarget.classList.remove('drag-over');
+        
+        if (dragDept && dragDept !== targetDept && dragType === type) {
+            let arr = getOrd(type === 's' ? 'swim' : 'gantt'); 
+            
+            const fromIdx = arr.indexOf(dragDept);
+            const toIdx = arr.indexOf(targetDept);
+            
+            if (fromIdx !== -1 && toIdx !== -1) {
+                arr.splice(fromIdx, 1);
+                arr.splice(toIdx, 0, dragDept);
+                
+                if (type === 's') st.sOrd = arr; else st.gOrd = arr;
+                if (type === 's') renderSwimlane(); else renderGantt();
+            }
+        }
+    }
+    
+    function onDragEndDept(e) {
+        if (dragType === 's') e.target.parentElement.style.opacity = '1';
+        else e.target.style.opacity = '1';
+        
+        document.body.classList.remove('is-dragging');
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        dragDept = null; dragType = null;
+    }
 
     function ren(){
         if(mode!=='map')return;
@@ -608,9 +693,16 @@
                 const gr=document.createElement('div'); 
                 gr.className='g-grp'+(it.d==='全体'?' all':'');
                 
+                // 💡 ガントチャートのドラッグ＆ドロップ設定
                 if(it.d !== '全体') {
-                    const arr=`<span class="g-arr-btn" onclick="mvD('g','${it.d}',-1)">▲</span><span class="g-arr-btn" onclick="mvD('g','${it.d}',1)">▼</span>`;
-                    gr.innerHTML=`<div style="width:200px;padding-left:10px;">${arr} 📂 ${it.d}</div>`;
+                    gr.draggable = true;
+                    gr.ondragstart = e => onDragStartDept(e, 'g', it.d);
+                    gr.ondragover = onDragOverDept;
+                    gr.ondragenter = e => onDragEnterDept(e, it.d);
+                    gr.ondragleave = onDragLeaveDept;
+                    gr.ondrop = e => onDropDept(e, 'g', it.d);
+                    gr.ondragend = onDragEndDept;
+                    gr.innerHTML=`<div style="width:200px;padding-left:10px;"><span style="opacity:0.4;margin-right:6px;cursor:grab;">⣿</span> 📂 ${it.d}</div>`;
                 } else {
                     gr.innerHTML=`<div style="width:200px;padding-left:10px;">📂 ${it.d}</div>`;
                 }
@@ -747,12 +839,21 @@
             col.className='s-col'; 
             col.style.background=dCols[i%6].bg; 
             
+            // 💡 スイムレーンのドラッグ＆ドロップ設定 (ドロップ先は列全体)
+            col.ondragover = onDragOverDept;
+            col.ondragenter = e => onDragEnterDept(e, d);
+            col.ondragleave = onDragLeaveDept;
+            col.ondrop = e => onDropDept(e, 's', d);
+            
             const h=document.createElement('div'); 
             h.className='s-hdr'; 
             h.style.background=dCols[i%6].border;
+            h.innerHTML=`<span style="opacity:0.5; margin-right:6px; cursor:grab;">⣿</span> ${d}`;
             
-            // 💡 スイムレーンのヘッダーに矢印ボタンを復活配置！
-            h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span> ${d} <span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
+            // 💡 ドラッグの開始はヘッダーから
+            h.draggable = true;
+            h.ondragstart = e => onDragStartDept(e, 's', d);
+            h.ondragend = onDragEndDept;
             
             col.appendChild(h);
             con.appendChild(col);
