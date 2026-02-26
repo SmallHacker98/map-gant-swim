@@ -100,13 +100,13 @@
     /* Swimlane */
     .s-cont{display:flex;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
     .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
-    .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
+    .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;transition:background-color 0.2s;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
     .chart-arrow{stroke:#7f8c8d;stroke-width:1.5;fill:none;stroke-linejoin:round;stroke-linecap:round;}
     .chart-arrow.crit{stroke:var(--crit);stroke-width:3px;stroke-dasharray:4;}
 
     /* 💡 ドラッグ＆ドロップ時のフィードバックと誤判定防止 */
-    .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
+    .s-hdr.drag-over { background-color: rgba(0, 0, 0, 0.4) !important; box-shadow: inset 0 0 0 3px #fff; }
     .g-grp.drag-over { background-color: #d6eaf8 !important; box-shadow: inset 0 0 0 2px var(--accent); }
     
     body.is-dragging .s-node, 
@@ -359,7 +359,7 @@
     function addDays(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
     function diffDays(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
 
-    // 💡 確実にリストを同期・更新するための修正版getOrd関数
+    // 💡 リストを確実に同期するための関数
     function getOrd(t){
         const act=new Set(); 
         st.nodes.forEach(n=>{
@@ -373,12 +373,9 @@
         let l = t==='swim' ? st.sOrd : st.gOrd; 
         if(!l) l = [];
         
-        // 新規追加されたものをリストの末尾に追加
         act.forEach(d=>{ if(!l.includes(d)) l.push(d); });
-        // 現在存在しないものをリストから削除
         l = l.filter(d=>act.has(d));
         
-        // 配列の実体をstateに保存し直す
         if(t==='swim') st.sOrd = l; else st.gOrd = l;
         return l;
     }
@@ -693,8 +690,8 @@
                 const gr=document.createElement('div'); 
                 gr.className='g-grp'+(it.d==='全体'?' all':'');
                 
-                // 💡 ガントチャートのドラッグ＆ドロップ設定
                 if(it.d !== '全体') {
+                    // 💡 ガントのドラッグ＆ドロップ
                     gr.draggable = true;
                     gr.ondragstart = e => onDragStartDept(e, 'g', it.d);
                     gr.ondragover = onDragOverDept;
@@ -839,20 +836,19 @@
             col.className='s-col'; 
             col.style.background=dCols[i%6].bg; 
             
-            // 💡 スイムレーンのドラッグ＆ドロップ設定 (ドロップ先は列全体)
-            col.ondragover = onDragOverDept;
-            col.ondragenter = e => onDragEnterDept(e, d);
-            col.ondragleave = onDragLeaveDept;
-            col.ondrop = e => onDropDept(e, 's', d);
-            
             const h=document.createElement('div'); 
             h.className='s-hdr'; 
             h.style.background=dCols[i%6].border;
             h.innerHTML=`<span style="opacity:0.5; margin-right:6px; cursor:grab;">⣿</span> ${d}`;
             
-            // 💡 ドラッグの開始はヘッダーから
+            // 💡 スイムレーンのドラッグ＆ドロップはヘッダー（s-hdr）同士で行う
             h.draggable = true;
+            h.dataset.dept = d;
             h.ondragstart = e => onDragStartDept(e, 's', d);
+            h.ondragover = onDragOverDept;
+            h.ondragenter = e => onDragEnterDept(e, d);
+            h.ondragleave = onDragLeaveDept;
+            h.ondrop = e => onDropDept(e, 's', d);
             h.ondragend = onDragEndDept;
             
             col.appendChild(h);
@@ -1020,13 +1016,6 @@
         return {err,crt};
     }
     
-    function getOrd(t){
-        const act=new Set(); st.nodes.forEach(n=>(getField(n,"担当部署")||"").split(/[,、]/).forEach(d=>act.add(d.trim())));
-        let l = t==='swim'?st.sOrd:st.gOrd; if(!l)l=[];
-        act.forEach(d=>{if(!l.includes(d))l.push(d);});
-        if(t==='swim')st.sOrd=l; else st.gOrd=l;
-        return l.filter(d=>act.has(d));
-    }
     function sel(id,mul){
         if(!mul)st.sel.clear();
         if(id) st.sel.has(id)?st.sel.delete(id):st.sel.add(id);
