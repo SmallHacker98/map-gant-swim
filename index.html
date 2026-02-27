@@ -47,11 +47,9 @@
     .np{height:4px;background:#eee;} .np-bar{height:100%;background:#2ecc71;transition:width 0.3s;}
 
     svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
-    path{fill:none;} /* 黒塗りを防止するセーフティネット */
     
-    /* 💡 全画面共通：矢印のホバーエフェクト（マウスを乗せると光って見やすくなる） */
-    .chart-arrow { stroke:var(--line); stroke-width:2.5px; fill:none; stroke-linejoin:round; stroke-linecap:round; transition: stroke 0.2s, stroke-width 0.2s; pointer-events: visibleStroke; cursor: pointer; }
-    .chart-arrow:hover { stroke: var(--accent); stroke-width: 4.5px; z-index: 100; }
+    .chart-arrow { stroke:#7f8c8d; stroke-width:2.5px; fill:none; stroke-linejoin:round; stroke-linecap:round; transition: stroke 0.2s, stroke-width 0.2s; pointer-events: visibleStroke; cursor: pointer; }
+    .chart-arrow:hover { stroke: var(--accent); stroke-width: 4.5px; }
     .chart-arrow.crit { stroke:var(--high); stroke-width:3px; stroke-dasharray:5,3; }
     .chart-arrow.crit:hover { stroke: #d35400; stroke-width: 5px; }
     .chart-arrow.err { stroke:var(--crit); stroke-width:3px; }
@@ -109,7 +107,7 @@
     .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
     .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
-
+    
     .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
     .g-grp.drag-over { background-color: #d6eaf8 !important; box-shadow: inset 0 0 0 2px var(--accent); }
     
@@ -257,7 +255,6 @@
     let gZoom = 1, sZoom = 1;
     let dragDept = null, dragType = null; 
 
-    // 角丸付きパス描画
     function drawRoundedPath(points, r) {
         let d = `M ${points[0].x} ${points[0].y}`;
         for (let i = 1; i < points.length - 1; i++) {
@@ -512,8 +509,7 @@
                     const cr=an.crt.has(`${pid}-${n.id}`);
                     const er=an.err.has(n.id) && an.err.has(pid);
                     const sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
-                    // 💡 Mapビューにも .chart-arrow クラスを付与
-                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="chart-arrow ${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
+                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
                 }
             });
         });
@@ -764,8 +760,8 @@
                         const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
                         const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
                         pt.setAttribute('d',d); 
-                        // 💡 ガントにも .chart-arrow クラスを付与
-                        pt.setAttribute('class', 'chart-arrow');
+                        pt.setAttribute('stroke','#7f8c8d'); 
+                        pt.setAttribute('fill','none'); 
                         pt.setAttribute('marker-end','url(#ga)'); 
                         svg.appendChild(pt);
                     }
@@ -956,6 +952,7 @@
                 }
             });
 
+            // 💡 各レベルにおけるノードの最も深い(下)位置を記録し、その下を「絶対安全地帯」とする
             const levelMaxB = {};
             for(let i=0; i<=maxLv; i++) levelMaxB[i] = levelStartY[i];
             sortedNodes.forEach(n => {
@@ -994,6 +991,7 @@
             svg.innerHTML='<defs><marker id="sa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#7f8c8d"/></marker></defs>';
 
             const outCount = {}, inCount = {};
+            // 描画順を安定させるためのエッジリスト
             const edges = [];
             st.nodes.forEach(n => {
                 n.pIds.forEach(pid => {
@@ -1006,24 +1004,9 @@
             const outIndex = {}, inIndex = {};
             const an = ana(); 
             
-            function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
-                const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-                for (const id in ui) {
-                    if (id == excludeId1 || id == excludeId2) continue;
-                    const n = ui[id];
-                    if (x > n.l - 10 && x < n.r + 10 && maxY > n.t - 10 && minY < n.b + 10) return true;
-                }
-                return false;
-            }
-            function horizIntersecting(y, x1, x2, excludeId1, excludeId2) {
-                const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
-                for (const id in ui) {
-                    if (id == excludeId1 || id == excludeId2) continue;
-                    const n = ui[id];
-                    if (y > n.t - 10 && y < n.b + 10 && maxX > n.l - 10 && minX < n.r + 10) return true;
-                }
-                return false;
-            }
+            // 💡 トラック（車線）の使用状況を管理し、完全に被らないようにする
+            const hChannels = {}; 
+            const vChannels = {}; 
 
             edges.forEach((edge, edgeIdx) => {
                 const pid = edge.p;
@@ -1034,6 +1017,7 @@
                     outIndex[pid] = (outIndex[pid] || 0) + 1;
                     inIndex[cid] = (inIndex[cid] || 0) + 1;
 
+                    // ポートを20px間隔に
                     const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20;
                     const cOff = (inIndex[cid] - (inCount[cid] + 1) / 2) * 20;
 
@@ -1044,72 +1028,52 @@
 
                     const pLv = levels[pid];
                     const cLv = levels[cid];
+                    
+                    let pts = [{x: sx, y: sy}];
 
-                    const trackY1 = (edgeIdx % 10) * 8; 
-                    const trackY2 = (edgeIdx % 7) * 8;  
-                    const trackX = ((edgeIdx % 5) - 2) * 8; 
+                    // --- 💡 絶対安全ルーティング・アルゴリズム ---
+                    
+                    // 1. 出発点の下の安全通路(水平チャネル)のY座標を決定
+                    hChannels[pLv] = (hChannels[pLv] || 0) + 1;
+                    const outY = levelMaxB[pLv] + 15 + (hChannels[pLv] % 8) * 8; // 8pxずつ車線をズラす
+                    
+                    // 2. 到着点の上の安全通路(水平チャネル)のY座標を決定
+                    const targetHLv = cLv > 0 ? cLv - 1 : 0;
+                    hChannels[targetHLv] = (hChannels[targetHLv] || 0) + 1;
+                    let inY = levelStartY[cLv] - 15 - (hChannels[targetHLv] % 8) * 8;
 
-                    let pts = [];
-
+                    // 親と子が同じ階層の場合は、わざわざ別々の車線を使わずに下で直結させる
                     if (pLv === cLv) {
-                        const botY = Math.max(p.b, ch.b) + 20 + trackY1;
-                        pts = [{x:sx, y:sy}, {x:sx, y:botY}, {x:ex, y:botY}, {x:ex, y:ey}];
-                    } else if (pLv < cLv) {
-                        const midY = sy + 25 + trackY1; 
-                        const midY2 = ey - 25 - trackY2; 
-                        
-                        const isSafe1 = !isIntersecting(sx, sy, midY2, pid, cid);
-                        const isSafe2 = !isIntersecting(ex, midY, ey, pid, cid);
-                        const isSafeCross1 = !horizIntersecting(midY, sx, ex, pid, cid);
-                        const isSafeCross2 = !horizIntersecting(midY2, sx, ex, pid, cid);
-
-                        if (isSafe2 && isSafeCross1) {
-                            pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
-                        } else if (isSafe1 && isSafeCross2) {
-                            pts = [{x:sx, y:sy}, {x:sx, y:midY2}, {x:ex, y:midY2}, {x:ex, y:ey}];
-                        } else {
-                            const dir = ex > sx ? 1 : -1;
-                            let bypassX = (dir > 0 ? (p.mx + 1) * cw : p.minI * cw) + trackX;
-                            
-                            if (dir > 0 && ch.minI > p.mx + 1) bypassX = (p.mx + 1) * cw + trackX;
-                            if (dir < 0 && ch.mx < p.minI - 1) bypassX = p.minI * cw + trackX;
-
-                            let outY = p.b + 15 + (trackY1 % 20);
-                            if (horizIntersecting(outY, sx, bypassX, pid, cid)) {
-                                outY = levelMaxB[pLv] + 20 + (trackY1 % 20);
-                            }
-                            
-                            let inY = ch.t - 15 - (trackY2 % 20);
-                            if (horizIntersecting(inY, bypassX, ex, pid, cid)) {
-                                inY = levelStartY[cLv] - 20 - (trackY2 % 20);
-                            }
-
-                            pts = [
-                                {x:sx, y:sy},
-                                {x:sx, y:outY},
-                                {x:bypassX, y:outY},
-                                {x:bypassX, y:inY},
-                                {x:ex, y:inY},
-                                {x:ex, y:ey}
-                            ];
-                        }
-                    } else {
-                        const botY = sy + 25 + trackY1; 
-                        const topY = ey - 25 - trackY2; 
-                        
-                        const dir = ex > sx ? 1 : -1;
-                        let colEdgeX = (dir > 0 ? Math.max(p.mx, ch.mx) + 1 : Math.min(p.minI, ch.minI)) * cw + trackX; 
-                        
-                        pts = [
-                            {x:sx, y:sy},
-                            {x:sx, y:botY},
-                            {x:colEdgeX, y:botY},
-                            {x:colEdgeX, y:topY},
-                            {x:ex, y:topY},
-                            {x:ex, y:ey}
-                        ];
+                        inY = outY;
                     }
                     
+                    pts.push({x: sx, y: outY});
+
+                    // 3. 列が違う、または階層を大きくまたぐ場合は、境界線（垂直チャネル）を通って移動する
+                    if (p.minI !== ch.minI || p.mx !== ch.mx || pLv !== cLv) {
+                        
+                        // どの境界線を通るか？（近い方を選ぶ）
+                        let vCol;
+                        if (ex > sx) {
+                            vCol = Math.max(p.mx + 1, ch.minI);
+                        } else {
+                            vCol = Math.min(p.minI, ch.mx + 1);
+                        }
+                        
+                        vChannels[vCol] = (vChannels[vCol] || 0) + 1;
+                        // 境界線（vCol * cw）の左右に車線を展開 (-15px ~ +15px)
+                        const vOffset = ((vChannels[vCol] % 6) - 2.5) * 6;
+                        const vX = vCol * cw + vOffset;
+
+                        pts.push({x: vX, y: outY});
+                        pts.push({x: vX, y: inY});
+                    }
+
+                    // 4. 到着点の上まで来たら、目的のX座標へ移動して降りる
+                    pts.push({x: ex, y: inY});
+                    pts.push({x: ex, y: ey});
+                    
+                    // 角を丸くする
                     const d = drawRoundedPath(pts, 12);
                     
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
