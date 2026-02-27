@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v8.1</title>
+<title>Pro Map Suite v8.2</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -47,10 +47,11 @@
     .np{height:4px;background:#eee;} .np-bar{height:100%;background:#2ecc71;transition:width 0.3s;}
 
     svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
+    path{fill:none;} /* 黒塗りを防止するセーフティネット */
     
-    /* 💡 矢印のホバーエフェクト（マウスを乗せると光って見やすくなる） */
-    .chart-arrow { stroke:#7f8c8d; stroke-width:2.5px; fill:none; stroke-linejoin:round; stroke-linecap:round; transition: stroke 0.2s, stroke-width 0.2s; pointer-events: visibleStroke; cursor: pointer; }
-    .chart-arrow:hover { stroke: var(--accent); stroke-width: 4.5px; }
+    /* 💡 全画面共通：矢印のホバーエフェクト（マウスを乗せると光って見やすくなる） */
+    .chart-arrow { stroke:var(--line); stroke-width:2.5px; fill:none; stroke-linejoin:round; stroke-linecap:round; transition: stroke 0.2s, stroke-width 0.2s; pointer-events: visibleStroke; cursor: pointer; }
+    .chart-arrow:hover { stroke: var(--accent); stroke-width: 4.5px; z-index: 100; }
     .chart-arrow.crit { stroke:var(--high); stroke-width:3px; stroke-dasharray:5,3; }
     .chart-arrow.crit:hover { stroke: #d35400; stroke-width: 5px; }
     .chart-arrow.err { stroke:var(--crit); stroke-width:3px; }
@@ -511,7 +512,8 @@
                     const cr=an.crt.has(`${pid}-${n.id}`);
                     const er=an.err.has(n.id) && an.err.has(pid);
                     const sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
-                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
+                    // 💡 Mapビューにも .chart-arrow クラスを付与
+                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="chart-arrow ${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
                 }
             });
         });
@@ -762,8 +764,8 @@
                         const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
                         const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
                         pt.setAttribute('d',d); 
-                        pt.setAttribute('stroke','#7f8c8d'); 
-                        pt.setAttribute('fill','none'); 
+                        // 💡 ガントにも .chart-arrow クラスを付与
+                        pt.setAttribute('class', 'chart-arrow');
                         pt.setAttribute('marker-end','url(#ga)'); 
                         svg.appendChild(pt);
                     }
@@ -954,7 +956,6 @@
                 }
             });
 
-            // 各レベルにおけるノードの最も深い(下)位置を記録（安全地帯の計算用）
             const levelMaxB = {};
             for(let i=0; i<=maxLv; i++) levelMaxB[i] = levelStartY[i];
             sortedNodes.forEach(n => {
@@ -1005,7 +1006,6 @@
             const outIndex = {}, inIndex = {};
             const an = ana(); 
             
-            // 💡 厳格な衝突バリア判定 (ノードの周囲10pxは立ち入り禁止)
             function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
                 const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
                 for (const id in ui) {
@@ -1034,7 +1034,6 @@
                     outIndex[pid] = (outIndex[pid] || 0) + 1;
                     inIndex[cid] = (inIndex[cid] || 0) + 1;
 
-                    // ポート間隔
                     const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20;
                     const cOff = (inIndex[cid] - (inCount[cid] + 1) / 2) * 20;
 
@@ -1046,19 +1045,16 @@
                     const pLv = levels[pid];
                     const cLv = levels[cid];
 
-                    // 💡 トラック分散による線の完全分離 (車線システム)
-                    const trackY1 = (edgeIdx % 10) * 8; // 0 ~ 72px
-                    const trackY2 = (edgeIdx % 7) * 8;  // 0 ~ 48px
-                    const trackX = ((edgeIdx % 5) - 2) * 8; // -16 ~ +16px
+                    const trackY1 = (edgeIdx % 10) * 8; 
+                    const trackY2 = (edgeIdx % 7) * 8;  
+                    const trackX = ((edgeIdx % 5) - 2) * 8; 
 
                     let pts = [];
 
                     if (pLv === cLv) {
-                        // 同じ階層での移動
                         const botY = Math.max(p.b, ch.b) + 20 + trackY1;
                         pts = [{x:sx, y:sy}, {x:sx, y:botY}, {x:ex, y:botY}, {x:ex, y:ey}];
                     } else if (pLv < cLv) {
-                        // 順方向の移動
                         const midY = sy + 25 + trackY1; 
                         const midY2 = ey - 25 - trackY2; 
                         
@@ -1068,22 +1064,17 @@
                         const isSafeCross2 = !horizIntersecting(midY2, sx, ex, pid, cid);
 
                         if (isSafe2 && isSafeCross1) {
-                            // 親のすぐ下の空間を利用
                             pts = [{x:sx, y:sy}, {x:sx, y:midY}, {x:ex, y:midY}, {x:ex, y:ey}];
                         } else if (isSafe1 && isSafeCross2) {
-                            // 子のすぐ上の空間を利用
                             pts = [{x:sx, y:sy}, {x:sx, y:midY2}, {x:ex, y:midY2}, {x:ex, y:ey}];
                         } else {
-                            // 💡 どちらの隙間も塞がれている場合は「垂直チャネル」へ逃げる
                             const dir = ex > sx ? 1 : -1;
                             let bypassX = (dir > 0 ? (p.mx + 1) * cw : p.minI * cw) + trackX;
                             
-                            // 遠回りを防ぐための補正
                             if (dir > 0 && ch.minI > p.mx + 1) bypassX = (p.mx + 1) * cw + trackX;
                             if (dir < 0 && ch.mx < p.minI - 1) bypassX = p.minI * cw + trackX;
 
                             let outY = p.b + 15 + (trackY1 % 20);
-                            // 垂直チャネルへ逃げるための横線がぶつかるなら、階層下の絶対安全地帯へ下ろす
                             if (horizIntersecting(outY, sx, bypassX, pid, cid)) {
                                 outY = levelMaxB[pLv] + 20 + (trackY1 % 20);
                             }
@@ -1103,7 +1094,6 @@
                             ];
                         }
                     } else {
-                        // 逆方向の移動（下から上へ戻るループ線）
                         const botY = sy + 25 + trackY1; 
                         const topY = ey - 25 - trackY2; 
                         
