@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v9.3 (Path Binding)</title>
+<title>Pro Map Suite v9.4 (Fix & Upgrade)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
@@ -186,13 +186,20 @@
                 </div>
             </div>
             
+            <div class="m-row" id="m-dep-wrap">
+                <label>担当部署 (作業者) ⚙️</label>
+                <input type="text" id="m-dep" placeholder="カンマ区切で複数入力可" oninput="syncAgreeDept()">
+            </div>
+            <div class="m-row" id="m-agree-dep-wrap" style="display:none;">
+                <label>合意部署 (承認者) 🤝</label>
+                <input type="text" id="m-agree-dep" placeholder="カンマ区切で複数入力可" oninput="this.dataset.autoSync='false'">
+            </div>
             <div class="m-row">
-                <label>担当部署 (Mechanism / 承認者) ⚙️</label>
-                <input type="text" id="m-dep" placeholder="カンマ区切で複数入力可">
                 <select id="m-dep-list" style="margin-top:4px;" onchange="addDeptFromList()">
                     <option value="">-- 既存の部署から選択 --</option>
                 </select>
             </div>
+
             <div style="display:flex;gap:10px;">
                 <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncDate('start')"></div>
                 <div class="m-row" style="flex:1;"><label>期間 (日) ※0で合意形成化</label><input type="number" id="m-d" min="0" onchange="syncDate('d')" oninput="syncDate('d')"></div>
@@ -464,11 +471,18 @@
     function addDays(d,n){if(!d)return null;const r=new Date(d);r.setDate(r.getDate()+n);return r;}
     function diffDays(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)+1;}
 
+    // 💡 作業ノードなら担当部署、合意形成ノードなら合意部署を返す
+    function getDept(n){
+        const isDecision = (parseInt(getField(n,"期間")) || 0) === 0;
+        if(isDecision) return getField(n,"合意部署") || getField(n,"担当部署") || "全体";
+        return getField(n,"担当部署") || "全体";
+    }
+
     function getOrd(t){
         const isSwim = (t === 's' || t === 'swim');
         const act=new Set(); 
         st.nodes.forEach(n=>{
-            const ds = (getField(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
+            const ds = (getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);
             if(!isSwim) {
                 if (ds.length <= 1) act.add(ds[0] || "未配属");
             } else {
@@ -476,7 +490,6 @@
                 else ds.forEach(d => act.add(d));
             }
         });
-        
         let l = isSwim ? st.sOrd : st.gOrd; 
         if(!l) l = [];
         act.forEach(d=>{ if(!l.includes(d)) l.push(d); });
@@ -591,11 +604,9 @@
             const nf=el.querySelector('.nf'); nf.innerHTML='';
             
             d.f.forEach(f=>{
-                // 💡 ノードの顔(.nf) には表示させない項目のフィルタリング
-                if(isDecision && (f.l==='Input' || f.l==='Output' || f.l==='InputPath' || f.l==='OutputPath')) return;
-                if(!isDecision && f.l==='Control') return;
-                if(f.l==='InputPath') return;  // パスはモーダル内とDocパレットだけで扱う
-                if(f.l==='OutputPath') return; // パスはモーダル内とDocパレットだけで扱う
+                if(isDecision && (f.l==='Input' || f.l==='Output' || f.l==='InputPath' || f.l==='OutputPath' || f.l==='担当部署')) return;
+                if(!isDecision && (f.l==='Control' || f.l==='合意部署')) return;
+                if(f.l==='InputPath' || f.l==='OutputPath') return; 
                 if(f.l==='Input' && !f.v) return;
                 if(f.l==='Output' && !f.v) return;
                 if(f.l==='Control' && !f.v) return;
@@ -604,7 +615,7 @@
                 r.innerHTML=`<div class="fl" contenteditable>${f.l}</div><div class="fv" contenteditable>${f.v}</div>`;
                 r.querySelector('.fl').oninput=e=>f.l=e.target.innerText;
                 r.querySelector('.fv').oninput=e=>f.v=e.target.innerText;
-                if(['予定開始','予定終了','期間','担当部署','ステータス','進捗','Input','Output','Control'].includes(f.l)){
+                if(['予定開始','予定終了','期間','担当部署','合意部署','ステータス','進捗','Input','Output','Control'].includes(f.l)){
                     const v=r.querySelector('.fv'); v.classList.add('link'); v.onclick=e=>{e.stopPropagation();openEditModal(d.id);}; v.removeAttribute('contenteditable');
                 }
                 nf.appendChild(r);
@@ -793,7 +804,7 @@
         
         let items=[];
         st.nodes.forEach(n=>{
-            const ds=(getField(n,"担当部署")||"未配属").split(/[,、]/).map(s=>s.trim()).filter(s=>s);
+            const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);
             let d=ds.length>1?"全体":(ds[0]||"未配属"); items.push({n,d});
         });
         items.sort((a,b)=>{
@@ -936,7 +947,7 @@
         
         const nodeSpan = {};
         sortedNodes.forEach(n => {
-            const raw = getField(n, "担当部署") || "未配属"; 
+            const raw = getDept(n); 
             const mds = raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d);
             const deptIndices = mds.map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);
             if(deptIndices.length === 0) deptIndices.push(0);
@@ -1258,6 +1269,7 @@
         sel(id,false); openEditModal(id, true);
     }
     
+    // 💡 Map画面の自動整列と物理演算（ズーム関数含む）
     function autoAlign(){
         const comp = [];
         const visited = new Set();
@@ -1400,6 +1412,68 @@
         }
         ren();
     }
+
+    function runPhy(){
+        let i=0; 
+        const tick=()=>{
+            if(!phy.act || i>100){
+                phy.act=false;
+                ren();
+                return;
+            }
+            let mv=false;
+            for(let a of st.nodes){
+                for(let b of st.nodes){
+                    if(a===b)continue;
+                    const dx=(a.x||0)-(b.x||0), dy=(a.y||0)-(b.y||0), d=Math.sqrt(dx*dx+dy*dy);
+                    if(d<280 && d>0.1){
+                        const f=(280-d)*0.15;
+                        const ang=Math.atan2(dy,dx);
+                        a.x=(a.x||0)+Math.cos(ang)*f; a.y=(a.y||0)+Math.sin(ang)*f; mv=true;
+                    }
+                }
+            }
+            if(mv)ren(); 
+            i++; 
+            if(!mv && i>15){
+                phy.act=false;
+                ren();
+                return;
+            }
+            requestAnimationFrame(tick);
+        }; 
+        tick();
+    }
+    
+    // 💡 エラーで消えていたズーム・フィット関数を復元！
+    function fitToScreen(){
+        if(!st.nodes.length)return;
+        let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
+        st.nodes.forEach(n=>{
+            const nx=n.x||0, ny=n.y||0;
+            if(nx<Mx)Mx=nx; if(ny<My)My=ny; if(nx+240>mx)mx=nx+240; if(ny+160>my)my=ny+160;
+        });
+        const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
+        const c = document.getElementById('canvas');
+        c.classList.add('smooth');
+        st.sc=Math.max(0.1,sc); 
+        st.x=-(Mx+(mx-Mx)/2)*st.sc; 
+        st.y=-(My+(my-My)/2)*st.sc; 
+        ren();
+        setTimeout(() => { c.classList.remove('smooth'); }, 400);
+    }
+
+    function zoomIn(){
+        const c = document.getElementById('canvas');
+        c.classList.add('smooth'); st.sc*=1.2; ren();
+        setTimeout(() => c.classList.remove('smooth'), 400);
+    }
+
+    function zoomOut(){
+        const c = document.getElementById('canvas');
+        c.classList.add('smooth'); st.sc = Math.max(0.1, st.sc * 0.8); ren();
+        setTimeout(() => c.classList.remove('smooth'), 400);
+    }
     
     function toggleModalUI() {
         const d = parseInt(document.getElementById('m-d').value) || 0;
@@ -1407,6 +1481,16 @@
         document.getElementById('m-task-fields').style.display = isDecision ? 'none' : 'block';
         document.getElementById('m-decision-fields').style.display = isDecision ? 'block' : 'none';
         document.getElementById('m-prog-wrap').style.display = isDecision ? 'none' : 'block';
+        document.getElementById('m-dep-wrap').style.display = isDecision ? 'none' : 'block';
+        document.getElementById('m-agree-dep-wrap').style.display = isDecision ? 'block' : 'none';
+    }
+
+    // 💡 担当部署が入力されたら、合意部署が空の時だけ同期させる
+    function syncAgreeDept() {
+        const agreeDep = document.getElementById('m-agree-dep');
+        if (agreeDep.dataset.autoSync !== "false") {
+            agreeDep.value = document.getElementById('m-dep').value;
+        }
     }
 
     function addLog() {
@@ -1433,7 +1517,11 @@
         if(isNewNode) newNodeId = id;
         curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
         document.getElementById('m-tit').value=n.title;
+        
         document.getElementById('m-dep').value=getField(n,"担当部署")||"";
+        document.getElementById('m-agree-dep').value=getField(n,"合意部署")||getField(n,"担当部署")||"";
+        document.getElementById('m-agree-dep').dataset.autoSync = getField(n,"合意部署") ? "false" : "true";
+
         document.getElementById('m-s').value=getField(n,"予定開始");
         document.getElementById('m-e').value=getField(n,"予定終了");
         document.getElementById('m-d').value=parseInt(getField(n,"期間"))||1;
@@ -1460,10 +1548,10 @@
         const dl=document.getElementById('m-dep-list');
         dl.innerHTML='<option value="">-- 既存の部署から選択 --</option>';
         const ds=new Set(); 
-        st.nodes.forEach(no=>(getField(no,"担当部署")||"").split(/[,、]/).forEach(d=>{
-            const trimmed=d.trim();
-            if(trimmed)ds.add(trimmed);
-        }));
+        st.nodes.forEach(no=>{
+            (getField(no,"担当部署")||"").split(/[,、]/).forEach(d=>{ if(d.trim()) ds.add(d.trim()); });
+            (getField(no,"合意部署")||"").split(/[,、]/).forEach(d=>{ if(d.trim()) ds.add(d.trim()); });
+        });
         ds.forEach(d=>{
             const o=document.createElement('option'); 
             o.value=d; o.innerText=d; dl.appendChild(o);
@@ -1478,12 +1566,20 @@
         const sel=document.getElementById('m-dep-list');
         const val=sel.value;
         if(!val)return;
-        const inp=document.getElementById('m-dep');
+        
+        const isDecision = (parseInt(document.getElementById('m-d').value) || 0) === 0;
+        const targetId = isDecision ? 'm-agree-dep' : 'm-dep';
+        const inp=document.getElementById(targetId);
+        
         const current=inp.value.trim();
         if(current){
             const depts=current.split(/[,、]/).map(s=>s.trim());
             if(!depts.includes(val)){ inp.value=current+', '+val; }
         } else { inp.value=val; }
+        
+        if (targetId === 'm-agree-dep') inp.dataset.autoSync = "false";
+        if (targetId === 'm-dep') syncAgreeDept();
+        
         sel.value='';
     }
     
@@ -1510,6 +1606,7 @@
         
         n.title=document.getElementById('m-tit').value;
         setField(n,"担当部署",document.getElementById('m-dep').value);
+        setField(n,"合意部署",document.getElementById('m-agree-dep').value);
         setField(n,"予定開始",document.getElementById('m-s').value);
         setField(n,"予定終了",document.getElementById('m-e').value);
         setField(n,"期間",document.getElementById('m-d').value);
@@ -1588,17 +1685,26 @@
             };
             
             if(!isDecision) {
-                addDragItem('Output', 'Output', getField(n, 'Output'));
+                addDragItem('成果物(Output)', 'Output', getField(n, 'Output'));
                 addDragItem('Outパス', 'OutputPath', getField(n, 'OutputPath'));
                 addDragItem('Input', 'Input', getField(n, 'Input'));
                 addDragItem('Inパス', 'InputPath', getField(n, 'InputPath'));
-                addDragItem('担当', '担当部署', getField(n, '担当部署'));
+                addDragItem('担当部署', '担当部署', getField(n, '担当部署'));
                 addDragItem('予定期間', '予定期間', `${getField(n, '予定開始')} ~ ${getField(n, '予定終了')}`);
             } else {
                 addDragItem('条件(Control)', 'Control', getField(n, 'Control'));
                 addDragItem('合意日(予定)', '予定開始', getField(n, '予定開始'));
-                addDragItem('担当(承認者)', '担当部署', getField(n, '担当部署'));
+                addDragItem('合意部署', '合意部署', getField(n, '合意部署') || getField(n, '担当部署'));
                 addDragItem('ステータス', 'ステータス', getField(n, 'ステータス')==='done'?'承認済':'未承認');
+                
+                // 💡 合意形成ノードでは、直前の作業から「対象成果物」を自動抽出してリストに出す
+                let outs = [];
+                n.pIds.forEach(pid => {
+                    const p = st.nodes.find(x => x.id == pid);
+                    if (p && getField(p, "Output")) outs.push(getField(p, "Output"));
+                });
+                if (outs.length > 0) addDragItem('対象成果物', 'TargetOutput', outs.join(', '));
+
                 if (n.logs && n.logs.length > 0) {
                     const latestLog = n.logs[n.logs.length - 1];
                     addDragItem('最新ログ', '最新ログ', `[${latestLog.date}] ${latestLog.comment}`);
@@ -1652,6 +1758,15 @@
         const f = mapping.field;
         if (f === '予定期間') return `${getField(node, '予定開始')} ~ ${getField(node, '予定終了')}`;
         if (f === 'ステータス') return getField(node, 'ステータス') === 'done' ? '承認済' : '未承認';
+        if (f === '合意部署') return getField(node, '合意部署') || getField(node, '担当部署') || "";
+        if (f === 'TargetOutput') {
+            let outs = [];
+            node.pIds.forEach(pid => {
+                const p = st.nodes.find(x => x.id == pid);
+                if (p && getField(p, "Output")) outs.push(getField(p, "Output"));
+            });
+            return outs.join(', ');
+        }
         if (f === '最新ログ') {
             if (node.logs && node.logs.length > 0) {
                 const lg = node.logs[node.logs.length - 1];
