@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Pro Map Suite v10.0 (Bi-directional Highlight & Auto Scroll)</title>
+<title>Pro Map Suite v10.1 (Gantt Arrow Fix)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
@@ -125,16 +125,7 @@
     .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
     .sc-mode .view{margin-top:0;}.sc-mode .v-head{padding-top:10px;}
 
-    /* 💡 v10.0 ハイライト用のCSSクラス */
-    .hl-match {
-        outline: 3px solid #e67e22 !important;
-        background-color: #fef9e7 !important;
-        transform: scale(1.02);
-        z-index: 10;
-        position: relative;
-        transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-        box-shadow: 0 4px 15px rgba(230,126,34,0.3) !important;
-    }
+    .hl-match { outline: 3px solid #e67e22 !important; background-color: #fef9e7 !important; transform: scale(1.02); z-index: 10; position: relative; transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 4px 15px rgba(230,126,34,0.3) !important; }
 </style>
 </head>
 <body onclick="clearHl()">
@@ -491,7 +482,7 @@
     }
 
     // ==========================================
-    // 4. Missing Functions Restored 
+    // 4. Missing Functions Restored
     // ==========================================
     function toggleScreenshotMode() {
         document.body.classList.toggle('sc-mode');
@@ -921,6 +912,7 @@
         wp.appendChild(gb);
 
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
+        svg.style.position='absolute';svg.style.top='0';svg.style.left='0';svg.style.width='100%';svg.style.height='100%';svg.style.zIndex='5';svg.style.pointerEvents='none';
         svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
         
         let items=[]; 
@@ -1079,9 +1071,8 @@
                 
                 if(p.minI!==ch.minI||p.mx!==ch.mx||pLv!==cLv){
                     let vCol; 
-                    // 💡 左へ戻るルートでX=0にはみ出さないよう、Math.max(1, ...) で保護
                     if(ex > sx + 10) vCol = Math.max(p.mx+1, ch.minI);
-                    else if(ex < sx - 10) vCol = Math.max(1, Math.min(p.minI, ch.mx+1));
+                    else if(ex < sx - 10) vCol = Math.max(0, Math.min(p.minI, ch.mx+1));
                     else vCol = p.mx+1;
 
                     vC[vCol]=(vC[vCol]||0)+1; const vx=vCol*cw+((vC[vCol]%6)-2.5)*6; 
