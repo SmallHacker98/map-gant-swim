@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v8.2</title>
+<title>Pro Map Suite v9.0 (IDEF Phase 1)</title>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -24,7 +24,7 @@
     #canvas{transform-origin:0 0;position:absolute;top:0;left:0;}
     .smooth{transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}
 
-    .node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:10;display:flex;flex-direction:column;overflow:hidden;}
+    .node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:10;display:flex;flex-direction:column;overflow:hidden; transition:border-radius 0.3s;}
     .node:hover{box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:20;}
     .node.sel{border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(52,152,219,0.3);}
     .node.src{border:2px solid var(--high);box-shadow:0 0 0 4px rgba(230,126,34,0.6);}
@@ -32,6 +32,21 @@
     .node.err{border:3px solid var(--crit);}
     .node.phy{transition:left 0.1s linear, top 0.1s linear;}
     
+    /* 💡 合意形成ノード（期間0日）の特別なデザイン */
+    .node.decision { border-radius: 24px; border: 2px solid #8e44ad; }
+    .node.decision .nh { background: linear-gradient(to bottom, #9b59b6, #8e44ad); }
+    .node.decision .nh::after { color: rgba(255,255,255,0.7); content:"⬢"; }
+    .node.decision .nt { background: #2c3e50; text-align: center; }
+
+    /* 💡 承認スタンプのデザイン */
+    .stamp {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg);
+        color: rgba(231, 76, 60, 0.85); border: 4px solid rgba(231, 76, 60, 0.85);
+        font-size: 26px; font-weight: bold; padding: 5px 15px; border-radius: 8px;
+        pointer-events: none; z-index: 50; text-transform: uppercase; letter-spacing: 3px;
+        text-shadow: 1px 1px 0px rgba(255,255,255,0.8);
+    }
+
     .nh{height:22px;background:linear-gradient(to bottom,#eee,#ccc);border-bottom:1px solid #999;cursor:grab;display:flex;justify-content:center;align-items:center;}
     .nh::after{content:"⠿";color:#666;}
     .nt{color:white;padding:6px 10px;font-weight:bold;cursor:pointer;}
@@ -39,7 +54,7 @@
     
     .nf{padding:5px;flex-grow:1;background:white;}
     .fr{display:flex;gap:5px;font-size:11px;border-bottom:1px solid #eee;padding:2px 0;}
-    .fl{color:#7f8c8d;width:70px;text-align:right;font-weight:bold;}
+    .fl{color:#7f8c8d;width:70px;text-align:right;font-weight:bold; overflow:hidden;}
     .fv{color:#2c3e50;flex-grow:1;cursor:pointer;}
     .fv:hover{background:#f9f9f9;}
     .n-add{text-align:center;color:#bdc3c7;cursor:pointer;background:#fafafa;}
@@ -49,7 +64,7 @@
     svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
     
     .chart-arrow { stroke:#7f8c8d; stroke-width:2.5px; fill:none; stroke-linejoin:round; stroke-linecap:round; transition: stroke 0.2s, stroke-width 0.2s; pointer-events: visibleStroke; cursor: pointer; }
-    .chart-arrow:hover { stroke: var(--accent); stroke-width: 4.5px; }
+    .chart-arrow:hover { stroke: var(--accent); stroke-width: 4.5px; z-index: 100; }
     .chart-arrow.crit { stroke:var(--high); stroke-width:3px; stroke-dasharray:5,3; }
     .chart-arrow.crit:hover { stroke: #d35400; stroke-width: 5px; }
     .chart-arrow.err { stroke:var(--crit); stroke-width:3px; }
@@ -107,7 +122,7 @@
     .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
     .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
     .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
-    
+
     .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
     .g-grp.drag-over { background-color: #d6eaf8 !important; box-shadow: inset 0 0 0 2px var(--accent); }
     
@@ -139,10 +154,27 @@
 
     <div id="modal">
         <div class="m-cnt">
-            <h3 style="margin-top:0; color:#2c3e50;">タスク詳細</h3>
+            <h3 style="margin-top:0; color:#2c3e50;">プロパティ詳細</h3>
             <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
+            
+            <div id="m-task-fields">
+                <div class="m-row"><label>Input (前提条件・受領物) 📥</label><input type="text" id="m-in" placeholder="例：基本設計書、部品A"></div>
+                <div class="m-row"><label>Output (成果物) 📤</label><input type="text" id="m-out" placeholder="例：詳細設計書、モジュールB"></div>
+            </div>
+            <div id="m-decision-fields" style="display:none;">
+                <div class="m-row"><label>Control (承認条件・達成基準) 🔒</label><textarea id="m-ctrl" rows="2" style="width:100%; border:1px solid #ccc; border-radius:4px; padding:8px; box-sizing:border-box;" placeholder="例：予算の承認、テストカバレッジ100%"></textarea></div>
+                <div class="m-row">
+                    <label>Decision Log (意思決定履歴) 📝</label>
+                    <div id="m-log-list" style="max-height:100px; overflow-y:auto; background:#f9f9f9; padding:5px; border:1px solid #ddd; font-size:11px; margin-bottom:5px;"></div>
+                    <div style="display:flex; gap:5px;">
+                        <input type="text" id="m-log-in" placeholder="承認や差戻しのコメント..." style="flex:1; padding:4px;">
+                        <button type="button" onclick="addLog()" style="background:var(--accent); color:white; border:none; border-radius:4px; cursor:pointer; padding:0 10px; font-size:12px;">追記</button>
+                    </div>
+                </div>
+            </div>
+            
             <div class="m-row">
-                <label>担当部署 (カンマ区切 or 選択)</label>
+                <label>担当部署 (Mechanism) ⚙️</label>
                 <input type="text" id="m-dep" placeholder="カンマ区切で複数入力可">
                 <select id="m-dep-list" style="margin-top:4px;" onchange="addDeptFromList()">
                     <option value="">-- 既存の部署から選択 --</option>
@@ -150,12 +182,12 @@
             </div>
             <div style="display:flex;gap:10px;">
                 <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncDate('start')"></div>
-                <div class="m-row" style="flex:1;"><label>期間 (日)</label><input type="number" id="m-d" min="0" onchange="syncDate('d')" oninput="syncDate('d')"></div>
+                <div class="m-row" style="flex:1;"><label>期間 (日) ※0で合意形成化</label><input type="number" id="m-d" min="0" onchange="syncDate('d')" oninput="syncDate('d')"></div>
             </div>
             <div class="m-row"><label>予定終了</label><input type="date" id="m-e" onchange="syncDate('end')"></div>
             <div style="display:flex;gap:10px;">
-                 <div class="m-row" style="flex:1;"><label>ステータス</label><select id="m-st"><option value="todo">未着手</option><option value="doing">進行中</option><option value="done">完了</option><option value="wait">保留</option></select></div>
-                 <div class="m-row" style="flex:1;"><label>進捗率: <span id="m-pv">0%</span></label><input type="range" id="m-p" min="0" max="100" step="5" oninput="document.getElementById('m-pv').innerText=this.value+'%'"></div>
+                 <div class="m-row" style="flex:1;"><label>ステータス</label><select id="m-st"><option value="todo">未着手</option><option value="doing">進行中</option><option value="done">完了 (承認済)</option><option value="wait">保留</option></select></div>
+                 <div class="m-row" style="flex:1;" id="m-prog-wrap"><label>進捗率: <span id="m-pv">0%</span></label><input type="range" id="m-p" min="0" max="100" step="5" oninput="document.getElementById('m-pv').innerText=this.value+'%'"></div>
             </div>
             <hr style="border:0; border-top:1px dashed #ddd; margin: 15px 0;">
             <div style="display:flex;gap:10px;">
@@ -343,10 +375,10 @@
             const act=document.activeElement; 
             if (e.isComposing) return;
             if(document.getElementById('modal').style.display!=='none'){ 
-                if(e.key==='Enter') { e.preventDefault(); saveModal(); return; }
+                if(e.key==='Enter' && act.tagName !== 'TEXTAREA') { e.preventDefault(); saveModal(); return; }
                 if(e.key==='Escape') { e.preventDefault(); closeModal(); return; }
             }
-            if(act.tagName==='INPUT'||act.tagName==='SELECT')return;
+            if(act.tagName==='INPUT'||act.tagName==='SELECT'||act.tagName==='TEXTAREA')return;
             if(e.ctrlKey||e.metaKey){
                 if(e.key==='c'){ if(!act.tagName) e.preventDefault(); clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n))); }
                 if(e.key==='v'&&clip){ st.sel.clear(); clip.forEach(n=>{n.id=Date.now()+Math.floor(Math.random()*1000); n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);}); ren(); runPhy(); }
@@ -482,18 +514,40 @@
                 el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();};
                 c.appendChild(el);
             }
-            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'');
+            
+            // 💡 期間0日なら「合意形成ノード」としてUI変更
+            const isDecision = (parseInt(getField(d,"期間")) || 0) === 0;
+            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'')+(isDecision?' decision':'');
             if(!mapD||mapD.t!=='node') el.classList.add('phy'); else el.classList.remove('phy');
+            
             const stt=getField(d,"ステータス")||"todo";
             const hd=el.querySelector('.nt'); hd.className=`nt h-${stt}`; hd.innerText=d.title;
+            
+            // 💡 承認済みの合意形成ノードにはスタンプを押す
+            if (isDecision && stt === "done") {
+                if(!el.querySelector('.stamp')) el.insertAdjacentHTML('beforeend', '<div class="stamp">APPROVED</div>');
+            } else {
+                const stp = el.querySelector('.stamp');
+                if(stp) stp.remove();
+            }
+
             el.querySelector('.np-bar').style.width=(getField(d,"進捗")||0)+'%';
             const nf=el.querySelector('.nf'); nf.innerHTML='';
+            
+            // 💡 IDEF0対応: フィールドの表示を切り替え
             d.f.forEach(f=>{
+                // 期間0の時は Input, Output を隠し、期間1以上の時は Control を隠す
+                if(isDecision && (f.l==='Input' || f.l==='Output')) return;
+                if(!isDecision && f.l==='Control') return;
+                if(f.l==='Input' && !f.v) return;
+                if(f.l==='Output' && !f.v) return;
+                if(f.l==='Control' && !f.v) return;
+
                 const r=document.createElement('div'); r.className='fr';
                 r.innerHTML=`<div class="fl" contenteditable>${f.l}</div><div class="fv" contenteditable>${f.v}</div>`;
                 r.querySelector('.fl').oninput=e=>f.l=e.target.innerText;
                 r.querySelector('.fv').oninput=e=>f.v=e.target.innerText;
-                if(['予定開始','予定終了','期間','担当部署','ステータス','進捗'].includes(f.l)){
+                if(['予定開始','予定終了','期間','担当部署','ステータス','進捗','Input','Output','Control'].includes(f.l)){
                     const v=r.querySelector('.fv'); v.classList.add('link'); v.onclick=e=>{e.stopPropagation();openEditModal(d.id);}; v.removeAttribute('contenteditable');
                 }
                 nf.appendChild(r);
@@ -509,7 +563,10 @@
                     const cr=an.crt.has(`${pid}-${n.id}`);
                     const er=an.err.has(n.id) && an.err.has(pid);
                     const sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
-                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
+                    let cls = 'chart-arrow';
+                    if (er) cls += ' err';
+                    else if (cr) cls += ' crit';
+                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="${cls}" marker-end="url(#ah)"/>`;
                 }
             });
         });
@@ -760,8 +817,11 @@
                         const d = (sx+15 < ex-5) ? `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}` : `M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
                         const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
                         pt.setAttribute('d',d); 
-                        pt.setAttribute('stroke','#7f8c8d'); 
-                        pt.setAttribute('fill','none'); 
+                        let cls = 'chart-arrow';
+                        const cr=an.crt.has(`${pid}-${it.n.id}`);
+                        const er=an.err.has(it.n.id) && an.err.has(pid);
+                        if (er) cls += ' err'; else if (cr) cls += ' crit';
+                        pt.setAttribute('class', cls);
                         pt.setAttribute('marker-end','url(#ga)'); 
                         svg.appendChild(pt);
                     }
@@ -922,7 +982,10 @@
             const finalY = levelStartY[lv] + span.yOff * 160;
             
             const el=document.createElement('div'); 
-            el.className='node s-node';
+            // 💡 IDEF0対応: 期間0日を decision クラスとして丸っこくする
+            const isDecision = (parseInt(getField(n,"期間")) || 0) === 0;
+            el.className='node s-node' + (isDecision ? ' decision' : '');
+            
             el.dataset.id = n.id;
             el.style.width=`${(span.mx - span.minI + 1) * cw - 40}px`; 
             el.style.left=`${span.minI * cw + 20}px`; 
@@ -939,6 +1002,12 @@
             }
             
             el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")} 日</div>`;
+            
+            // 💡 承認済みの合意形成ノードにはスタンプ
+            if (isDecision && getField(n,"ステータス") === "done") {
+                el.innerHTML += '<div class="stamp">APPROVED</div>';
+            }
+            
             el.onclick=()=>openEditModal(n.id); 
             con.appendChild(el);
             ui[n.id]={l:span.minI*cw+20, r:(span.mx+1)*cw-20, t:finalY, b:finalY + 100, minI: span.minI, mx: span.mx};
@@ -952,7 +1021,6 @@
                 }
             });
 
-            // 💡 各レベルにおけるノードの最も深い(下)位置を記録し、その下を「絶対安全地帯」とする
             const levelMaxB = {};
             for(let i=0; i<=maxLv; i++) levelMaxB[i] = levelStartY[i];
             sortedNodes.forEach(n => {
@@ -991,7 +1059,6 @@
             svg.innerHTML='<defs><marker id="sa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#7f8c8d"/></marker></defs>';
 
             const outCount = {}, inCount = {};
-            // 描画順を安定させるためのエッジリスト
             const edges = [];
             st.nodes.forEach(n => {
                 n.pIds.forEach(pid => {
@@ -1004,7 +1071,25 @@
             const outIndex = {}, inIndex = {};
             const an = ana(); 
             
-            // 💡 トラック（車線）の使用状況を管理し、完全に被らないようにする
+            function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
+                const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+                for (const id in ui) {
+                    if (id == excludeId1 || id == excludeId2) continue;
+                    const n = ui[id];
+                    if (x > n.l - 10 && x < n.r + 10 && maxY > n.t - 10 && minY < n.b + 10) return true;
+                }
+                return false;
+            }
+            function horizIntersecting(y, x1, x2, excludeId1, excludeId2) {
+                const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+                for (const id in ui) {
+                    if (id == excludeId1 || id == excludeId2) continue;
+                    const n = ui[id];
+                    if (y > n.t - 10 && y < n.b + 10 && maxX > n.l - 10 && minX < n.r + 10) return true;
+                }
+                return false;
+            }
+
             const hChannels = {}; 
             const vChannels = {}; 
 
@@ -1017,7 +1102,6 @@
                     outIndex[pid] = (outIndex[pid] || 0) + 1;
                     inIndex[cid] = (inIndex[cid] || 0) + 1;
 
-                    // ポートを20px間隔に
                     const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20;
                     const cOff = (inIndex[cid] - (inCount[cid] + 1) / 2) * 20;
 
@@ -1031,28 +1115,20 @@
                     
                     let pts = [{x: sx, y: sy}];
 
-                    // --- 💡 絶対安全ルーティング・アルゴリズム ---
-                    
-                    // 1. 出発点の下の安全通路(水平チャネル)のY座標を決定
                     hChannels[pLv] = (hChannels[pLv] || 0) + 1;
-                    const outY = levelMaxB[pLv] + 15 + (hChannels[pLv] % 8) * 8; // 8pxずつ車線をズラす
+                    const outY = levelMaxB[pLv] + 15 + (hChannels[pLv] % 8) * 8; 
                     
-                    // 2. 到着点の上の安全通路(水平チャネル)のY座標を決定
                     const targetHLv = cLv > 0 ? cLv - 1 : 0;
                     hChannels[targetHLv] = (hChannels[targetHLv] || 0) + 1;
                     let inY = levelStartY[cLv] - 15 - (hChannels[targetHLv] % 8) * 8;
 
-                    // 親と子が同じ階層の場合は、わざわざ別々の車線を使わずに下で直結させる
                     if (pLv === cLv) {
                         inY = outY;
                     }
                     
                     pts.push({x: sx, y: outY});
 
-                    // 3. 列が違う、または階層を大きくまたぐ場合は、境界線（垂直チャネル）を通って移動する
                     if (p.minI !== ch.minI || p.mx !== ch.mx || pLv !== cLv) {
-                        
-                        // どの境界線を通るか？（近い方を選ぶ）
                         let vCol;
                         if (ex > sx) {
                             vCol = Math.max(p.mx + 1, ch.minI);
@@ -1061,7 +1137,6 @@
                         }
                         
                         vChannels[vCol] = (vChannels[vCol] || 0) + 1;
-                        // 境界線（vCol * cw）の左右に車線を展開 (-15px ~ +15px)
                         const vOffset = ((vChannels[vCol] % 6) - 2.5) * 6;
                         const vX = vCol * cw + vOffset;
 
@@ -1069,11 +1144,9 @@
                         pts.push({x: vX, y: inY});
                     }
 
-                    // 4. 到着点の上まで来たら、目的のX座標へ移動して降りる
                     pts.push({x: ex, y: inY});
                     pts.push({x: ex, y: ey});
                     
-                    // 角を丸くする
                     const d = drawRoundedPath(pts, 12);
                     
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
@@ -1083,9 +1156,10 @@
                     const cr = an.crt && an.crt.has(`${pid}-${cid}`);
                     const er = an.err && an.err.has(cid) && an.err.has(pid);
                     
-                    if (er) pt.setAttribute('class', 'chart-arrow err');
-                    else if (cr) pt.setAttribute('class', 'chart-arrow crit');
-                    else pt.setAttribute('class', 'chart-arrow');
+                    let cls = 'chart-arrow';
+                    if (er) cls += ' err';
+                    else if (cr) cls += ' crit';
+                    pt.setAttribute('class', cls);
                     
                     svg.appendChild(pt);
                 }
@@ -1192,6 +1266,98 @@
         sel(id,false); openEditModal(id, true);
     }
     
+    // 💡 独立したグラフを正しく認識・配置するための、本格的な自動整列アルゴリズム
+    function autoAlign(){
+        // 1. 連結成分（繋がっているグラフの塊）ごとに分ける
+        const comp = [];
+        const visited = new Set();
+        const adj = {};
+        st.nodes.forEach(n => adj[n.id] = []);
+        st.nodes.forEach(n => {
+            n.pIds.forEach(pid => {
+                if(adj[pid]) adj[pid].push(n.id);
+                if(adj[n.id]) adj[n.id].push(pid);
+            });
+        });
+
+        st.nodes.forEach(n => {
+            if(!visited.has(n.id)){
+                const c = [];
+                const q = [n.id];
+                visited.add(n.id);
+                while(q.length > 0){
+                    const cur = q.shift();
+                    c.push(cur);
+                    adj[cur].forEach(nei => {
+                        if(!visited.has(nei)){
+                            visited.add(nei);
+                            q.push(nei);
+                        }
+                    });
+                }
+                comp.push(c);
+            }
+        });
+
+        let currentYOffset = 0;
+
+        // 2. それぞれの連結成分ごとにレベル分けして配置
+        comp.forEach(cIds => {
+            const cNodes = st.nodes.filter(n => cIds.includes(n.id));
+            const levels = {};
+            cNodes.forEach(n => levels[n.id] = 0);
+            
+            let changed = true;
+            for(let iter=0; iter<50 && changed; iter++){
+                changed = false;
+                cNodes.forEach(n => {
+                    if(n.pIds.length > 0){
+                        const pLv = n.pIds.map(pid => levels[pid]).filter(l => l !== undefined);
+                        if(pLv.length > 0) {
+                            const maxParentLevel = Math.max(...pLv);
+                            if(levels[n.id] !== maxParentLevel + 1){
+                                levels[n.id] = maxParentLevel + 1;
+                                changed = true;
+                            }
+                        }
+                    }
+                });
+            }
+
+            const groups = {};
+            cNodes.forEach(n => {
+                const lv = levels[n.id];
+                if(!groups[lv]) groups[lv] = [];
+                groups[lv].push(n);
+            });
+
+            let maxNodesInLevel = 0;
+            Object.values(groups).forEach(g => { if(g.length > maxNodesInLevel) maxNodesInLevel = g.length; });
+            const compHeight = maxNodesInLevel * 200;
+
+            Object.keys(groups).forEach(lv => {
+                const nodes = groups[lv];
+                const spacing = 200;
+                const startY = currentYOffset - (nodes.length - 1) * spacing / 2;
+                
+                nodes.forEach((n, i) => {
+                    n.x = parseInt(lv) * 350;
+                    n.y = startY + i * spacing;
+                });
+            });
+
+            currentYOffset += compHeight + 100; // 次の独立グラフとの間に隙間を空ける
+        });
+
+        const c = document.getElementById('canvas');
+        c.classList.add('smooth');
+        ren();
+        setTimeout(() => {
+            c.classList.remove('smooth');
+            fitToScreen();
+        }, 400);
+    }
+    
     function addFreeNode(){
         const id=Date.now() + Math.floor(Math.random()*1000);
         phy.act = false;
@@ -1261,6 +1427,36 @@
         ren();
     }
     
+    // 💡 期間（日数）に応じてモーダルのUIを切り替える関数
+    function toggleModalUI() {
+        const d = parseInt(document.getElementById('m-d').value) || 0;
+        const isDecision = (d === 0);
+        document.getElementById('m-task-fields').style.display = isDecision ? 'none' : 'block';
+        document.getElementById('m-decision-fields').style.display = isDecision ? 'block' : 'none';
+        document.getElementById('m-prog-wrap').style.display = isDecision ? 'none' : 'block';
+    }
+
+    // 💡 ディシジョンログを追加する関数
+    function addLog() {
+        const input = document.getElementById('m-log-in');
+        const val = input.value.trim();
+        if(!val) return;
+        
+        const n = st.nodes.find(x => x.id == curEd);
+        if(n) {
+            if(!n.logs) n.logs = [];
+            const now = new Date().toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+            n.logs.push({date: now, comment: val});
+            
+            const logList = document.getElementById('m-log-list');
+            logList.innerHTML += `<div style="border-bottom:1px solid #eee; padding:2px 0;"><span style="color:#888;">[${now}]</span> ${val}</div>`;
+            input.value = '';
+            
+            // ログが追加されたら背景も更新
+            ren();
+        }
+    }
+    
     function openEditModal(id, isNewNode = false){
         if(isNewNode) newNodeId = id;
         curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
@@ -1275,6 +1471,20 @@
         document.getElementById('m-as').value=getField(n,"実績開始")||'';
         document.getElementById('m-ae').value=getField(n,"実績終了")||'';
         
+        // 💡 IDEF0 項目の読み込み
+        document.getElementById('m-in').value = getField(n, "Input") || "";
+        document.getElementById('m-out').value = getField(n, "Output") || "";
+        document.getElementById('m-ctrl').value = getField(n, "Control") || "";
+
+        // 💡 ログの読み込み
+        const logList = document.getElementById('m-log-list');
+        logList.innerHTML = '';
+        if(n.logs) {
+            n.logs.forEach(lg => {
+                logList.innerHTML += `<div style="border-bottom:1px solid #eee; padding:2px 0;"><span style="color:#888;">[${lg.date}]</span> ${lg.comment}</div>`;
+            });
+        }
+        
         const dl=document.getElementById('m-dep-list');
         dl.innerHTML='<option value="">-- 既存の部署から選択 --</option>';
         const ds=new Set(); 
@@ -1288,6 +1498,8 @@
             o.innerText=d;
             dl.appendChild(o);
         });
+        
+        toggleModalUI(); // UIの切り替えを実行
         
         document.getElementById('modal').style.display='flex';
         document.getElementById('m-tit').focus();
@@ -1342,6 +1554,12 @@
         setField(n,"進捗",document.getElementById('m-p').value);
         setField(n,"実績開始",document.getElementById('m-as').value);
         setField(n,"実績終了",document.getElementById('m-ae').value);
+        
+        // 💡 IDEF0項目の保存
+        setField(n, "Input", document.getElementById('m-in').value);
+        setField(n, "Output", document.getElementById('m-out').value);
+        setField(n, "Control", document.getElementById('m-ctrl').value);
+        
         ren(); 
         if(mode==='gantt')renderGantt(); 
         if(mode==='swim')renderSwimlane();
@@ -1353,6 +1571,8 @@
         const sd=parseDate(s), ed=parseDate(e);
         if(k==='start'||k==='d'){ if(sd&&!isNaN(d)) document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10); }
         else if(k==='end'){ if(sd&&ed) document.getElementById('m-d').value=Math.max(1,diffDays(sd,ed)); }
+        
+        toggleModalUI(); // 日数が変わったら即座にUIを切り替え
     }
     
     function switchView(m){
@@ -1372,92 +1592,6 @@
         } 
         else renderSwimlane();
         if(pre.act && m!=='map')stopPresentation();
-    }
-
-    function autoAlign(){
-        const inDegree = {};
-        const levels = {};
-        st.nodes.forEach(n => {
-            inDegree[n.id] = n.pIds.length;
-            levels[n.id] = 0;
-        });
-        
-        let changed = true;
-        for(let iter=0; iter<50 && changed; iter++){
-            changed = false;
-            st.nodes.forEach(n => {
-                if(n.pIds.length > 0){
-                    const maxParentLevel = Math.max(...n.pIds.map(pid => levels[pid] || 0));
-                    if(levels[n.id] !== maxParentLevel + 1){
-                        levels[n.id] = maxParentLevel + 1;
-                        changed = true;
-                    }
-                }
-            });
-        }
-        
-        const groups = {};
-        st.nodes.forEach(n => {
-            const lv = levels[n.id];
-            if(!groups[lv]) groups[lv] = [];
-            groups[lv].push(n);
-        });
-        
-        const maxLv = Math.max(...Object.keys(groups).map(k => parseInt(k)));
-        
-        for(let iter=0; iter<20; iter++){
-            for(let lv=1; lv<=maxLv; lv++){
-                if(!groups[lv]) continue;
-                groups[lv].forEach(n => {
-                    const parents = st.nodes.filter(p => n.pIds.includes(p.id));
-                    if(parents.length > 0){
-                        n._sortKey = parents.reduce((sum, p) => sum + (p._y || p.y), 0) / parents.length;
-                    } else {
-                        n._sortKey = n.y;
-                    }
-                });
-                groups[lv].sort((a, b) => a._sortKey - b._sortKey);
-            }
-            
-            for(let lv=maxLv-1; lv>=0; lv--){
-                if(!groups[lv]) continue;
-                groups[lv].forEach(n => {
-                    const children = st.nodes.filter(c => c.pIds.includes(n.id));
-                    if(children.length > 0){
-                        n._sortKey = children.reduce((sum, c) => sum + (c._y || c.y), 0) / children.length;
-                    } else {
-                        n._sortKey = n._y || n.y;
-                    }
-                });
-                groups[lv].sort((a, b) => a._sortKey - b._sortKey);
-            }
-        }
-        
-        const c = document.getElementById('canvas');
-        c.classList.add('smooth');
-        
-        Object.keys(groups).forEach(lv => {
-            const nodes = groups[lv];
-            const spacing = 250;
-            const totalHeight = (nodes.length - 1) * spacing;
-            const startY = -totalHeight / 2;
-            
-            nodes.forEach((n, i) => {
-                n.x = parseInt(lv) * 380;
-                n.y = startY + i * spacing;
-                n._y = n.y;
-            });
-        });
-        
-        setTimeout(() => {
-            c.classList.remove('smooth');
-            ren();
-            phy.act = true;
-            runPhy();
-            setTimeout(() => fitToScreen(), 500);
-        }, 400);
-        
-        ren();
     }
 
     function runPhy(){
