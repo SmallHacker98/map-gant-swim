@@ -307,14 +307,13 @@
     const todayStr = new Date().toISOString().slice(0, 10);
     const dCols = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
     
-    // 💡 状態管理オブジェクトにDocビューの保存領域（Base64とマッピング）を追加
     let st = { 
         sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], 
         nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], 
         sel: new Set([1]),
-        docTemplate: null,       // Base64エンコードされたExcelデータ
-        docTemplateName: "",     // 読み込んだExcelのファイル名
-        cellMappings: {}         // シートごとのセル紐付け情報 { sheet1: { "A1": {id: 123, field: "Output"} } }
+        docTemplate: null,       
+        docTemplateName: "",     
+        cellMappings: {}         
     };
     
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
@@ -324,7 +323,6 @@
     let excelWb = null;
     let currentSheetName = null;
 
-    // --- Base64 <-> ArrayBuffer ユーティリティ ---
     function base64ToArrayBuffer(base64) {
         const binary_string = window.atob(base64);
         const len = binary_string.length;
@@ -448,7 +446,6 @@
         };
         qIn.onkeydown = e => { if(e.key==='Enter') jumpToNextMatch(); };
 
-        if('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js').catch(()=>{});
         ren(); setTimeout(fitToScreen,100);
     }
 
@@ -872,14 +869,8 @@
         applyGanttZoom();
     }
 
-    function ganttZoomIn(){
-        gZoom = Math.min(3, gZoom * 1.2);
-        applyGanttZoom();
-    }
-    function ganttZoomOut(){
-        gZoom = Math.max(0.5, gZoom * 0.8);
-        applyGanttZoom();
-    }
+    function ganttZoomIn(){ gZoom = Math.min(3, gZoom * 1.2); applyGanttZoom(); }
+    function ganttZoomOut(){ gZoom = Math.max(0.5, gZoom * 0.8); applyGanttZoom(); }
     function ganttFitToScreen(){
         const vb = document.getElementById('g-cnt');
         const wrap = vb.querySelector('.g-wrap');
@@ -1255,6 +1246,95 @@
         sel(id,false); openEditModal(id, true);
     }
     
+    function autoAlign(){
+        const comp = [];
+        const visited = new Set();
+        const adj = {};
+        st.nodes.forEach(n => adj[n.id] = []);
+        st.nodes.forEach(n => {
+            n.pIds.forEach(pid => {
+                if(adj[pid]) adj[pid].push(n.id);
+                if(adj[n.id]) adj[n.id].push(pid);
+            });
+        });
+
+        st.nodes.forEach(n => {
+            if(!visited.has(n.id)){
+                const c = [];
+                const q = [n.id];
+                visited.add(n.id);
+                while(q.length > 0){
+                    const cur = q.shift();
+                    c.push(cur);
+                    adj[cur].forEach(nei => {
+                        if(!visited.has(nei)){
+                            visited.add(nei);
+                            q.push(nei);
+                        }
+                    });
+                }
+                comp.push(c);
+            }
+        });
+
+        let currentYOffset = 0;
+
+        comp.forEach(cIds => {
+            const cNodes = st.nodes.filter(n => cIds.includes(n.id));
+            const levels = {};
+            cNodes.forEach(n => levels[n.id] = 0);
+            
+            let changed = true;
+            for(let iter=0; iter<50 && changed; iter++){
+                changed = false;
+                cNodes.forEach(n => {
+                    if(n.pIds.length > 0){
+                        const pLv = n.pIds.map(pid => levels[pid]).filter(l => l !== undefined);
+                        if(pLv.length > 0) {
+                            const maxParentLevel = Math.max(...pLv);
+                            if(levels[n.id] !== maxParentLevel + 1){
+                                levels[n.id] = maxParentLevel + 1;
+                                changed = true;
+                            }
+                        }
+                    }
+                });
+            }
+
+            const groups = {};
+            cNodes.forEach(n => {
+                const lv = levels[n.id];
+                if(!groups[lv]) groups[lv] = [];
+                groups[lv].push(n);
+            });
+
+            let maxNodesInLevel = 0;
+            Object.values(groups).forEach(g => { if(g.length > maxNodesInLevel) maxNodesInLevel = g.length; });
+            const compHeight = maxNodesInLevel * 200;
+
+            Object.keys(groups).forEach(lv => {
+                const nodes = groups[lv];
+                const spacing = 200;
+                const startY = currentYOffset - (nodes.length - 1) * spacing / 2;
+                
+                nodes.forEach((n, i) => {
+                    n.x = parseInt(lv) * 350;
+                    n.y = startY + i * spacing;
+                });
+            });
+
+            currentYOffset += compHeight + 100; 
+        });
+
+        const c = document.getElementById('canvas');
+        c.classList.add('smooth');
+        ren();
+        setTimeout(() => {
+            c.classList.remove('smooth');
+            fitToScreen();
+        }, 400);
+    }
+    
     function addFreeNode(){
         const id=Date.now() + Math.floor(Math.random()*1000);
         phy.act = false;
@@ -1433,7 +1513,7 @@
         if(mode==='swim')renderSwimlane();
         if(mode==='doc') {
             renderDocPalette();
-            if(excelWb) renderExcelTable(); // 💡 動的バインディングの即時反映
+            if(excelWb) renderExcelTable(); 
         }
         closeModal();
     }
@@ -1472,7 +1552,6 @@
         if(pre.act && m!=='map')stopPresentation();
     }
 
-    // --- 💡 Doc機能用ロジック ---
     function handleExcelUpload(e) {
         const file = e.target.files[0];
         if(!file) return;
@@ -1481,14 +1560,12 @@
         const reader = new FileReader();
         reader.onload = function(evt) {
             const dataUrl = evt.target.result;
-            // Base64部分のみ抽出してステートに保存（ファイル保存時に同梱するため）
             const base64 = dataUrl.split(',')[1];
             st.docTemplate = base64;
-            st.cellMappings = {}; // 新しいファイルを読んだらマッピングをリセット
+            st.cellMappings = {}; 
             
             loadExcelFromBase64(base64);
         };
-        // DataURLとして読み込む
         reader.readAsDataURL(file);
     }
 
@@ -1512,7 +1589,6 @@
         renderExcelTable();
     }
 
-    // 💡 動的に最新の値を取得する関数
     function getDynamicValue(mapping) {
         const node = st.nodes.find(n => n.id === mapping.id);
         if (!node) return "※ノード削除済";
@@ -1541,7 +1617,6 @@
                 const cellRef = XLSX.utils.encode_cell({c:c, r:r});
                 const rawVal = json[r][c] || "";
                 
-                // 💡 動的バインディングの解決
                 const isMapped = st.cellMappings && st.cellMappings[currentSheetName] && st.cellMappings[currentSheetName][cellRef];
                 let displayVal = rawVal;
                 if (isMapped) {
@@ -1572,7 +1647,6 @@
         const dataStr = e.dataTransfer.getData("text/plain");
         if(!dataStr) return;
         try {
-            // 💡 単なる文字ではなく、オブジェクト（参照）として保存
             const mapping = JSON.parse(dataStr);
             if (!st.cellMappings) st.cellMappings = {};
             if (!st.cellMappings[currentSheetName]) st.cellMappings[currentSheetName] = {};
@@ -1600,11 +1674,11 @@
             html += `<div style="margin-bottom:12px; background:white; padding:8px; border-radius:6px; border:1px solid #ddd; box-shadow:0 2px 4px rgba(0,0,0,0.05);">`;
             html += `<div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:${typeColor}; border-bottom:1px solid #eee; padding-bottom:4px;">${n.title} ${isDecision?'(合意)':'(作業)'}</div>`;
             
-            // 💡 ドラッグ時に「ID」と「フィールド名」をJSONとして持たせる
             const addDragItem = (label, fieldName, displayVal) => {
                 if(!displayVal) return;
                 const dragData = JSON.stringify({id: n.id, field: fieldName});
-                html += `<div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${dragData}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between;">
+                
+                html += `<div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${dragData.replace(/'/g, "&apos;")}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between;">
                     <span style="color:#7f8c8d; font-weight:bold; flex-shrink:0;">${label}</span>
                     <span style="color:#2c3e50; text-align:right; margin-left:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayVal}</span>
                 </div>`;
@@ -1632,7 +1706,6 @@
     function exportExcel() {
         if(!excelWb) { alert('テンプレートを読み込んでください'); return; }
         
-        // 出力直前に最新の値でシートを上書きする
         if(st.cellMappings) {
             Object.keys(st.cellMappings).forEach(sheetName => {
                 const sheet = excelWb.Sheets[sheetName];
@@ -1641,7 +1714,7 @@
                         const dynamicVal = getDynamicValue(st.cellMappings[sheetName][cellRef]);
                         if(sheet[cellRef]) {
                             sheet[cellRef].v = dynamicVal;
-                            sheet[cellRef].t = 's'; // 文字列として強制
+                            sheet[cellRef].t = 's'; 
                         } else {
                             XLSX.utils.sheet_add_aoa(sheet, [[dynamicVal]], {origin: cellRef});
                         }
@@ -1657,189 +1730,7 @@
         t.innerText = "Excelを出力しました";
         t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
     }
-    // ------------------------------------
 
-    function autoAlign(){
-        const comp = [];
-        const visited = new Set();
-        const adj = {};
-        st.nodes.forEach(n => adj[n.id] = []);
-        st.nodes.forEach(n => {
-            n.pIds.forEach(pid => {
-                if(adj[pid]) adj[pid].push(n.id);
-                if(adj[n.id]) adj[n.id].push(pid);
-            });
-        });
-
-        st.nodes.forEach(n => {
-            if(!visited.has(n.id)){
-                const c = [];
-                const q = [n.id];
-                visited.add(n.id);
-                while(q.length > 0){
-                    const cur = q.shift();
-                    c.push(cur);
-                    adj[cur].forEach(nei => {
-                        if(!visited.has(nei)){
-                            visited.add(nei);
-                            q.push(nei);
-                        }
-                    });
-                }
-                comp.push(c);
-            }
-        });
-
-        let currentYOffset = 0;
-
-        comp.forEach(cIds => {
-            const cNodes = st.nodes.filter(n => cIds.includes(n.id));
-            const levels = {};
-            cNodes.forEach(n => levels[n.id] = 0);
-            
-            let changed = true;
-            for(let iter=0; iter<50 && changed; iter++){
-                changed = false;
-                cNodes.forEach(n => {
-                    if(n.pIds.length > 0){
-                        const pLv = n.pIds.map(pid => levels[pid]).filter(l => l !== undefined);
-                        if(pLv.length > 0) {
-                            const maxParentLevel = Math.max(...pLv);
-                            if(levels[n.id] !== maxParentLevel + 1){
-                                levels[n.id] = maxParentLevel + 1;
-                                changed = true;
-                            }
-                        }
-                    }
-                });
-            }
-
-            const groups = {};
-            cNodes.forEach(n => {
-                const lv = levels[n.id];
-                if(!groups[lv]) groups[lv] = [];
-                groups[lv].push(n);
-            });
-
-            let maxNodesInLevel = 0;
-            Object.values(groups).forEach(g => { if(g.length > maxNodesInLevel) maxNodesInLevel = g.length; });
-            const compHeight = maxNodesInLevel * 200;
-
-            Object.keys(groups).forEach(lv => {
-                const nodes = groups[lv];
-                const spacing = 200;
-                const startY = currentYOffset - (nodes.length - 1) * spacing / 2;
-                
-                nodes.forEach((n, i) => {
-                    n.x = parseInt(lv) * 350;
-                    n.y = startY + i * spacing;
-                });
-            });
-
-            currentYOffset += compHeight + 100; 
-        });
-
-        const c = document.getElementById('canvas');
-        c.classList.add('smooth');
-        ren();
-        setTimeout(() => {
-            c.classList.remove('smooth');
-            fitToScreen();
-        }, 400);
-    }
-
-    function runPhy(){
-        let i=0; 
-        const tick=()=>{
-            if(!phy.act || i>100){
-                phy.act=false;
-                ren();
-                return;
-            }
-            let mv=false;
-            for(let a of st.nodes){
-                for(let b of st.nodes){
-                    if(a===b)continue;
-                    const dx=(a.x||0)-(b.x||0), dy=(a.y||0)-(b.y||0), d=Math.sqrt(dx*dx+dy*dy);
-                    if(d<280 && d>0.1){
-                        const f=(280-d)*0.15;
-                        const ang=Math.atan2(dy,dx);
-                        a.x=(a.x||0)+Math.cos(ang)*f; a.y=(a.y||0)+Math.sin(ang)*f; mv=true;
-                    }
-                }
-            }
-            if(mv)ren(); 
-            i++; 
-            if(!mv && i>15){
-                phy.act=false;
-                ren();
-                return;
-            }
-            requestAnimationFrame(tick);
-        }; 
-        tick();
-    }
-    
-    function fitToScreen(){
-        if(!st.nodes.length)return;
-        let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
-        st.nodes.forEach(n=>{
-            const nx=n.x||0, ny=n.y||0;
-            if(nx<Mx)Mx=nx; if(ny<My)My=ny; if(nx+240>mx)mx=nx+240; if(ny+160>my)my=ny+160;
-        });
-        const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
-        
-        const c = document.getElementById('canvas');
-        c.classList.add('smooth');
-        
-        st.sc=Math.max(0.1,sc); 
-        st.x=-(Mx+(mx-Mx)/2)*st.sc; 
-        st.y=-(My+(my-My)/2)*st.sc; 
-        ren();
-        
-        setTimeout(() => {
-            c.classList.remove('smooth');
-        }, 400);
-    }
-
-    function zoomIn(){
-        const c = document.getElementById('canvas');
-        c.classList.add('smooth');
-        st.sc*=1.2;
-        ren();
-        setTimeout(() => c.classList.remove('smooth'), 400);
-    }
-
-    function zoomOut(){
-        const c = document.getElementById('canvas');
-        c.classList.add('smooth');
-        st.sc = Math.max(0.1, st.sc * 0.8);
-        ren();
-        setTimeout(() => c.classList.remove('smooth'), 400);
-    }
-
-    function toggleScreenshotMode(){document.body.classList.toggle('sc-mode');alert("撮影モード(UI非表示)");}
-    function jumpToNextMatch(auto=true){
-        if(!qRes.length)return;
-        if(auto) qIdx=(qIdx+1)%qRes.length; 
-        const id=qRes[qIdx];
-        if(mode!=='map')switchView('map');
-        sel(id,false); const n=st.nodes.find(x=>x.id==id);
-        if(n){st.x=-(n.x||0)*st.sc; st.y=-(n.y||0)*st.sc; ren();}
-        document.getElementById('q-cnt').innerText=`${qIdx+1}/${qRes.length}`;
-    }
-
-    async function openFile(){
-        if(window.showOpenFilePicker){
-            try{
-                const [h]=await window.showOpenFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}]});
-                fH=h; const f=await h.getFile(); document.getElementById('f-name').innerText=f.name;
-                const t=await f.text(); load(t);
-            }catch(e){console.error('Open failed:',e);}
-        } else document.getElementById('f-in').click();
-    }
-    
-    // 💡 保存時の通知メッセージ変更
     async function saveOver(){
         if(fH){
             try{
@@ -1874,13 +1765,11 @@
                     if(!n.pIds && n.parentIds) n.pIds = n.parentIds;
                 });
                 
-                // 💡 マッピング情報がない過去のファイルへの互換性対応
                 if (!j.cellMappings) j.cellMappings = {};
                 
                 st=j;
                 st.sel=new Set();
                 
-                // 💡 Base64データがあればExcelビューを復元
                 if(st.docTemplate) {
                     loadExcelFromBase64(st.docTemplate);
                 } else {
