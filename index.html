@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Pro Map Suite v9.9.2 (Merge Cell Support)</title>
+<title>Pro Map Suite v10.0 (Bi-directional Highlight & Auto Scroll)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
@@ -122,9 +122,22 @@
     .add-btn:hover { background:#dcdcdc; color:#333; }
     input[type="range"]{width:100%;}
     #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:6000;}
+    .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
+    .sc-mode .view{margin-top:0;}.sc-mode .v-head{padding-top:10px;}
+
+    /* 💡 v10.0 ハイライト用のCSSクラス */
+    .hl-match {
+        outline: 3px solid #e67e22 !important;
+        background-color: #fef9e7 !important;
+        transform: scale(1.02);
+        z-index: 10;
+        position: relative;
+        transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        box-shadow: 0 4px 15px rgba(230,126,34,0.3) !important;
+    }
 </style>
 </head>
-<body>
+<body onclick="clearHl()">
 
 <div id="pres-ind">🔴 PRESENTATION MODE</div>
 <div id="toast">保存しました</div>
@@ -271,7 +284,7 @@
     <div class="v-body" style="display:flex;overflow:hidden;">
         <div id="doc-palette" style="width:280px;background:white;border-right:1px solid #ddd;overflow-y:auto;padding:15px;flex-shrink:0;"></div>
         <div id="doc-preview" style="flex-grow:1;overflow:auto;padding:20px;">
-            <div id="excel-table-container" style="background:white;box-shadow:0 4px 15px rgba(0,0,0,0.1);padding:20px;min-height:500px;">
+            <div id="excel-table-container" style="background:white;box-shadow:0 4px 15px rgba(0,0,0,0.1);padding:20px;min-height:500px; display:inline-block; min-width:100%;">
                 <div style="color:#999;text-align:center;padding-top:50px;">上部からxlsx/xlsを読み込んでください</div>
             </div>
         </div>
@@ -583,7 +596,7 @@
     }
 
     // ==========================================
-    // 6. Node Editing & Linking
+    // 6. Node Editing
     // ==========================================
     function sel(id,mul){if(!mul)st.sel.clear();if(id)st.sel.has(id)?st.sel.delete(id):st.sel.add(id);st.selectedId=id;if(lnk.act&&st.sel.size===1)lnk.src=Array.from(st.sel)[0];ren();}
     
@@ -1088,6 +1101,44 @@
     // ==========================================
     // 11. Render View: Doc Binding (Excel)
     // ==========================================
+    function clearHl() {
+        document.querySelectorAll('.hl-match').forEach(el => el.classList.remove('hl-match'));
+    }
+
+    function hlFromPal(id, field) {
+        clearHl();
+        const pItem = document.getElementById(`pal-${id}-${field}`);
+        if(pItem) pItem.classList.add('hl-match');
+        
+        if(!st.cellMappings || !st.cellMappings[currentSheetName]) return;
+        const maps = st.cellMappings[currentSheetName];
+        let firstCell = null;
+        Object.keys(maps).forEach(cR => {
+            if(maps[cR].id == id && maps[cR].field === field) {
+                const td = document.querySelector(`td[data-ref="${cR}"]`);
+                if(td) {
+                    td.classList.add('hl-match');
+                    if(!firstCell) firstCell = td;
+                }
+            }
+        });
+        if(firstCell) firstCell.scrollIntoView({behavior: 'smooth', block: 'center', inline: 'center'});
+    }
+
+    function hlFromCell(cR) {
+        clearHl();
+        const td = document.querySelector(`td[data-ref="${cR}"]`);
+        if(!st.cellMappings || !st.cellMappings[currentSheetName] || !st.cellMappings[currentSheetName][cR]) return;
+        if(td) td.classList.add('hl-match');
+        
+        const m = st.cellMappings[currentSheetName][cR];
+        const pItem = document.getElementById(`pal-${m.id}-${m.field}`);
+        if(pItem) {
+            pItem.classList.add('hl-match');
+            pItem.scrollIntoView({behavior: 'smooth', block: 'center'});
+        }
+    }
+
     function switchView(m){
         mode=m; 
         document.getElementById('b-map').className=m==='map'?'act':''; document.getElementById('b-gantt').className=m==='gantt'?'act':''; 
@@ -1112,7 +1163,10 @@
             const aD = (lbl, fld, val) => {
                 if(!val) return;
                 const d = JSON.stringify({id: n.id, field: fld}).replace(/"/g, '&quot;');
-                html += `<div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${d}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between;"><span style="color:#7f8c8d; font-weight:bold; flex-shrink:0;">${lbl}</span><span style="color:#2c3e50; text-align:right; margin-left:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${val}</span></div>`;
+                html += `<div id="pal-${n.id}-${fld}" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${d}')" onclick="event.stopPropagation(); hlFromPal(${n.id}, '${fld}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between; transition:0.2s;">
+                            <span style="color:#7f8c8d; font-weight:bold; flex-shrink:0; pointer-events:none;">${lbl}</span>
+                            <span style="color:#2c3e50; text-align:right; margin-left:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; pointer-events:none;">${val}</span>
+                         </div>`;
             };
             
             if (n.inputs) n.inputs.forEach((i, x) => { aD(`In${x+1}`, `Input_${x}`, i.name); if(i.path) aD(`In${x+1}パス`, `InputPath_${x}`, i.path); });
@@ -1162,18 +1216,12 @@
     function renderExcelTable() {
         if(!excelWb || !currentSheetName) return; const sheet = excelWb.Sheets[currentSheetName]; const json = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
         
-        // --- 💡 結合セルの解析 ---
-        const merges = sheet['!merges'] || [];
-        const skipCells = new Set();
-        const mergeInfo = {};
+        const merges = sheet['!merges'] || []; const skipCells = new Set(); const mergeInfo = {};
         merges.forEach(m => {
             const sr = m.s.r, sc = m.s.c, er = m.e.r, ec = m.e.c;
             mergeInfo[`${sr},${sc}`] = { rowspan: er - sr + 1, colspan: ec - sc + 1 };
             for (let r = sr; r <= er; r++) {
-                for (let c = sc; c <= ec; c++) {
-                    if (r === sr && c === sc) continue; 
-                    skipCells.add(`${r},${c}`);
-                }
+                for (let c = sc; c <= ec; c++) { if (r === sr && c === sc) continue; skipCells.add(`${r},${c}`); }
             }
         });
 
@@ -1195,7 +1243,7 @@
                     if (info.colspan > 1) attr += ` colspan="${info.colspan}"`;
                 }
 
-                html += `<td data-ref="${cR}" ${attr} ondragover="event.preventDefault(); this.style.backgroundColor='#d6eaf8';" ondragleave="this.style.backgroundColor='${bg}';" ondrop="dropToCell(event, '${cR}')" style="padding:8px 5px; min-width:60px; height:20px; cursor:crosshair; background-color:${bg}; color:${clr}; position:relative; vertical-align:top;">${dv}${isM ? `<span onclick="clearMapping('${cR}')" style="position:absolute; top:2px; right:2px; font-size:10px; cursor:pointer; color:#e74c3c;">×</span>` : ''}</td>`;
+                html += `<td data-ref="${cR}" id="cell-${cR}" ${attr} onclick="event.stopPropagation(); hlFromCell('${cR}')" ondragover="event.preventDefault(); this.style.backgroundColor='#d6eaf8';" ondragleave="this.style.backgroundColor='${bg}';" ondrop="dropToCell(event, '${cR}')" style="padding:8px 5px; min-width:60px; height:20px; cursor:crosshair; background-color:${bg}; color:${clr}; position:relative; vertical-align:top; transition:0.2s;">${dv}${isM ? `<span onclick="event.stopPropagation(); clearMapping('${cR}')" style="position:absolute; top:2px; right:2px; font-size:10px; cursor:pointer; color:#e74c3c; background:rgba(255,255,255,0.8); border-radius:50%; width:14px; height:14px; text-align:center; line-height:14px;">×</span>` : ''}</td>`;
             }
             html += '</tr>';
         }
@@ -1204,9 +1252,21 @@
 
     function dropToCell(e, cR) {
         e.preventDefault(); const dS = e.dataTransfer.getData("text/plain"); if(!dS) return;
-        try { const m = JSON.parse(dS); if (!st.cellMappings) st.cellMappings = {}; if (!st.cellMappings[currentSheetName]) st.cellMappings[currentSheetName] = {}; st.cellMappings[currentSheetName][cR] = m; renderExcelTable(); } catch(err) { console.error("Drop Parse Error", err); }
+        try { 
+            const m = JSON.parse(dS); if (!st.cellMappings) st.cellMappings = {}; 
+            if (!st.cellMappings[currentSheetName]) st.cellMappings[currentSheetName] = {}; 
+            st.cellMappings[currentSheetName][cR] = m; 
+            renderExcelTable(); 
+            hlFromCell(cR); 
+        } catch(err) { console.error("Drop Parse Error", err); }
     }
-    function clearMapping(cR) { if(st.cellMappings && st.cellMappings[currentSheetName]) { delete st.cellMappings[currentSheetName][cR]; renderExcelTable(); } }
+
+    function clearMapping(cR) { 
+        if(st.cellMappings && st.cellMappings[currentSheetName]) { 
+            delete st.cellMappings[currentSheetName][cR]; 
+            clearHl(); renderExcelTable(); 
+        } 
+    }
     
     function exportExcel() {
         if(!excelWb) { alert('テンプレートを読み込んでください'); return; }
