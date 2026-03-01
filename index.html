@@ -220,6 +220,8 @@
     </div>
 </div>
 <script>
+    // --- 1. State & Globals ---
+    const $ = id => document.getElementById(id);
     const todayStr = new Date().toISOString().slice(0, 10);
     const dCols = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
     
@@ -232,6 +234,7 @@
     let pre={act:false,idx:0}, lnk={act:false,src:null}, phy={act:false}, clip=null, curEd=null, mode='map';
     let qRes=[], qIdx=-1, panD={act:false,el:null,ox:0,oy:0}, fH=null, mapD=null, gSc=1, newNodeId=null, gZoom=1, sZoom=1, dragDept=null, dragType=null, excelWb=null, currentSheetName=null;
 
+    // --- 2. Core Helpers ---
     function getField(n,l) { const f=n.f.find(x=>x.l===l); return f?f.v:null; }
     function setField(n,l,v) { let f=n.f.find(x=>x.l===l); if(f) f.v=v; else n.f.push({l:l,v:v}); }
     function parseDate(s) { if(!s)return null; const d=new Date(s); return isNaN(d)?null:d; }
@@ -244,203 +247,288 @@
         return isDecision ? (getField(n,"承認者") || getField(n,"合意部署") || getField(n,"担当部署") || "全体") : (getField(n,"担当部署") || "全体");
     }
 
-    function ana(){
-        const ts={}; st.nodes.forEach(n=>ts[n.id]={s:parseDate(getField(n,"予定開始")), e:parseDate(getField(n,"予定終了"))});
-        const err=new Set(), crt=new Set();
-        st.nodes.forEach(n=>{ const s=ts[n.id].s; n.pIds.forEach(pid=>{ const p=ts[pid]; if(p&&p.e&&s&&p.e>s){err.add(n.id); err.add(pid);} if(p&&p.e&&s&&diffDays(p.e,s)<=1) crt.add(`${pid}-${n.id}`); }); });
-        return {err,crt};
+    function drawRoundedPath(pts, r) {
+        if (!pts || pts.length === 0) return "";
+        let d = `M ${pts[0].x} ${pts[0].y}`;
+        for (let i = 1; i < pts.length - 1; i++) {
+            const p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+            const dx1 = p1.x - p0.x, dy1 = p1.y - p0.y, l1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+            const dx2 = p2.x - p1.x, dy2 = p2.y - p1.y, l2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+            const aR = Math.min(r, l1 / 2, l2 / 2);
+            if (aR <= 0.1) { d += ` L ${p1.x} ${p1.y}`; continue; }
+            d += ` L ${p1.x - (dx1 / l1) * aR} ${p1.y - (dy1 / l1) * aR} Q ${p1.x} ${p1.y} ${p1.x + (dx2 / l2) * aR} ${p1.y + (dy2 / l2) * aR}`;
+        }
+        return d + ` L ${pts[pts.length - 1].x} ${pts[pts.length - 1].y}`;
     }
 
-    function fitToScreen(){
-        if(!st.nodes.length)return; let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
-        st.nodes.forEach(n=>{ const nx=n.x||0, ny=n.y||0; if(nx<Mx)Mx=nx; if(ny<My)My=ny; if(nx+240>mx)mx=nx+240; if(ny+160>my)my=ny+160; });
-        const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1), c=document.getElementById('canvas');
-        if(c) c.classList.add('smooth'); st.sc=Math.max(0.1,sc); st.x=-(Mx+(mx-Mx)/2)*st.sc; st.y=-(My+(my-My)/2)*st.sc; ren();
+    function ana() {
+        const ts = {}; st.nodes.forEach(n => ts[n.id] = { s: parseDate(getField(n, "予定開始")), e: parseDate(getField(n, "予定終了")) });
+        const err = new Set(), crt = new Set();
+        st.nodes.forEach(n => {
+            const s = ts[n.id].s;
+            n.pIds.forEach(pid => {
+                const p = ts[pid];
+                if (p && p.e && s && p.e > s) { err.add(n.id); err.add(pid); }
+                if (p && p.e && s && diffDays(p.e, s) <= 1) crt.add(`${pid}-${n.id}`);
+            });
+        });
+        return { err, crt };
+    }
+
+    // --- 3. View & UI ---
+    function fitToScreen() {
+        if(!st.nodes.length) return; let mx=-1e9, my=-1e9, Mx=1e9, My=1e9;
+        st.nodes.forEach(n => { const nx=n.x||0, ny=n.y||0; if(nx<Mx)Mx=nx; if(ny<My)My=ny; if(nx+240>mx)mx=nx+240; if(ny+160>my)my=ny+160; });
+        const sc = Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1), c = $('canvas');
+        if(c) c.classList.add('smooth');
+        st.sc = Math.max(0.1, sc); st.x = -(Mx+(mx-Mx)/2)*st.sc; st.y = -(My+(my-My)/2)*st.sc; ren();
         setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400);
     }
+    function zoomIn() { const c=$('canvas'); if(c)c.classList.add('smooth'); st.sc*=1.2; ren(); setTimeout(()=>{if(c)c.classList.remove('smooth');},400); }
+    function zoomOut() { const c=$('canvas'); if(c)c.classList.add('smooth'); st.sc=Math.max(0.1,st.sc*0.8); ren(); setTimeout(()=>{if(c)c.classList.remove('smooth');},400); }
 
-    function zoomIn(){const c=document.getElementById('canvas'); if(c)c.classList.add('smooth'); st.sc*=1.2; ren(); setTimeout(()=>{if(c)c.classList.remove('smooth');},400);}
-    function zoomOut(){const c=document.getElementById('canvas'); if(c)c.classList.add('smooth'); st.sc=Math.max(0.1,st.sc*0.8); ren(); setTimeout(()=>{if(c)c.classList.remove('smooth');},400);}
-
-    function autoAlign(){
-        const c= [], v=new Set(), a={}; st.nodes.forEach(n=>a[n.id]=[]); st.nodes.forEach(n=>{n.pIds.forEach(p=>{if(a[p])a[p].push(n.id);if(a[n.id])a[n.id].push(p);});});
-        st.nodes.forEach(n=>{if(!v.has(n.id)){const cc=[],q=[n.id];v.add(n.id);while(q.length>0){const cur=q.shift();cc.push(cur);a[cur].forEach(ne=>{if(!v.has(ne)){v.add(ne);q.push(ne);}});}c.push(cc);}});
-        let cY=0; c.forEach(cI=>{
-            const cN=st.nodes.filter(n=>cI.includes(n.id)), ls={}; cN.forEach(n=>ls[n.id]=0); let ch=true;
-            for(let i=0;i<50&&ch;i++){ch=false;cN.forEach(n=>{if(n.pIds.length>0){const pL=n.pIds.map(p=>ls[p]).filter(l=>l!==undefined);if(pL.length>0){const ml=Math.max(...pL);if(ls[n.id]!==ml+1){ls[n.id]=ml+1;ch=true;}}}});}
-            const gs={}; cN.forEach(n=>{const l=ls[n.id];if(!gs[l])gs[l]=[];gs[l].push(n);});
-            let mn=0; Object.values(gs).forEach(g=>{if(g.length>mn)mn=g.length;}); const cH=mn*200;
-            Object.keys(gs).forEach(l=>{const ns=gs[l], sp=200, sY=cY-(ns.length-1)*sp/2; ns.forEach((n,i)=>{n.x=parseInt(l)*350;n.y=sY+i*sp;});});
-            cY+=cH+100; 
+    function autoAlign() {
+        const c = [], v = new Set(), a = {}; st.nodes.forEach(n => a[n.id] = []);
+        st.nodes.forEach(n => { n.pIds.forEach(p => { if(a[p])a[p].push(n.id); if(a[n.id])a[n.id].push(p); }); });
+        st.nodes.forEach(n => {
+            if(!v.has(n.id)) {
+                const cc = [], q = [n.id]; v.add(n.id);
+                while(q.length > 0) { const cur = q.shift(); cc.push(cur); a[cur].forEach(ne => { if(!v.has(ne)){ v.add(ne); q.push(ne); } }); }
+                c.push(cc);
+            }
         });
-        const cv=document.getElementById('canvas'); if(cv)cv.classList.add('smooth'); ren(); setTimeout(()=>{if(cv)cv.classList.remove('smooth');fitToScreen();},400);
+        let cY = 0;
+        c.forEach(cI => {
+            const cN = st.nodes.filter(n => cI.includes(n.id)), ls = {}; cN.forEach(n => ls[n.id] = 0); let ch = true;
+            for(let i=0; i<50 && ch; i++){
+                ch = false;
+                cN.forEach(n => {
+                    if(n.pIds.length > 0){
+                        const pLv = n.pIds.map(p => ls[p]).filter(l => l !== undefined);
+                        if(pLv.length > 0) { const ml = Math.max(...pLv); if(ls[n.id] !== ml+1){ ls[n.id] = ml+1; ch = true; } }
+                    }
+                });
+            }
+            const gs = {}; cN.forEach(n => { const l = ls[n.id]; if(!gs[l])gs[l]=[]; gs[l].push(n); });
+            let mn = 0; Object.values(gs).forEach(g => { if(g.length > mn) mn = g.length; }); const cH = mn * 200;
+            Object.keys(gs).forEach(l => { const ns = gs[l], sp = 200, sY = cY - (ns.length - 1) * sp / 2; ns.forEach((n, i) => { n.x = parseInt(l) * 350; n.y = sY + i * sp; }); });
+            cY += cH + 100; 
+        });
+        const cv = $('canvas'); if(cv) cv.classList.add('smooth'); ren(); setTimeout(()=>{ if(cv)cv.classList.remove('smooth'); fitToScreen(); }, 400);
     }
 
-    function runPhy(){
-        let i=0; const tick=()=>{
-            if(!phy.act||i>100){phy.act=false;ren();return;} let mv=false;
-            for(let a of st.nodes){for(let b of st.nodes){if(a===b)continue;const dx=(a.x||0)-(b.x||0),dy=(a.y||0)-(b.y||0),d=Math.sqrt(dx*dx+dy*dy);if(d<280&&d>0.1){const f=(280-d)*0.15,ang=Math.atan2(dy,dx);a.x=(a.x||0)+Math.cos(ang)*f;a.y=(a.y||0)+Math.sin(ang)*f;mv=true;}}}
-            if(mv)ren(); i++; if(!mv&&i>15){phy.act=false;ren();return;} requestAnimationFrame(tick);
-        }; tick();
+    function runPhy() {
+        let i = 0;
+        const tick = () => {
+            if(!phy.act || i > 100) { phy.act = false; ren(); return; }
+            let mv = false;
+            for(let a of st.nodes) {
+                for(let b of st.nodes) {
+                    if(a === b) continue;
+                    const dx = (a.x||0)-(b.x||0), dy = (a.y||0)-(b.y||0), d = Math.sqrt(dx*dx+dy*dy);
+                    if(d < 280 && d > 0.1) { const f = (280-d)*0.15, ang = Math.atan2(dy,dx); a.x = (a.x||0)+Math.cos(ang)*f; a.y = (a.y||0)+Math.sin(ang)*f; mv = true; }
+                }
+            }
+            if(mv) ren(); i++; if(!mv && i>15) { phy.act = false; ren(); return; }
+            requestAnimationFrame(tick);
+        }; 
+        tick();
     }
 
     function toggleScreenshotMode() { document.body.classList.toggle('sc-mode'); alert("撮影モード(UI非表示)"); }
+    
     function jumpToNextMatch(a=true) { 
-        if(!qRes.length)return; if(a)qIdx=(qIdx+1)%qRes.length; const id=qRes[qIdx]; 
-        if(mode!=='map')switchView('map'); sel(id,false); const n=st.nodes.find(x=>x.id==id); 
-        if(n){ st.x=-(n.x||0)*st.sc + innerWidth/2 - 120*st.sc; st.y=-(n.y||0)*st.sc + innerHeight/2 - 80*st.sc; ren(); } 
-        const cntEl = document.getElementById('q-cnt');
-        if(cntEl) cntEl.innerText=`${qIdx+1}/${qRes.length}`; 
+        if(!qRes.length) return; if(a) qIdx = (qIdx + 1) % qRes.length; const id = qRes[qIdx]; 
+        if(mode !== 'map') switchView('map'); sel(id, false); const n = st.nodes.find(x => x.id == id); 
+        if(n) { st.x = -(n.x||0)*st.sc + innerWidth/2 - 120*st.sc; st.y = -(n.y||0)*st.sc + innerHeight/2 - 80*st.sc; ren(); } 
+        const cntEl = $('q-cnt'); if(cntEl) cntEl.innerText = `${qIdx+1}/${qRes.length}`; 
     }
     
-    async function openFile(){ if(window.showOpenFilePicker){ try{const[h]=await window.showOpenFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}]});fH=h;const f=await h.getFile();document.getElementById('f-name').innerText=f.name;const t=await f.text();load(t);}catch(e){console.error('Open failed:',e);} }else document.getElementById('f-in').click(); }
+    async function openFile() { 
+        if(window.showOpenFilePicker) {
+            try { const[h] = await window.showOpenFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}]}); fH=h; const f=await h.getFile(); $('f-name').innerText=f.name; load(await f.text()); } catch(e){ console.error('Open failed:',e); }
+        } else $('f-in').click(); 
+    }
 
-    function switchView(m){
-        mode=m; 
-        const setCls = (id, c) => { const el = document.getElementById(id); if(el) el.className = c; };
-        const setDisp = (id, d) => { const el = document.getElementById(id); if(el) el.style.display = d; };
+    function switchView(m) {
+        mode = m; 
+        const setCls = (id, c) => { const el = $(id); if(el) el.className = c; };
+        const setDisp = (id, d) => { const el = $(id); if(el) el.style.display = d; };
         
         setCls('b-map', m==='map'?'act':''); setCls('b-gantt', m==='gantt'?'act':''); setCls('b-swim', m==='swim'?'act':''); setCls('b-doc', m==='doc'?'act':'');
-        
-        setDisp('map-con', m==='map'?'block':'none'); setDisp('g-view', m==='gantt'?'flex':'none'); 
-        setDisp('s-view', m==='swim'?'flex':'none'); setDisp('d-view', m==='doc'?'flex':'none');
-        
+        setDisp('map-con', m==='map'?'block':'none'); setDisp('g-view', m==='gantt'?'flex':'none'); setDisp('s-view', m==='swim'?'flex':'none'); setDisp('d-view', m==='doc'?'flex':'none');
         setDisp('pres', m==='map'?'flex':'none'); setDisp('g-scale', m==='gantt'?'flex':'none'); setDisp('s-fit', m==='swim'?'flex':'none');
         
-        if(m==='map')ren(); else if(m==='gantt')changeGanttScale(gSc); else if(m==='swim')renderSwimlane(); else if(m==='doc'){renderDocPalette();if(excelWb)renderExcelTable();}
-        if(pre.act&&m!=='map')stopPresentation();
+        if(m==='map') ren(); else if(m==='gantt') changeGanttScale(gSc); else if(m==='swim') renderSwimlane(); else if(m==='doc'){ renderDocPalette(); if(excelWb)renderExcelTable(); }
+        if(pre.act && m!=='map') stopPresentation();
     }
 
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
-            const start = (e, cx, cy) => { if(['BUTTON','INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return; const r=p.getBoundingClientRect(); panD={act:true,el:p,ox:cx-r.left,oy:cy-r.top}; p.style.left=r.left+'px'; p.style.top=r.top+'px'; p.style.right='auto'; p.style.bottom='auto'; };
+            const start = (e, cx, cy) => { if(['BUTTON','INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)) return; const r=p.getBoundingClientRect(); panD={act:true, el:p, ox:cx-r.left, oy:cy-r.top}; p.style.left=r.left+'px'; p.style.top=r.top+'px'; p.style.right='auto'; p.style.bottom='auto'; };
             p.onmousedown = e => start(e, e.clientX, e.clientY); p.ontouchstart = e => start(e, e.touches[0].clientX, e.touches[0].clientY);
         });
         
         window.onmousemove = e => {
-            if(panD.act&&panD.el){panD.el.style.left=(e.clientX-panD.ox)+'px';panD.el.style.top=(e.clientY-panD.oy)+'px';return;}
-            if(mapD){if(mapD.t==='pan'){st.x+=e.clientX-mapD.x;st.y+=e.clientY-mapD.y;}else{mapD.ids.forEach(id=>{const n=st.nodes.find(x=>x.id==id);if(n){n.x+=(e.clientX-mapD.x)/st.sc;n.y+=(e.clientY-mapD.y)/st.sc;}});}mapD.x=e.clientX;mapD.y=e.clientY;ren();return;}
-            const vp = document.getElementById('viewport');
-            if(mode==='map'&&e.shiftKey){const lp=document.getElementById('loupe'),lc=document.getElementById('loupe-content');if(lp){lp.style.display='block';lp.style.left=(e.clientX-125)+'px';lp.style.top=(e.clientY-125)+'px';const z=3,wX=(e.clientX-st.x-innerWidth/2)/st.sc,wY=(e.clientY-st.y-innerHeight/2)/st.sc;lc.innerHTML=document.getElementById('canvas').innerHTML;lc.style.transform=`translate(${125-wX*z*st.sc}px, ${125-wY*z*st.sc}px) scale(${z*st.sc})`;document.body.classList.add('magnify-cursor');}}else{const lp=document.getElementById('loupe');if(lp)lp.style.display='none';document.body.classList.remove('magnify-cursor');}
+            if(panD.act && panD.el){ panD.el.style.left = (e.clientX-panD.ox)+'px'; panD.el.style.top = (e.clientY-panD.oy)+'px'; return; }
+            if(mapD){
+                if(mapD.t === 'pan'){ st.x += e.clientX-mapD.x; st.y += e.clientY-mapD.y; }
+                else { mapD.ids.forEach(id => { const n = st.nodes.find(x => x.id == id); if(n){ n.x += (e.clientX-mapD.x)/st.sc; n.y += (e.clientY-mapD.y)/st.sc; }}); }
+                mapD.x = e.clientX; mapD.y = e.clientY; ren(); return;
+            }
+            if(mode === 'map' && e.shiftKey){
+                const lp = $('loupe'), lc = $('loupe-content');
+                if(lp){ lp.style.display='block'; lp.style.left=(e.clientX-125)+'px'; lp.style.top=(e.clientY-125)+'px'; const z=3, wX=(e.clientX-st.x-innerWidth/2)/st.sc, wY=(e.clientY-st.y-innerHeight/2)/st.sc; lc.innerHTML=$('canvas').innerHTML; lc.style.transform=`translate(${125-wX*z*st.sc}px, ${125-wY*z*st.sc}px) scale(${z*st.sc})`; document.body.classList.add('magnify-cursor'); }
+            } else { const lp = $('loupe'); if(lp) lp.style.display='none'; document.body.classList.remove('magnify-cursor'); }
         };
         
-        window.onmouseup = () => { panD.act=false; const vp=document.getElementById('viewport'); if(vp)vp.style.willChange='auto'; if(mapD&&mapD.t==='node'){phy.act=true;runPhy();} mapD=null; };
-        const vp = document.getElementById('viewport');
+        window.onmouseup = () => { panD.act=false; const vp=$('viewport'); if(vp)vp.style.willChange='auto'; if(mapD&&mapD.t==='node'){phy.act=true;runPhy();} mapD=null; };
+        
+        const vp = $('viewport');
         if(vp) {
             vp.onmousedown = e => { if(e.target.id==='viewport'||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; vp.style.willChange='background-position'; if(pre.act)stopPresentation(); }};
             vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/f; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/f; ren(); };
         }
         
         document.onkeydown = e => {
-            const act=document.activeElement; if(e.isComposing)return;
-            const md = document.getElementById('modal');
+            const act = document.activeElement; if(e.isComposing) return;
+            const md = $('modal');
             if(md && md.style.display!=='none'){ if(e.key==='Enter'&&act.tagName!=='TEXTAREA'&&act.tagName!=='BUTTON'){e.preventDefault();saveModal();return;} if(e.key==='Escape'){e.preventDefault();closeModal();return;} }
-            if(['INPUT','SELECT','TEXTAREA'].includes(act.tagName))return;
-            if(e.ctrlKey||e.metaKey){if(e.key==='c'){e.preventDefault();clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));}if(e.key==='v'&&clip){st.sel.clear();clip.forEach(n=>{n.id=Date.now()+Math.floor(Math.random()*1000);n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);});ren();runPhy();}if(e.key==='s'){e.preventDefault();saveOver();}if(e.key==='o'){e.preventDefault();openFile();}}
-            if(st.sel.size>0){if(e.key==='Tab'){e.preventDefault();addNode('child');}if(e.key==='Enter'){e.preventDefault();addNode('sibling');}if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}}
+            if(['INPUT','SELECT','TEXTAREA'].includes(act.tagName)) return;
+            if(e.ctrlKey||e.metaKey){
+                if(e.key==='c'){e.preventDefault();clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));}
+                if(e.key==='v'&&clip){st.sel.clear();clip.forEach(n=>{n.id=Date.now()+Math.floor(Math.random()*1000);n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);});ren();runPhy();}
+                if(e.key==='s'){e.preventDefault();saveOver();} if(e.key==='o'){e.preventDefault();openFile();}
+            }
+            if(st.sel.size>0){if(e.key==='Tab'){e.preventDefault();addNode('child');} if(e.key==='Enter'){e.preventDefault();addNode('sibling');} if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}}
         };
         
-        const qIn=document.getElementById('q-in'); 
+        const qIn = $('q-in'); 
         if(qIn) {
-            qIn.oninput=e=>{if(e.isComposing)return;const v=e.target.value.toLowerCase();if(!v){qRes=[];qIdx=-1;const qc=document.getElementById('q-cnt');if(qc)qc.innerText="";ren();return;}qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id);qIdx=0;jumpToNextMatch(false);}; 
-            qIn.onkeydown=e=>{if(e.key==='Enter')jumpToNextMatch();};
+            qIn.oninput = e => { if(e.isComposing)return; const v=e.target.value.toLowerCase(); if(!v){qRes=[];qIdx=-1;const qc=$('q-cnt');if(qc)qc.innerText="";ren();return;} qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id); qIdx=0; jumpToNextMatch(false); }; 
+            qIn.onkeydown = e => { if(e.key==='Enter') jumpToNextMatch(); };
         }
         ren(); setTimeout(fitToScreen,100);
     }
 
+    // --- 4. Node Editing ---
     function sel(id,mul){if(!mul)st.sel.clear();if(id)st.sel.has(id)?st.sel.delete(id):st.sel.add(id);st.selectedId=id;if(lnk.act&&st.sel.size===1)lnk.src=Array.from(st.sel)[0];ren();}
-    function addNode(t){if(st.sel.size===0)return;const p=st.nodes.find(n=>n.id==Array.from(st.sel)[0]);if(!p)return;const isC=t==='child',pe=parseDate(getField(p,"予定終了"));st.nodes.push({id:Date.now()+Math.floor(Math.random()*1000),title:"Task",f:[{l:"予定開始",v:isC?(pe?addDays(pe,1).toISOString().slice(0,10):todayStr):(getField(p,"予定開始")||todayStr)},{l:"期間",v:"1"},{l:"予定終了",v:isC?(pe?addDays(pe,1).toISOString().slice(0,10):todayStr):(getField(p,"予定開始")||todayStr)},{l:"担当部署",v:getField(p,"担当部署")||"全体"},{l:"承認者",v:""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],x:isC?(p.x||0)+300:(p.x||0),y:isC?(p.y||0):(p.y||0)+160,pIds:isC?[p.id]:[...p.pIds]});sel(st.nodes[st.nodes.length-1].id,false);openEditModal(st.nodes[st.nodes.length-1].id,true);}
-    function addFreeNode(){const id=Date.now()+Math.floor(Math.random()*1000);phy.act=false;st.nodes.push({id,title:"Task",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l:"承認者",v:""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],x:-(st.x||0)/(st.sc||1)-120+(Math.random()-0.5)*40,y:-(st.y||0)/(st.sc||1)-80+(Math.random()-0.5)*40,pIds:[]});sel(id,false);ren();setTimeout(()=>{phy.act=true;runPhy();},100);setTimeout(()=>openEditModal(id,true),200);}
+    
+    function addNode(type){
+        if(st.sel.size===0)return; const p=st.nodes.find(n=>n.id==Array.from(st.sel)[0]); if(!p)return;
+        const isC=type==='child', pe=parseDate(getField(p,"予定終了"));
+        st.nodes.push({
+            id:Date.now()+Math.floor(Math.random()*1000), title:"Task", 
+            f:[
+                {l:"予定開始",v:isC?(pe?addDays(pe,1).toISOString().slice(0,10):todayStr):(getField(p,"予定開始")||todayStr)},
+                {l:"期間",v:"1"}, {l:"予定終了",v:isC?(pe?addDays(pe,1).toISOString().slice(0,10):todayStr):(getField(p,"予定開始")||todayStr)},
+                {l:"担当部署",v:getField(p,"担当部署")||"全体"}, {l:"承認者",v:""}, {l:"ステータス",v:"todo"},{l:"進捗",v:"0"}
+            ],
+            inputs:[], outputs:[], x:isC?(p.x||0)+300:(p.x||0), y:isC?(p.y||0):(p.y||0)+160, pIds:isC?[p.id]:[...p.pIds]
+        });
+        sel(st.nodes[st.nodes.length-1].id,false); openEditModal(st.nodes[st.nodes.length-1].id,true);
+    }
+    
+    function addFreeNode(){
+        const id=Date.now()+Math.floor(Math.random()*1000); phy.act = false;
+        st.nodes.push({ id, title:"Task", f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l:"承認者",v:""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}], inputs:[], outputs:[], x:-(st.x||0)/(st.sc||1)-120+(Math.random()-0.5)*40, y:-(st.y||0)/(st.sc||1)-80+(Math.random()-0.5)*40, pIds:[] });
+        sel(id,false); ren(); setTimeout(()=>{phy.act=true;runPhy();},100); setTimeout(()=>openEditModal(id,true),200);
+    }
+    
     function deleteSelected(){if(st.sel.size===0||!confirm("削除しますか？"))return;st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));st.nodes.forEach(n=>n.pIds=n.pIds.filter(pid=>!st.sel.has(pid)));st.sel.clear();ren();}
-    function toggleLinkMode(){if(st.sel.size!==1&&!lnk.act){alert("親ノードを1つ選択してください");return;}lnk.act=!lnk.act;lnk.src=lnk.act?Array.from(st.sel)[0]:null;document.getElementById('b-lnk').className=lnk.act?'lnk':'';ren();}
+    function toggleLinkMode(){if(st.sel.size!==1&&!lnk.act){alert("親ノードを1つ選択してください");return;}lnk.act=!lnk.act;lnk.src=lnk.act?Array.from(st.sel)[0]:null;$('b-lnk').className=lnk.act?'lnk':'';ren();}
+    
     function toggleConnection(tid,isAlt){
-        let src=lnk.src;if(isAlt){if(st.sel.size!==1)return;src=Array.from(st.sel)[0];}if(!src||src===tid)return;
+        let src=lnk.src; if(isAlt){if(st.sel.size!==1)return;src=Array.from(st.sel)[0];} if(!src||src===tid)return;
         const t=st.nodes.find(n=>n.id===tid),idx=t.pIds.indexOf(src);
-        if(idx>=0)t.pIds.splice(idx,1);else{
-            t.pIds.push(src);const p=st.nodes.find(n=>n.id===src),pe=parseDate(getField(p,"予定終了"));
+        if(idx>=0) t.pIds.splice(idx,1); 
+        else {
+            t.pIds.push(src); const p=st.nodes.find(n=>n.id===src), pe=parseDate(getField(p,"予定終了"));
             if(pe){
-                const ns=addDays(pe,1).toISOString().slice(0,10);setField(t,"予定開始",ns);
-                let dur=parseInt(getField(t,"期間"));if(isNaN(dur))dur=1;
+                const ns=addDays(pe,1).toISOString().slice(0,10); setField(t,"予定開始",ns);
+                let dur=parseInt(getField(t,"期間")); if(isNaN(dur))dur=1;
                 setField(t,"予定終了",addDays(parseDate(ns),dur>0?dur-1:0).toISOString().slice(0,10));
             }
         }
         ren();
     }
 
-    function toggleModalUI() { const d=parseInt(document.getElementById('m-d').value)||0, isD=(d===0); document.getElementById('m-decision-fields').style.display=isD?'block':'none'; }
-    function syncAgreeDept() {} // 廃止
-    function addInputRow(n,p){const c=document.getElementById('m-inputs-container'),r=document.createElement('div');r.style.display='flex';r.style.gap='5px';r.style.marginBottom='5px';r.innerHTML=`<input type="text" class="in-name" placeholder="名称" value="${n}" style="flex:1;"><input type="text" class="in-path" placeholder="パス/URL" value="${p}" style="flex:1;font-size:11px;background:#f9f9f9;color:#2980b9;"><button type="button" onclick="this.parentElement.remove()" style="cursor:pointer;color:#e74c3c;border:none;background:none;font-weight:bold;">×</button>`;c.appendChild(r);}
-    function addOutputRow(n,p){const c=document.getElementById('m-outputs-container'),r=document.createElement('div');r.style.display='flex';r.style.gap='5px';r.style.marginBottom='5px';r.innerHTML=`<input type="text" class="out-name" placeholder="名称" value="${n}" style="flex:1;"><input type="text" class="out-path" placeholder="パス/URL" value="${p}" style="flex:1;font-size:11px;background:#f9f9f9;color:#2980b9;"><button type="button" onclick="this.parentElement.remove()" style="cursor:pointer;color:#e74c3c;border:none;background:none;font-weight:bold;">×</button>`;c.appendChild(r);}
-    function addLog() {const i=document.getElementById('m-log-in'),v=i.value.trim();if(!v)return;const n=st.nodes.find(x=>x.id==curEd);if(n){if(!n.logs)n.logs=[];const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});n.logs.push({date:now,comment:v});document.getElementById('m-log-list').innerHTML+=`<div style="border-bottom:1px solid #eee; padding:2px 0;"><span style="color:#888;">[${now}]</span> ${v}</div>`;i.value='';ren();if(mode==='doc'){renderDocPalette();if(excelWb)renderExcelTable();}}}
+    // --- 5. Modal Forms ---
+    function toggleModalUI() { const d=parseInt($('m-d').value)||0, isD=(d===0); $('m-decision-fields').style.display=isD?'block':'none'; }
+    function syncAgreeDept() {} 
+    
+    function addInputRow(n,p){
+        const c=$('m-inputs-container'), r=document.createElement('div'); r.style.display='flex'; r.style.gap='5px'; r.style.marginBottom='5px';
+        r.innerHTML=`<input type="text" class="in-name" placeholder="名称" value="${n}" style="flex:1;"><input type="text" class="in-path" placeholder="パス/URL" value="${p}" style="flex:1;font-size:11px;background:#f9f9f9;color:#2980b9;"><button type="button" onclick="this.parentElement.remove()" style="cursor:pointer;color:#e74c3c;border:none;background:none;font-weight:bold;">×</button>`; c.appendChild(r);
+    }
+
+    function addOutputRow(n,p){
+        const c=$('m-outputs-container'), r=document.createElement('div'); r.style.display='flex'; r.style.gap='5px'; r.style.marginBottom='5px';
+        r.innerHTML=`<input type="text" class="out-name" placeholder="名称" value="${n}" style="flex:1;"><input type="text" class="out-path" placeholder="パス/URL" value="${p}" style="flex:1;font-size:11px;background:#f9f9f9;color:#2980b9;"><button type="button" onclick="this.parentElement.remove()" style="cursor:pointer;color:#e74c3c;border:none;background:none;font-weight:bold;">×</button>`; c.appendChild(r);
+    }
+
+    function addLog() {
+        const i=$('m-log-in'), v=i.value.trim(); if(!v)return; const n=st.nodes.find(x=>x.id==curEd);
+        if(n) {
+            if(!n.logs) n.logs=[]; const now=new Date().toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+            n.logs.push({date:now,comment:v}); $('m-log-list').innerHTML+=`<div style="border-bottom:1px solid #eee; padding:2px 0;"><span style="color:#888;">[${now}]</span> ${v}</div>`; i.value=''; ren(); if(mode==='doc'){renderDocPalette();if(excelWb)renderExcelTable();}
+        }
+    }
     
     function openEditModal(id, isNewNode = false){
         if(isNewNode) newNodeId=id; curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
-        document.getElementById('m-tit').value=n.title;
-        document.getElementById('m-dep').value=getField(n,"担当部署")||"";
-        document.getElementById('m-app').value=getField(n,"承認者")||getField(n,"合意部署")||""; 
-        document.getElementById('m-s').value=getField(n,"予定開始"); document.getElementById('m-e').value=getField(n,"予定終了");
-        let pd=parseInt(getField(n,"期間")); document.getElementById('m-d').value=isNaN(pd)?1:pd;
-        document.getElementById('m-st').value=getField(n,"ステータス")||"todo";
-        document.getElementById('m-p').value=parseInt(getField(n,"進捗"))||0; document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
-        document.getElementById('m-as').value=getField(n,"実績開始")||''; document.getElementById('m-ae').value=getField(n,"実績終了")||'';
+        $('m-tit').value=n.title; $('m-dep').value=getField(n,"担当部署")||""; $('m-app').value=getField(n,"承認者")||getField(n,"合意部署")||""; 
+        $('m-s').value=getField(n,"予定開始"); $('m-e').value=getField(n,"予定終了");
+        let pd=parseInt(getField(n,"期間")); $('m-d').value=isNaN(pd)?1:pd;
+        $('m-st').value=getField(n,"ステータス")||"todo"; $('m-p').value=parseInt(getField(n,"進捗"))||0; $('m-pv').innerText=$('m-p').value+'%';
+        $('m-as').value=getField(n,"実績開始")||''; $('m-ae').value=getField(n,"実績終了")||'';
         
-        document.getElementById('m-inputs-container').innerHTML = '';
-        if (n.inputs && n.inputs.length > 0) n.inputs.forEach(i => addInputRow(i.name, i.path)); else { const ln=getField(n,"Input"), lp=getField(n,"InputPath"); if(ln||lp) addInputRow(ln||'', lp||''); else addInputRow('',''); }
-        document.getElementById('m-outputs-container').innerHTML = '';
-        if (n.outputs && n.outputs.length > 0) n.outputs.forEach(o => addOutputRow(o.name, o.path)); else { const ln=getField(n,"Output"), lp=getField(n,"OutputPath"); if(ln||lp) addOutputRow(ln||'', lp||''); else addOutputRow('',''); }
-        document.getElementById('m-ctrl').value = getField(n, "Control") || "";
-        const ll = document.getElementById('m-log-list'); ll.innerHTML = ''; if(n.logs) n.logs.forEach(lg => { ll.innerHTML += `<div style="border-bottom:1px solid #eee; padding:2px 0;"><span style="color:#888;">[${lg.date}]</span> ${lg.comment}</div>`; });
+        $('m-inputs-container').innerHTML=''; if (n.inputs && n.inputs.length>0) n.inputs.forEach(i=>addInputRow(i.name,i.path)); else { const ln=getField(n,"Input"), lp=getField(n,"InputPath"); if(ln||lp) addInputRow(ln||'', lp||''); else addInputRow('',''); }
+        $('m-outputs-container').innerHTML=''; if (n.outputs && n.outputs.length>0) n.outputs.forEach(o=>addOutputRow(o.name,o.path)); else { const ln=getField(n,"Output"), lp=getField(n,"OutputPath"); if(ln||lp) addOutputRow(ln||'', lp||''); else addOutputRow('',''); }
+        $('m-ctrl').value=getField(n,"Control")||"";
+        const ll=$('m-log-list'); ll.innerHTML=''; if(n.logs) n.logs.forEach(lg=>{ ll.innerHTML+=`<div style="border-bottom:1px solid #eee; padding:2px 0;"><span style="color:#888;">[${lg.date}]</span> ${lg.comment}</div>`; });
         
-        const dl=document.getElementById('m-dep-list'); dl.innerHTML='<option value="">-- 履歴から追加 --</option>'; const ds=new Set(); 
+        const dlD=$('m-dep-list'), dlA=$('m-app-list'); dlD.innerHTML='<option value="">-- 履歴から担当へ追加 --</option>'; dlA.innerHTML='<option value="">-- 履歴から承認者へ追加 --</option>'; const ds=new Set(); 
         st.nodes.forEach(no=>{ (getField(no,"担当部署")||"").split(/[,、]/).forEach(d=>{ if(d.trim()) ds.add(d.trim()); }); (getField(no,"承認者")||getField(no,"合意部署")||"").split(/[,、]/).forEach(d=>{ if(d.trim()) ds.add(d.trim()); }); });
-        ds.forEach(d=>{ const o=document.createElement('option'); o.value=d; o.innerText=d; dl.appendChild(o); });
+        ds.forEach(d=>{ const o1=document.createElement('option'), o2=document.createElement('option'); o1.value=o2.value=d; o1.innerText=o2.innerText=d; dlD.appendChild(o1); dlA.appendChild(o2); });
         
-        toggleModalUI(); document.getElementById('modal').style.display='flex'; document.getElementById('m-tit').focus();
+        toggleModalUI(); $('modal').style.display='flex'; $('m-tit').focus();
     }
 
-    function addDeptFromList(){
-        const v=document.getElementById('m-dep-list').value; if(!v)return;
-        const inp=document.getElementById('m-dep'), c=inp.value.trim();
-        if(c){const d=c.split(/[,、]/).map(s=>s.trim()); if(!d.includes(v))inp.value=c+', '+v;} else inp.value=v;
-        document.getElementById('m-dep-list').value='';
+    function addDeptFromList(tId, lId){
+        const v=$(lId).value; if(!v)return; const inp=$(tId), c=inp.value.trim();
+        if(c){const d=c.split(/[,、]/).map(s=>s.trim()); if(!d.includes(v))inp.value=c+', '+v;} else inp.value=v; $(lId).value='';
     }
 
-    function closeModal(){if(newNodeId!==null){st.nodes=st.nodes.filter(n=>n.id!==newNodeId);st.sel.delete(newNodeId);ren();}newNodeId=null;document.getElementById('modal').style.display='none';}
+    function closeModal(){if(newNodeId!==null){st.nodes=st.nodes.filter(n=>n.id!==newNodeId);st.sel.delete(newNodeId);ren();}newNodeId=null;$('modal').style.display='none';}
+    
     function saveModal(){
-        newNodeId = null; const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
-        const s=document.getElementById('m-s').value, sd=parseDate(s);
-        let d=parseInt(document.getElementById('m-d').value); if(isNaN(d))d=1;
-        if(sd) document.getElementById('m-e').value=addDays(sd,d>0?d-1:0).toISOString().slice(0,10);
-        n.title=document.getElementById('m-tit').value;
-        setField(n,"担当部署",document.getElementById('m-dep').value); setField(n,"承認者",document.getElementById('m-app').value);
-        setField(n,"予定開始",document.getElementById('m-s').value); setField(n,"予定終了",document.getElementById('m-e').value);
-        setField(n,"期間",document.getElementById('m-d').value); setField(n,"ステータス",document.getElementById('m-st').value);
-        setField(n,"進捗",document.getElementById('m-p').value); setField(n,"実績開始",document.getElementById('m-as').value); setField(n,"実績終了",document.getElementById('m-ae').value);
+        newNodeId=null; const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
+        const s=$('m-s').value, sd=parseDate(s); let d=parseInt($('m-d').value); if(isNaN(d))d=1;
+        if(sd) $('m-e').value=addDays(sd,d>0?d-1:0).toISOString().slice(0,10);
+        n.title=$('m-tit').value; setField(n,"担当部署",$('m-dep').value); setField(n,"承認者",$('m-app').value);
+        setField(n,"予定開始",$('m-s').value); setField(n,"予定終了",$('m-e').value); setField(n,"期間",$('m-d').value); setField(n,"ステータス",$('m-st').value);
+        setField(n,"進捗",$('m-p').value); setField(n,"実績開始",$('m-as').value); setField(n,"実績終了",$('m-ae').value);
         
         n.inputs = Array.from(document.querySelectorAll('.in-name')).map((el, idx) => ({ name: el.value.trim(), path: document.querySelectorAll('.in-path')[idx].value.trim() })).filter(i => i.name !== '');
         n.outputs = Array.from(document.querySelectorAll('.out-name')).map((el, idx) => ({ name: el.value.trim(), path: document.querySelectorAll('.out-path')[idx].value.trim() })).filter(o => o.name !== '');
-        setField(n, "Control", document.getElementById('m-ctrl').value);
+        setField(n,"Control",$('m-ctrl').value);
         
         ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane(); if(mode==='doc'){renderDocPalette();if(excelWb)renderExcelTable();} closeModal();
     }
+
     function syncDate(k){
-        const s=document.getElementById('m-s').value, e=document.getElementById('m-e').value, sd=parseDate(s), ed=parseDate(e);
-        let d=parseInt(document.getElementById('m-d').value); if(isNaN(d))d=1;
-        if(k==='start'||k==='d'){
-            if(sd)document.getElementById('m-e').value=addDays(sd,d>0?d-1:0).toISOString().slice(0,10);
-        } else if(k==='end'){
-            if(sd&&ed) {
-                let diff = diffDays(sd,ed);
-                if(diff === 1 && d === 0) diff = 0; 
-                document.getElementById('m-d').value = Math.max(0, diff);
-            }
-        } 
+        const s=$('m-s').value, e=$('m-e').value, sd=parseDate(s), ed=parseDate(e);
+        let d=parseInt($('m-d').value); if(isNaN(d))d=1;
+        if(k==='start'||k==='d'){ if(sd)$('m-e').value=addDays(sd,d>0?d-1:0).toISOString().slice(0,10); } 
+        else if(k==='end'){ if(sd&&ed){ let diff=diffDays(sd,ed); if(diff===1&&d===0)diff=0; $('m-d').value=Math.max(0,diff); } } 
         toggleModalUI(); 
     }
 
+    // --- 6. Render Map ---
     function ren(){
         if(mode!=='map')return;
-        const an=ana(), c=document.getElementById('canvas'), vp=document.getElementById('viewport'); if(!c)return;
+        const an=ana(), c=$('canvas'), vp=$('viewport'); if(!c)return;
         c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
         vp.style.backgroundSize=`${20*st.sc}px ${20*st.sc}px`; vp.style.backgroundPosition=`${st.x+innerWidth/2}px ${st.y+innerHeight/2}px`;
         c.querySelectorAll('.node').forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
@@ -452,16 +540,13 @@
                 el.innerHTML=`<div class="nh"></div><div class="nt"></div><div class="np"><div class="np-bar"></div></div><div class="nf"></div><div class="n-add">＋</div>`;
                 el.querySelector('.nh').onmousedown=e=>{e.stopPropagation();if(!e.ctrlKey&&!e.metaKey&&!st.sel.has(d.id))sel(d.id,false);else if(e.ctrlKey||e.metaKey)sel(d.id,true);mapD={t:'node',x:e.clientX,y:e.clientY,ids:Array.from(st.sel)};};
                 el.onmousedown=e=>{e.stopPropagation();if(e.altKey){toggleConnection(d.id,true);return;}if(lnk.act){toggleConnection(d.id,false);return;}sel(d.id,e.ctrlKey||e.metaKey);};
-                el.ondblclick=e=>{e.stopPropagation();openEditModal(d.id);};
-                el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();};
-                c.appendChild(el);
+                el.ondblclick=e=>{e.stopPropagation();openEditModal(d.id);}; el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();}; c.appendChild(el);
             }
             const isDec=(parseInt(getField(d,"期間"))||0)===0;
             el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'')+(isDec?' decision':'')+(mapD&&mapD.t==='node'?'':' phy');
             const stt=getField(d,"ステータス")||"todo"; el.querySelector('.nt').className=`nt h-${stt}`; el.querySelector('.nt').innerText=d.title;
             if(isDec&&stt==="done"){if(!el.querySelector('.stamp'))el.insertAdjacentHTML('beforeend','<div class="stamp">APPROVED</div>');}else{const s=el.querySelector('.stamp');if(s)s.remove();}
-            el.querySelector('.np-bar').style.width=(getField(d,"進捗")||0)+'%';
-            const nf=el.querySelector('.nf'); nf.innerHTML='';
+            el.querySelector('.np-bar').style.width=(getField(d,"進捗")||0)+'%'; const nf=el.querySelector('.nf'); nf.innerHTML='';
             
             if(d.inputs&&d.inputs.length>0)d.inputs.forEach((i,x)=>{const r=document.createElement('div');r.className='fr';r.innerHTML=`<div class="fl" style="color:#2980b9;">In${d.inputs.length>1?x+1:''}</div><div class="fv link">${i.name}</div>`;r.querySelector('.fv').onclick=e=>{e.stopPropagation();openEditModal(d.id);};nf.appendChild(r);});
             if(d.outputs&&d.outputs.length>0)d.outputs.forEach((o,x)=>{const r=document.createElement('div');r.className='fr';r.innerHTML=`<div class="fl" style="color:#d35400;">Out${d.outputs.length>1?x+1:''}</div><div class="fv link">${o.name}</div>`;r.querySelector('.fv').onclick=e=>{e.stopPropagation();openEditModal(d.id);};nf.appendChild(r);});
@@ -477,13 +562,12 @@
             el.style.left=(d.x||0)+'px'; el.style.top=(d.y||0)+'px';
         });
         
-        const pg=document.getElementById('p-grp'); pg.innerHTML=''; let h='';
+        const pg=$('p-grp'); pg.innerHTML=''; let h='';
         st.nodes.forEach(n=>{
             n.pIds.forEach(pid=>{
                 const p=st.nodes.find(x=>x.id==pid);
                 if(p){
-                    const cr=an.crt.has(`${pid}-${n.id}`), er=an.err.has(n.id)&&an.err.has(pid);
-                    const sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
+                    const cr=an.crt.has(`${pid}-${n.id}`), er=an.err.has(n.id)&&an.err.has(pid), sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
                     h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="chart-arrow ${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
                 }
             });
@@ -491,29 +575,21 @@
         pg.innerHTML=h;
     }
 
+    // --- 7. Render Gantt ---
     function changeGanttScale(v){gSc=v;renderGantt();}
     function ganttZoomIn(){gZoom=Math.min(3,gZoom*1.2);applyGanttZoom();}
     function ganttZoomOut(){gZoom=Math.max(0.5,gZoom*0.8);applyGanttZoom();}
-    function ganttFitToScreen(){const vb=document.getElementById('g-cnt'),w=vb.querySelector('.g-wrap');if(!w)return;w.style.zoom=1;gZoom=Math.min((vb.clientWidth/w.scrollWidth)*0.95,(vb.clientHeight/w.scrollHeight)*0.95,1);applyGanttZoom();vb.scrollLeft=0;vb.scrollTop=0;}
+    function ganttFitToScreen(){const vb=$('g-cnt'),w=vb.querySelector('.g-wrap');if(!w)return;w.style.zoom=1;gZoom=Math.min((vb.clientWidth/w.scrollWidth)*0.95,(vb.clientHeight/w.scrollHeight)*0.95,1);applyGanttZoom();vb.scrollLeft=0;vb.scrollTop=0;}
     function applyGanttZoom(){const w=document.querySelector('.g-wrap');if(w){if(CSS.supports("zoom","1"))w.style.zoom=gZoom;else{w.style.transform=`scale(${gZoom})`;w.style.transformOrigin="top left";w.style.marginBottom=`${w.scrollHeight*(gZoom-1)}px`;w.style.marginRight=`${w.scrollWidth*(gZoom-1)}px`;}}}
 
     function getOrd(t){
         const isSwim=(t==='s'||t==='swim'), act=new Set(); 
         st.nodes.forEach(n=>{
             const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);
-            if(!isSwim){
-                if(ds.length<=1) act.add(ds[0]||"全体");
-                else act.add("全体");
-            }
-            else{
-                if(ds.length===0) act.add("未配属");
-                else ds.forEach(d=>{if(d!=="全体")act.add(d);});
-            }
+            if(!isSwim){if(ds.length<=1)act.add(ds[0]||"全体");else act.add("全体");}else{if(ds.length===0)act.add("未配属");else ds.forEach(d=>{if(d!=="全体")act.add(d);});}
         });
-        let l=isSwim?st.sOrd:st.gOrd; if(!l)l=[];
-        act.forEach(d=>{if(!l.includes(d))l.push(d);}); l=l.filter(d=>act.has(d));
-        if(l.length===0) l.push("未配属");
-        if(isSwim)st.sOrd=l;else st.gOrd=l; return l;
+        let l=isSwim?st.sOrd:st.gOrd; if(!l)l=[]; act.forEach(d=>{if(!l.includes(d))l.push(d);}); l=l.filter(d=>act.has(d));
+        if(l.length===0) l.push("未配属"); if(isSwim)st.sOrd=l;else st.gOrd=l; return l;
     }
     
     function mvD(t,d,dir){const isS=(t==='s'||t==='swim'),l=isS?st.sOrd:st.gOrd,i=l.indexOf(d);if(i>-1&&i+dir>=0&&i+dir<l.length){[l[i],l[i+dir]]=[l[i+dir],l[i]];if(isS)renderSwimlane();else renderGantt();}}
@@ -525,7 +601,7 @@
     function onDragEndDept(e){(dragType==='s'?e.target.parentElement:e.target).style.opacity='1';document.body.classList.remove('is-dragging');document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));dragDept=null;dragType=null;}
 
     function renderGantt(){
-        const c=document.getElementById('g-cnt'); c.innerHTML=''; const ord=getOrd('g'), ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
+        const c=$('g-cnt'); c.innerHTML=''; const ord=getOrd('g'), ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
         st.nodes.forEach(n=>{
             const s=parseDate(getField(n,"予定開始"))||new Date(todayStr), dur=parseInt(getField(n,"期間")||1), e=dur===0?s:addDays(s,dur-1), as=parseDate(getField(n,"実績開始")), ae=parseDate(getField(n,"実績終了"));
             ts[n.id]={n,s,e,as,ae,dur,st:getField(n,"ステータス")||"todo",pg:parseInt(getField(n,"進捗")||0)}; if(s<mn)mn=s; if(e>mx)mx=e; if(as&&as<mn)mn=as; if(ae&&ae>mx)mx=ae;
@@ -590,13 +666,14 @@
         wp.appendChild(svg); c.appendChild(wp); applyGanttZoom();
     }
 
+    // --- 8. Render Swimlane ---
     function swimZoomIn(){sZoom=Math.min(3,sZoom*1.2);renderSwimlane();}
     function swimZoomOut(){sZoom=Math.max(0.5,sZoom*0.8);renderSwimlane();}
-    function fitSwimlane(){const vb=document.getElementById('s-view').querySelector('.v-body'),con=vb.querySelector('.s-cont');if(!con)return;con.style.zoom=1;sZoom=Math.min((vb.clientWidth/con.scrollWidth)*0.9,(vb.clientHeight/con.scrollHeight)*0.9,1);renderSwimlane();vb.scrollLeft=0;vb.scrollTop=0;}
+    function fitSwimlane(){const vb=$('s-view').querySelector('.v-body'),con=vb.querySelector('.s-cont');if(!con)return;con.style.zoom=1;sZoom=Math.min((vb.clientWidth/con.scrollWidth)*0.9,(vb.clientHeight/con.scrollHeight)*0.9,1);renderSwimlane();vb.scrollLeft=0;vb.scrollTop=0;}
     function applySwimZoom(){const c=document.querySelector('.s-cont');if(c){if(CSS.supports("zoom","1"))c.style.zoom=sZoom;else{c.style.transform=`scale(${sZoom})`;c.style.transformOrigin="top left";c.style.marginBottom=`${c.scrollHeight*(sZoom-1)}px`;c.style.marginRight=`${c.scrollWidth*(sZoom-1)}px`;}}}
 
     function renderSwimlane(){
-        const c=document.getElementById('s-cnt'); c.innerHTML=''; const ord=getOrd('s'), levels={}; st.nodes.forEach(n=>levels[n.id]=0);
+        const c=$('s-cnt'); c.innerHTML=''; const ord=getOrd('s'), levels={}; st.nodes.forEach(n=>levels[n.id]=0);
         let changed=true; for(let i=0;i<50&&changed;i++){changed=false;st.nodes.forEach(n=>{if(n.pIds.length>0){const ml=Math.max(...n.pIds.map(p=>levels[p]||0));if(levels[n.id]!==ml+1){levels[n.id]=ml+1;changed=true;}}});}
         const maxLv=Math.max(...Object.values(levels),0), sN=[...st.nodes].sort((a,b)=>levels[a.id]-levels[b.id]), nS={}; 
         sN.forEach(n=>{
@@ -644,10 +721,10 @@
 
     function drawSwimArrows(con, ui, cols, lMB, levels, lS, cw, maxLv) {
         const oS=con.querySelector('svg');if(oS)oS.remove();
-        const maxY=Math.max(...Object.values(ui).map(u=>u.b),500),tH=Math.max(maxY+200,document.getElementById('s-cnt').clientHeight/(sZoom||1)+100);
+        const maxY=Math.max(...Object.values(ui).map(u=>u.b),500),tH=Math.max(maxY+200,$('s-cnt').clientHeight/(sZoom||1)+100);
         con.style.height=`${tH}px`; con.style.minHeight=`${tH}px`; cols.forEach(c=>{c.style.height=`${tH}px`;c.style.minHeight=`${tH}px`;});
         
-        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.style.position='absolute';svg.style.top='0';svg.style.left='0';svg.style.width='100%';svg.style.height='100%';svg.style.zIndex=5;
+        const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.style.position='absolute';svg.style.top='0';svg.style.left='0';svg.style.width='100%';svg.style.height='100%';svg.style.zIndex='5';svg.style.pointerEvents='none';
         svg.innerHTML='<defs><marker id="sa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#7f8c8d"/></marker></defs>';
         
         const outC={},inC={},edges=[]; st.nodes.forEach(n=>{n.pIds.forEach(pid=>{outC[pid]=(outC[pid]||0)+1;inC[n.id]=(inC[n.id]||0)+1;edges.push({p:pid,c:n.id});});});
@@ -675,10 +752,11 @@
         con.appendChild(svg);
     }
 
+    // --- 9. Doc Binding (Excel) ---
     function clearHl() { document.querySelectorAll('.hl-match').forEach(el => el.classList.remove('hl-match')); }
 
     function hlFromPal(id, field) {
-        clearHl(); const pItem = document.getElementById(`pal-${id}-${field}`); if(pItem) pItem.classList.add('hl-match');
+        clearHl(); const pItem = $(`pal-${id}-${field}`); if(pItem) pItem.classList.add('hl-match');
         if(!st.cellMappings || !st.cellMappings[currentSheetName]) return;
         const maps = st.cellMappings[currentSheetName]; let firstCell = null;
         Object.keys(maps).forEach(cR => { if(maps[cR].id == id && maps[cR].field === field) { const td = document.querySelector(`td[data-ref="${cR}"]`); if(td) { td.classList.add('hl-match'); if(!firstCell) firstCell = td; } } });
@@ -689,13 +767,25 @@
         clearHl(); const td = document.querySelector(`td[data-ref="${cR}"]`);
         if(!st.cellMappings || !st.cellMappings[currentSheetName] || !st.cellMappings[currentSheetName][cR]) return;
         if(td) td.classList.add('hl-match');
-        const m = st.cellMappings[currentSheetName][cR], pItem = document.getElementById(`pal-${m.id}-${m.field}`);
+        const m = st.cellMappings[currentSheetName][cR], pItem = $(`pal-${m.id}-${m.field}`);
         if(pItem) { pItem.classList.add('hl-match'); pItem.scrollIntoView({behavior: 'smooth', block: 'center'}); }
     }
 
+    function switchView(m){
+        mode=m; 
+        const setCls = (id, c) => { const el = $(id); if(el) el.className = c; };
+        const setDisp = (id, d) => { const el = $(id); if(el) el.style.display = d; };
+        
+        setCls('b-map', m==='map'?'act':''); setCls('b-gantt', m==='gantt'?'act':''); setCls('b-swim', m==='swim'?'act':''); setCls('b-doc', m==='doc'?'act':'');
+        setDisp('map-con', m==='map'?'block':'none'); setDisp('g-view', m==='gantt'?'flex':'none'); setDisp('s-view', m==='swim'?'flex':'none'); setDisp('d-view', m==='doc'?'flex':'none');
+        setDisp('pres', m==='map'?'flex':'none'); setDisp('g-scale', m==='gantt'?'flex':'none'); setDisp('s-fit', m==='swim'?'flex':'none');
+        
+        if(m==='map') ren(); else if(m==='gantt') changeGanttScale(gSc); else if(m==='swim') renderSwimlane(); else if(m==='doc'){ renderDocPalette(); if(excelWb)renderExcelTable(); }
+        if(pre.act && m!=='map') stopPresentation();
+    }
+
     function renderDocPalette() {
-        const pal = document.getElementById('doc-palette');
-        let html = '<h4 style="margin-top:0; color:#2c3e50;">データパレット</h4><p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">項目をセルにドラッグ＆ドロップ</p>';
+        const pal = $('doc-palette'); let html = '<h4 style="margin-top:0; color:#2c3e50;">データパレット</h4><p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">項目をセルにドラッグ＆ドロップ</p>';
         st.nodes.forEach(n => {
             const isDec = (parseInt(getField(n,"期間")) || 0) === 0; const tc = isDec ? '#8e44ad' : '#3498db';
             html += `<div style="margin-bottom:12px; background:white; padding:8px; border-radius:6px; border:1px solid #ddd; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:${tc}; border-bottom:1px solid #eee; padding-bottom:4px;">${n.title} ${isDec?'(合意)':'(作業)'}</div>`;
@@ -718,16 +808,9 @@
         pal.innerHTML = html;
     }
 
-    function handleExcelUpload(e) {
-        const f = e.target.files[0]; if(!f) return; st.docTemplateName = f.name; const r = new FileReader();
-        r.onload = evt => { const b64 = evt.target.result.split(',')[1]; st.docTemplate = b64; st.cellMappings = {}; loadExcelFromBase64(b64); }; r.readAsDataURL(f);
-    }
-    function loadExcelFromBase64(b64) {
-        excelWb = XLSX.read(base64ToArrayBuffer(b64), {type: 'array'}); const sel = document.getElementById('sheet-select'); sel.innerHTML = '';
-        excelWb.SheetNames.forEach(name => { const opt = document.createElement('option'); opt.value = name; opt.innerText = name; sel.appendChild(opt); });
-        currentSheetName = excelWb.SheetNames[0]; renderExcelTable();
-    }
-    function changeSheet() { currentSheetName = document.getElementById('sheet-select').value; renderExcelTable(); }
+    function handleExcelUpload(e) { const f = e.target.files[0]; if(!f) return; st.docTemplateName = f.name; const r = new FileReader(); r.onload = evt => { const b64 = evt.target.result.split(',')[1]; st.docTemplate = b64; st.cellMappings = {}; loadExcelFromBase64(b64); }; r.readAsDataURL(f); }
+    function loadExcelFromBase64(b64) { excelWb = XLSX.read(base64ToArrayBuffer(b64), {type: 'array'}); const sel = $('sheet-select'); sel.innerHTML = ''; excelWb.SheetNames.forEach(name => { const opt = document.createElement('option'); opt.value = name; opt.innerText = name; sel.appendChild(opt); }); currentSheetName = excelWb.SheetNames[0]; renderExcelTable(); }
+    function changeSheet() { currentSheetName = $('sheet-select').value; renderExcelTable(); }
 
     function getDynamicValue(map) {
         const n = st.nodes.find(x => x.id === map.id); if (!n) return "※削除済"; const f = map.field;
@@ -746,49 +829,36 @@
     function renderExcelTable() {
         if(!excelWb || !currentSheetName) return; const sheet = excelWb.Sheets[currentSheetName]; const json = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
         const merges = sheet['!merges'] || []; const skipCells = new Set(); const mergeInfo = {};
-        merges.forEach(m => {
-            const sr = m.s.r, sc = m.s.c, er = m.e.r, ec = m.e.c; mergeInfo[`${sr},${sc}`] = { rowspan: er - sr + 1, colspan: ec - sc + 1 };
-            for (let r = sr; r <= er; r++) { for (let c = sc; c <= ec; c++) { if (r === sr && c === sc) continue; skipCells.add(`${r},${c}`); } }
-        });
-
+        merges.forEach(m => { const sr = m.s.r, sc = m.s.c, er = m.e.r, ec = m.e.c; mergeInfo[`${sr},${sc}`] = { rowspan: er - sr + 1, colspan: ec - sc + 1 }; for (let r = sr; r <= er; r++) { for (let c = sc; c <= ec; c++) { if (r === sr && c === sc) continue; skipCells.add(`${r},${c}`); } } });
         let html = '<table border="1" style="border-collapse:collapse; width:100%; font-size:12px; font-family:sans-serif; text-align:left;">';
         for(let r=0; r<json.length; r++) {
             html += '<tr>';
             for(let c=0; c<json[r].length; c++) {
                 if (skipCells.has(`${r},${c}`)) continue; 
-                const cR = XLSX.utils.encode_cell({c:c, r:r}); const rv = json[r][c] || "";
-                const isM = st.cellMappings && st.cellMappings[currentSheetName] && st.cellMappings[currentSheetName][cR];
+                const cR = XLSX.utils.encode_cell({c:c, r:r}); const rv = json[r][c] || ""; const isM = st.cellMappings && st.cellMappings[currentSheetName] && st.cellMappings[currentSheetName][cR];
                 let dv = rv; if (isM) dv = getDynamicValue(st.cellMappings[currentSheetName][cR]); if (typeof dv === 'object') dv = JSON.stringify(dv);
-                const bg = isM ? '#e8f8f5' : 'white', clr = isM ? '#16a085' : '#333';
-                let attr = '';
+                const bg = isM ? '#e8f8f5' : 'white', clr = isM ? '#16a085' : '#333'; let attr = '';
                 if (mergeInfo[`${r},${c}`]) { const info = mergeInfo[`${r},${c}`]; if (info.rowspan > 1) attr += ` rowspan="${info.rowspan}"`; if (info.colspan > 1) attr += ` colspan="${info.colspan}"`; }
-
                 html += `<td data-ref="${cR}" id="cell-${cR}" ${attr} onclick="event.stopPropagation(); hlFromCell('${cR}')" ondragover="event.preventDefault(); this.style.backgroundColor='#d6eaf8';" ondragleave="this.style.backgroundColor='${bg}';" ondrop="dropToCell(event, '${cR}')" style="padding:8px 5px; min-width:60px; height:20px; cursor:crosshair; background-color:${bg}; color:${clr}; position:relative; vertical-align:top; transition:0.2s;">${dv}${isM ? `<span onclick="event.stopPropagation(); clearMapping('${cR}')" style="position:absolute; top:2px; right:2px; font-size:10px; cursor:pointer; color:#e74c3c; background:rgba(255,255,255,0.8); border-radius:50%; width:14px; height:14px; text-align:center; line-height:14px;">×</span>` : ''}</td>`;
             }
             html += '</tr>';
         }
-        document.getElementById('excel-table-container').innerHTML = html + '</table>';
+        $('excel-table-container').innerHTML = html + '</table>';
     }
 
-    function dropToCell(e, cR) {
-        e.preventDefault(); const dS = e.dataTransfer.getData("text/plain"); if(!dS) return;
-        try { const m = JSON.parse(dS); if (!st.cellMappings) st.cellMappings = {}; if (!st.cellMappings[currentSheetName]) st.cellMappings[currentSheetName] = {}; st.cellMappings[currentSheetName][cR] = m; renderExcelTable(); hlFromCell(cR); } catch(err) { console.error("Drop Parse Error", err); }
-    }
+    function dropToCell(e, cR) { e.preventDefault(); const dS = e.dataTransfer.getData("text/plain"); if(!dS) return; try { const m = JSON.parse(dS); if (!st.cellMappings) st.cellMappings = {}; if (!st.cellMappings[currentSheetName]) st.cellMappings[currentSheetName] = {}; st.cellMappings[currentSheetName][cR] = m; renderExcelTable(); hlFromCell(cR); } catch(err) { console.error("Drop Parse Error", err); } }
     function clearMapping(cR) { if(st.cellMappings && st.cellMappings[currentSheetName]) { delete st.cellMappings[currentSheetName][cR]; clearHl(); renderExcelTable(); } }
+    
     function exportExcel() {
         if(!excelWb) { alert('テンプレートを読み込んでください'); return; }
-        if(st.cellMappings) {
-            Object.keys(st.cellMappings).forEach(sN => {
-                const sh = excelWb.Sheets[sN];
-                if(sh) Object.keys(st.cellMappings[sN]).forEach(cR => { const dV = getDynamicValue(st.cellMappings[sN][cR]); if(sh[cR]) { sh[cR].v = dV; sh[cR].t = 's'; } else XLSX.utils.sheet_add_aoa(sh, [[dV]], {origin: cR}); });
-            });
-        }
+        if(st.cellMappings) { Object.keys(st.cellMappings).forEach(sN => { const sh = excelWb.Sheets[sN]; if(sh) Object.keys(st.cellMappings[sN]).forEach(cR => { const dV = getDynamicValue(st.cellMappings[sN][cR]); if(sh[cR]) { sh[cR].v = dV; sh[cR].t = 's'; } else XLSX.utils.sheet_add_aoa(sh, [[dV]], {origin: cR}); }); }); }
         XLSX.writeFile(excelWb, st.docTemplateName ? `exported_${st.docTemplateName}` : `exported_${todayStr}.xlsx`);
-        const t=document.getElementById('toast'); t.innerText = "Excelを出力しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
+        const t=$('toast'); if(t){t.innerText = "Excelを出力しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);}
     }
 
-    async function saveOver(){ if(fH){ try{ const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close(); const t=document.getElementById('toast'); t.innerText = "保存しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000); }catch(e){console.error('Save failed:',e);} } else saveAs(); }
-    async function saveAs(){ if(window.showSaveFilePicker){ try{ fH=await window.showSaveFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}], suggestedName:`map_${todayStr}.json`}); document.getElementById('f-name').innerText=fH.name; saveOver(); }catch(e){console.error('SaveAs failed:',e);} } else { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(st)],{type:"application/json"})); a.download=`map_${todayStr}.json`; a.click(); } }
+    // --- 10. File & System ---
+    async function saveOver(){ if(fH){ try{ const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close(); const t=$('toast'); if(t){t.innerText = "保存しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);} }catch(e){console.error('Save failed:',e);} } else saveAs(); }
+    async function saveAs(){ if(window.showSaveFilePicker){ try{ fH=await window.showSaveFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}], suggestedName:`map_${todayStr}.json`}); $('f-name').innerText=fH.name; saveOver(); }catch(e){console.error('SaveAs failed:',e);} } else { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(st)],{type:"application/json"})); a.download=`map_${todayStr}.json`; a.click(); } }
     function loadFileFallback(i){const f=i.files[0]; if(f){const r=new FileReader(); r.onload=e=>load(e.target.result); r.readAsText(f);}}
     
     function load(t){
@@ -801,21 +871,24 @@
                     if(!n.outputs) { n.outputs = []; const oO = getField(n, "Output"); if(oO) n.outputs.push({name: oO, path: getField(n, "OutputPath") || ""}); }
                 });
                 if (!j.cellMappings) j.cellMappings = {}; st=j; st.sel=new Set();
-                if(st.docTemplate) loadExcelFromBase64(st.docTemplate); else { excelWb = null; document.getElementById('excel-table-container').innerHTML = '<div style="color:#999; text-align:center; padding-top:50px;">上部からxlsx/xlsを読み込んでください</div>'; }
+                if(st.docTemplate) loadExcelFromBase64(st.docTemplate); else { excelWb = null; $('excel-table-container').innerHTML = '<div style="color:#999; text-align:center; padding-top:50px;">上部からxlsx/xlsを読み込んでください</div>'; }
                 fitToScreen(); ren(); if(mode==='doc') { renderDocPalette(); if(excelWb) renderExcelTable(); }
             }
         }catch(e){alert("読込エラー"); console.error(e);}
     }
     
-    function newFile(){ if(confirm("新規作成しますか？")){ st={sc:1,x:0,y:0,sOrd:[],gOrd:[],nodes:[{id:Date.now(),title:"開始",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l: "承認者", v: ""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],x:0,y:0,pIds:[]}],sel:new Set(),docTemplate:null,docTemplateName:"",cellMappings:{}}; fH=null; document.getElementById('f-name').innerText='(未保存)'; excelWb=null; document.getElementById('excel-table-container').innerHTML='<div style="color:#999;text-align:center;padding-top:50px;">上部からxlsx/xlsを読み込んでください</div>'; fitToScreen(); if(mode==='doc')renderDocPalette(); } }
+    function newFile(){ if(confirm("新規作成しますか？")){ st={sc:1,x:0,y:0,sOrd:[],gOrd:[],nodes:[{id:Date.now(),title:"開始",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l: "承認者", v: ""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],x:0,y:0,pIds:[]}],sel:new Set(),docTemplate:null,docTemplateName:"",cellMappings:{}}; fH=null; $('f-name').innerText='(未保存)'; excelWb=null; $('excel-table-container').innerHTML='<div style="color:#999;text-align:center;padding-top:50px;">上部からxlsx/xlsを読み込んでください</div>'; fitToScreen(); if(mode==='doc')renderDocPalette(); } }
 
-    function startPresentation(){pre.act=true;pre.idx=0;const p=document.getElementById('pres-ind'), n=document.getElementById('p-nav'); if(p)p.style.display='flex'; if(n)n.style.display='flex'; focusP();}
-    function stopPresentation(){pre.act=false;const p=document.getElementById('pres-ind'), n=document.getElementById('p-nav'); if(p)p.style.display='none'; if(n)n.style.display='none'; fitToScreen();}
+    function startPresentation(){pre.act=true;pre.idx=0;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='flex'; if(n)n.style.display='flex'; focusP();}
+    function stopPresentation(){pre.act=false;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='none'; if(n)n.style.display='none'; fitToScreen();}
     function nextSlide(){if(st.nodes.length){pre.idx=(pre.idx+1)%st.nodes.length;focusP();}}
     function prevSlide(){if(st.nodes.length){pre.idx=(pre.idx-1+st.nodes.length)%st.nodes.length;focusP();}}
-    function focusP(){const n=st.nodes[pre.idx];sel(n.id,false);const s=document.getElementById('s-num'); if(s)s.innerText=`${pre.idx+1}/${st.nodes.length}`;st.sc=1.5;st.x=-(n.x||0)*st.sc;st.y=-(n.y||0)*st.sc;ren();}
+    function focusP(){const n=st.nodes[pre.idx];sel(n.id,false);const s=$('s-num'); if(s)s.innerText=`${pre.idx+1}/${st.nodes.length}`;st.sc=1.5;st.x=-(n.x||0)*st.sc;st.y=-(n.y||0)*st.sc;ren();}
 
+    // --- Boot ---
     init();
 </script>
+</body>
+</html>
 </body>
 </html>
