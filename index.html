@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v9.2 (Doc Binding Fix)</title>
+<title>Pro Map Suite v9.3 (Path Binding)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
@@ -162,9 +162,18 @@
             <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
             
             <div id="m-task-fields">
-                <div class="m-row"><label>Input (前提条件・受領物) 📥</label><input type="text" id="m-in" placeholder="例：基本設計書、部品A"></div>
-                <div class="m-row"><label>Output (成果物) 📤</label><input type="text" id="m-out" placeholder="例：詳細設計書、モジュールB"></div>
+                <div class="m-row">
+                    <label>Input (前提条件・受領物) 📥</label>
+                    <input type="text" id="m-in" placeholder="名称 (例：基本設計書)" style="margin-bottom:4px;">
+                    <input type="text" id="m-in-path" placeholder="ファイルパス / URL (任意)" style="font-size:11px; background:#f9f9f9; color:#2980b9;">
+                </div>
+                <div class="m-row">
+                    <label>Output (成果物) 📤</label>
+                    <input type="text" id="m-out" placeholder="名称 (例：詳細設計書)" style="margin-bottom:4px;">
+                    <input type="text" id="m-out-path" placeholder="ファイルパス / URL (任意)" style="font-size:11px; background:#f9f9f9; color:#2980b9;">
+                </div>
             </div>
+            
             <div id="m-decision-fields" style="display:none;">
                 <div class="m-row"><label>Control (承認条件・達成基準) 🔒</label><textarea id="m-ctrl" rows="2" style="width:100%; border:1px solid #ccc; border-radius:4px; padding:8px; box-sizing:border-box;" placeholder="例：予算の承認、テストカバレッジ100%"></textarea></div>
                 <div class="m-row">
@@ -178,7 +187,7 @@
             </div>
             
             <div class="m-row">
-                <label>担当部署 (Mechanism) ⚙️</label>
+                <label>担当部署 (Mechanism / 承認者) ⚙️</label>
                 <input type="text" id="m-dep" placeholder="カンマ区切で複数入力可">
                 <select id="m-dep-list" style="margin-top:4px;" onchange="addDeptFromList()">
                     <option value="">-- 既存の部署から選択 --</option>
@@ -359,7 +368,7 @@
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
             const start = (e, cx, cy) => {
-                if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT'||e.target.tagName==='SELECT')return;
+                if(e.target.tagName==='BUTTON'||e.target.tagName==='INPUT'||e.target.tagName==='SELECT'||e.target.tagName==='TEXTAREA')return;
                 const rect = p.getBoundingClientRect();
                 panD = { act:true, el:p, ox:cx-rect.left, oy:cy-rect.top };
                 p.style.left = rect.left + 'px'; p.style.top = rect.top + 'px'; p.style.right = 'auto'; p.style.bottom = 'auto';
@@ -582,8 +591,11 @@
             const nf=el.querySelector('.nf'); nf.innerHTML='';
             
             d.f.forEach(f=>{
-                if(isDecision && (f.l==='Input' || f.l==='Output')) return;
+                // 💡 ノードの顔(.nf) には表示させない項目のフィルタリング
+                if(isDecision && (f.l==='Input' || f.l==='Output' || f.l==='InputPath' || f.l==='OutputPath')) return;
                 if(!isDecision && f.l==='Control') return;
+                if(f.l==='InputPath') return;  // パスはモーダル内とDocパレットだけで扱う
+                if(f.l==='OutputPath') return; // パスはモーダル内とDocパレットだけで扱う
                 if(f.l==='Input' && !f.v) return;
                 if(f.l==='Output' && !f.v) return;
                 if(f.l==='Control' && !f.v) return;
@@ -1432,7 +1444,9 @@
         document.getElementById('m-ae').value=getField(n,"実績終了")||'';
         
         document.getElementById('m-in').value = getField(n, "Input") || "";
+        document.getElementById('m-in-path').value = getField(n, "InputPath") || "";
         document.getElementById('m-out').value = getField(n, "Output") || "";
+        document.getElementById('m-out-path').value = getField(n, "OutputPath") || "";
         document.getElementById('m-ctrl').value = getField(n, "Control") || "";
 
         const logList = document.getElementById('m-log-list');
@@ -1505,7 +1519,9 @@
         setField(n,"実績終了",document.getElementById('m-ae').value);
         
         setField(n, "Input", document.getElementById('m-in').value);
+        setField(n, "InputPath", document.getElementById('m-in-path').value);
         setField(n, "Output", document.getElementById('m-out').value);
+        setField(n, "OutputPath", document.getElementById('m-out-path').value);
         setField(n, "Control", document.getElementById('m-ctrl').value);
         
         ren(); 
@@ -1552,7 +1568,6 @@
         if(pre.act && m!=='map')stopPresentation();
     }
 
-    // 💡 修正箇所： dragData の中身のダブルクォーテーションをHTMLエンティティに変換
     function renderDocPalette() {
         const pal = document.getElementById('doc-palette');
         let html = '<h4 style="margin-top:0; color:#2c3e50;">データパレット</h4><p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">項目をセルにドラッグ＆ドロップして紐付けます。</p>';
@@ -1565,10 +1580,7 @@
             
             const addDragItem = (label, fieldName, displayVal) => {
                 if(!displayVal) return;
-                
-                // 💡 JSON文字列内の `"` を `&quot;` に置換して、HTML属性が壊れるのを防ぐ
                 const dragData = JSON.stringify({id: n.id, field: fieldName}).replace(/"/g, '&quot;');
-                
                 html += `<div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${dragData}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between;">
                     <span style="color:#7f8c8d; font-weight:bold; flex-shrink:0;">${label}</span>
                     <span style="color:#2c3e50; text-align:right; margin-left:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayVal}</span>
@@ -1577,12 +1589,15 @@
             
             if(!isDecision) {
                 addDragItem('Output', 'Output', getField(n, 'Output'));
+                addDragItem('Outパス', 'OutputPath', getField(n, 'OutputPath'));
                 addDragItem('Input', 'Input', getField(n, 'Input'));
+                addDragItem('Inパス', 'InputPath', getField(n, 'InputPath'));
                 addDragItem('担当', '担当部署', getField(n, '担当部署'));
                 addDragItem('予定期間', '予定期間', `${getField(n, '予定開始')} ~ ${getField(n, '予定終了')}`);
             } else {
                 addDragItem('条件(Control)', 'Control', getField(n, 'Control'));
                 addDragItem('合意日(予定)', '予定開始', getField(n, '予定開始'));
+                addDragItem('担当(承認者)', '担当部署', getField(n, '担当部署'));
                 addDragItem('ステータス', 'ステータス', getField(n, 'ステータス')==='done'?'承認済':'未承認');
                 if (n.logs && n.logs.length > 0) {
                     const latestLog = n.logs[n.logs.length - 1];
