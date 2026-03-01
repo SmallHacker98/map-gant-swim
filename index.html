@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v9.1 (Dynamic Binding)</title>
+<title>Pro Map Suite v9.2 (Doc Binding Fix)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
@@ -1552,6 +1552,48 @@
         if(pre.act && m!=='map')stopPresentation();
     }
 
+    // 💡 修正箇所： dragData の中身のダブルクォーテーションをHTMLエンティティに変換
+    function renderDocPalette() {
+        const pal = document.getElementById('doc-palette');
+        let html = '<h4 style="margin-top:0; color:#2c3e50;">データパレット</h4><p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">項目をセルにドラッグ＆ドロップして紐付けます。</p>';
+        
+        st.nodes.forEach(n => {
+            const isDecision = (parseInt(getField(n,"期間")) || 0) === 0;
+            const typeColor = isDecision ? '#8e44ad' : '#3498db';
+            html += `<div style="margin-bottom:12px; background:white; padding:8px; border-radius:6px; border:1px solid #ddd; box-shadow:0 2px 4px rgba(0,0,0,0.05);">`;
+            html += `<div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:${typeColor}; border-bottom:1px solid #eee; padding-bottom:4px;">${n.title} ${isDecision?'(合意)':'(作業)'}</div>`;
+            
+            const addDragItem = (label, fieldName, displayVal) => {
+                if(!displayVal) return;
+                
+                // 💡 JSON文字列内の `"` を `&quot;` に置換して、HTML属性が壊れるのを防ぐ
+                const dragData = JSON.stringify({id: n.id, field: fieldName}).replace(/"/g, '&quot;');
+                
+                html += `<div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${dragData}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between;">
+                    <span style="color:#7f8c8d; font-weight:bold; flex-shrink:0;">${label}</span>
+                    <span style="color:#2c3e50; text-align:right; margin-left:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayVal}</span>
+                </div>`;
+            };
+            
+            if(!isDecision) {
+                addDragItem('Output', 'Output', getField(n, 'Output'));
+                addDragItem('Input', 'Input', getField(n, 'Input'));
+                addDragItem('担当', '担当部署', getField(n, '担当部署'));
+                addDragItem('予定期間', '予定期間', `${getField(n, '予定開始')} ~ ${getField(n, '予定終了')}`);
+            } else {
+                addDragItem('条件(Control)', 'Control', getField(n, 'Control'));
+                addDragItem('合意日(予定)', '予定開始', getField(n, '予定開始'));
+                addDragItem('ステータス', 'ステータス', getField(n, 'ステータス')==='done'?'承認済':'未承認');
+                if (n.logs && n.logs.length > 0) {
+                    const latestLog = n.logs[n.logs.length - 1];
+                    addDragItem('最新ログ', '最新ログ', `[${latestLog.date}] ${latestLog.comment}`);
+                }
+            }
+            html += `</div>`;
+        });
+        pal.innerHTML = html;
+    }
+
     function handleExcelUpload(e) {
         const file = e.target.files[0];
         if(!file) return;
@@ -1662,45 +1704,6 @@
             delete st.cellMappings[currentSheetName][cellRef];
             renderExcelTable();
         }
-    }
-
-    function renderDocPalette() {
-        const pal = document.getElementById('doc-palette');
-        let html = '<h4 style="margin-top:0; color:#2c3e50;">データパレット</h4><p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">項目をセルにドラッグ＆ドロップして紐付けます。</p>';
-        
-        st.nodes.forEach(n => {
-            const isDecision = (parseInt(getField(n,"期間")) || 0) === 0;
-            const typeColor = isDecision ? '#8e44ad' : '#3498db';
-            html += `<div style="margin-bottom:12px; background:white; padding:8px; border-radius:6px; border:1px solid #ddd; box-shadow:0 2px 4px rgba(0,0,0,0.05);">`;
-            html += `<div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:${typeColor}; border-bottom:1px solid #eee; padding-bottom:4px;">${n.title} ${isDecision?'(合意)':'(作業)'}</div>`;
-            
-            const addDragItem = (label, fieldName, displayVal) => {
-                if(!displayVal) return;
-                const dragData = JSON.stringify({id: n.id, field: fieldName});
-                
-                html += `<div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${dragData.replace(/'/g, "&apos;")}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between;">
-                    <span style="color:#7f8c8d; font-weight:bold; flex-shrink:0;">${label}</span>
-                    <span style="color:#2c3e50; text-align:right; margin-left:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayVal}</span>
-                </div>`;
-            };
-            
-            if(!isDecision) {
-                addDragItem('Output', 'Output', getField(n, 'Output'));
-                addDragItem('Input', 'Input', getField(n, 'Input'));
-                addDragItem('担当', '担当部署', getField(n, '担当部署'));
-                addDragItem('予定期間', '予定期間', `${getField(n, '予定開始')} ~ ${getField(n, '予定終了')}`);
-            } else {
-                addDragItem('条件(Control)', 'Control', getField(n, 'Control'));
-                addDragItem('合意日(予定)', '予定開始', getField(n, '予定開始'));
-                addDragItem('ステータス', 'ステータス', getField(n, 'ステータス')==='done'?'承認済':'未承認');
-                if (n.logs && n.logs.length > 0) {
-                    const latestLog = n.logs[n.logs.length - 1];
-                    addDragItem('最新ログ', '最新ログ', `[${latestLog.date}] ${latestLog.comment}`);
-                }
-            }
-            html += `</div>`;
-        });
-        pal.innerHTML = html;
     }
 
     function exportExcel() {
