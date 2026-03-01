@@ -3,130 +3,124 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Pro Map Suite v10.5 (Final Masterpiece)</title>
+<title>Pro Map Suite v10.6 (Excel Save Integration)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
-    :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
-    :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
-    body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:sans-serif;user-select:none;}
-    #loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9000;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
-    #loupe-content{transform-origin:center center;width:100%;height:100%;position:absolute;}
-    .magnify-cursor{cursor:crosshair !important;}
-    #viewport{width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:20px 20px;}
-    #viewport:active{cursor:grabbing;}
-    #canvas{transform-origin:0 0;position:absolute;top:0;left:0;}
-    .smooth{transition:transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);}
-    
-    .node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:10;display:flex;flex-direction:column;overflow:hidden; transition:border-radius 0.3s;}
-    .node:hover{box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:20;}
-    .node.sel{border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(52,152,219,0.3);}
-    .node.src{border:2px solid var(--high);box-shadow:0 0 0 4px rgba(230,126,34,0.6);}
-    .node.hit{border:3px solid var(--high);transform:scale(1.05);z-index:30;}
-    .node.err{border:3px solid var(--crit);}
-    .node.phy{transition:left 0.1s linear, top 0.1s linear;}
-    
-    .node.decision { border-radius: 24px; border: 2px solid #8e44ad; }
-    .node.decision .nh { background: linear-gradient(to bottom, #9b59b6, #8e44ad); }
-    .node.decision .nh::after { color: rgba(255,255,255,0.7); content:"⬢"; }
-    .node.decision .nt { background: #2c3e50; text-align: center; }
-    
-    .stamp { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg); color: rgba(231, 76, 60, 0.85); border: 4px solid rgba(231, 76, 60, 0.85); font-size: 26px; font-weight: bold; padding: 5px 15px; border-radius: 8px; pointer-events: none; z-index: 50; text-transform: uppercase; letter-spacing: 3px; text-shadow: 1px 1px 0px rgba(255,255,255,0.8); }
-    .nh{height:22px;background:linear-gradient(to bottom,#eee,#ccc);border-bottom:1px solid #999;cursor:grab;display:flex;justify-content:center;align-items:center;}
-    .nh::after{content:"⠿";color:#666;}
-    .nt{color:white;padding:6px 10px;font-weight:bold;cursor:pointer;}
-    .h-todo{background:var(--st-todo);} .h-doing{background:var(--st-doing);} .h-done{background:var(--st-done);} .h-wait{background:var(--st-wait);}
-    .nf{padding:5px;flex-grow:1;background:white;}
-    .fr{display:flex;gap:5px;font-size:11px;border-bottom:1px solid #eee;padding:2px 0;}
-    .fl{color:#7f8c8d;width:70px;text-align:right;font-weight:bold; overflow:hidden;}
-    .fv{color:#2c3e50;flex-grow:1;cursor:pointer;}
-    .fv:hover{background:#f9f9f9;}
-    .n-add{text-align:center;color:#bdc3c7;cursor:pointer;background:#fafafa;}
-    .n-add:hover{color:var(--accent);background:#f0f0f0;}
-    .np{height:4px;background:#eee;} .np-bar{height:100%;background:#2ecc71;transition:width 0.3s;}
-    svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
-    
-    .chart-arrow { stroke:#7f8c8d; stroke-width:2.5px; fill:none; stroke-linejoin:round; stroke-linecap:round; transition: stroke 0.2s, stroke-width 0.2s; pointer-events: visibleStroke; cursor: pointer; }
-    .chart-arrow:hover { stroke: var(--accent); stroke-width: 4.5px; z-index: 100; }
-    .chart-arrow.crit { stroke:var(--high); stroke-width:3px; stroke-dasharray:5,3; }
-    .chart-arrow.crit:hover { stroke: #d35400; stroke-width: 5px; }
-    .chart-arrow.err { stroke:var(--crit); stroke-width:3px; }
-    .chart-arrow.err:hover { stroke: #c0392b; stroke-width: 5px; }
-
-    .pnl{position:fixed;background:white;padding:6px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;gap:5px;z-index:1000;cursor:move;align-items:center;}
-    .pnl button{border:none;background:#ecf0f1;min-width:36px;height:36px;border-radius:4px;font-size:16px;cursor:pointer;color:#2c3e50;font-weight:bold;padding:0 8px;}
-    .pnl button:hover{background:#dcdcdc;}
-    .pnl button.act{background:var(--accent);color:white;}
-    .pnl button.lnk{background:var(--high);color:white;animation:pulse 1s infinite;}
-    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
-    .sep{width:1px;height:20px;background:#ddd;margin:0 2px;} .sep-h{width:20px;height:1px;background:#ddd;margin:2px 0;}
-    .dept-arr{cursor:pointer;opacity:0.8;padding:0 8px;font-size:12px;user-select:none;color:white;border-radius:4px;transition:0.2s;}
-    .dept-arr:hover{background:rgba(0,0,0,0.2);}
-    .g-arr-btn{cursor:pointer;opacity:0.8;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;transition:0.2s;}
-    .g-arr-btn:hover{background:#eee;}
-
-    #menu{top:20px;left:20px;flex-wrap:wrap;max-width:320px;}
-    #search{top:20px;left:50%;transform:translateX(-50%);}
-    #views{top:20px;right:20px; z-index: 3000;} 
-    #zoom{bottom:20px;right:20px;flex-direction:column;}
-    #edit{bottom:20px;left:20px;}
-    #pres{bottom:20px;left:50%;transform:translateX(-50%);display:none;}
-    #pres-ind{position:fixed;top:0;left:0;width:100%;height:40px;background:var(--crit);color:white;display:none;align-items:center;justify-content:center;z-index:3000;pointer-events:none;font-weight:bold;}
-    #g-scale{top:80px;right:20px;z-index:3000;}
-    #s-fit{top:80px;right:20px;z-index:3000;}
-    
-    .view{position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;display:none;flex-direction:column;}
-    .v-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;padding-top:20px;}
-    .v-title{font-size:18px;font-weight:bold;color:#333;}
-    .v-body{flex-grow:1;overflow:auto;position:relative;min-height:100vh;}
-    .g-month-light{position:absolute;top:0;bottom:0;border-left:1px solid #ddd;z-index:1;}
-    .g-wrap{position:relative;min-height:100%;transform-origin:top left;}
-    .g-hdr{display:flex;height:40px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;align-items:center;}
-    .g-cell{flex-shrink:0;text-align:center;font-size:11px;line-height:40px;border-right:1px solid #eee;color:#555;font-weight:bold;}
-    .g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
-    .g-row:hover{background:#f0f8ff;}
-    .g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;transition:background-color 0.2s;}
-    .g-grp.all{background:#34495e;color:white;cursor:default;}
-    .g-lbl{width:200px;min-width:200px;padding:0 10px;border-right:1px solid #ddd;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:white;position:sticky;left:0;z-index:10;height:40px;display:flex;align-items:center;}
-    .g-lbl.err{color:var(--crit);}
-    .g-area{flex-grow:1;position:relative;height:100%;}
-    .g-grid{position:absolute;top:0;bottom:0;border-left:1px dashed #eee;z-index:0;}
-    .g-bar-p{position:absolute;top:6px;height:10px;background:#bdc3c7;border-radius:2px;opacity:0.9;z-index:1;pointer-events:none;}
-    .g-mil-p{position:absolute;top:6px;width:14px;height:14px;background:#bdc3c7;transform:rotate(45deg);z-index:1;border:1px solid #999;}
-    .g-bar-a{position:absolute;top:18px;height:14px;border-radius:3px;color:white;font-size:10px;line-height:14px;padding:0 2px;white-space:nowrap;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.2);z-index:2;cursor:pointer;transition:transform 0.1s;}
-    .g-bar-a:hover{transform:scale(1.02);z-index:3;}
-    .g-mil-a{position:absolute;top:18px;width:16px;height:16px;transform:rotate(45deg);box-shadow:0 2px 4px rgba(0,0,0,0.2);z-index:2;cursor:pointer;border:2px solid #fff;}
-    .g-crit{border:2px solid var(--crit);}
-    .g-month-sep{position:absolute;top:0;bottom:0;border-left:2px solid #bbb;z-index:1;}
-    .g-quarter-sep{position:absolute;top:0;bottom:0;border-left:3px solid #7f8c8d;z-index:1;}
-    .g-month-lbl{position:absolute;top:10px;font-size:13px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:3px 8px;border-radius:3px;}
-    .g-quarter-lbl{position:absolute;top:8px;font-size:14px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:4px;border:1px solid #ccc;}
-    
-    .s-cont{display:flex;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
-    .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
-    .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
-    .node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
-    .s-col.drag-over { background-color: rgba(52, 152, 219, 0.15) !important; box-shadow: inset 0 0 0 3px var(--accent); }
-    .g-grp.drag-over { background-color: #d6eaf8 !important; box-shadow: inset 0 0 0 2px var(--accent); }
-
-    #modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:center;justify-content:center;}
-    .m-cnt{background:white;padding:25px;border-radius:8px;width:440px;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
-    .m-row{margin-bottom:12px;}
-    .m-row label{display:block;font-size:12px;color:#555;margin-bottom:4px;font-weight:bold;}
-    .m-row input,.m-row select,.m-row textarea{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:14px;}
-    .m-act{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
-    .btn-s{background:var(--accent);color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;}
-    .btn-c{background:#eee;color:#333;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;}
-    .add-btn { background:#ecf0f1; border:1px dashed #bdc3c7; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer; color:#7f8c8d; margin-top:4px; width:100%; transition: 0.2s;}
-    .add-btn:hover { background:#dcdcdc; color:#333; }
-    input[type="range"]{width:100%;}
-    #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:6000;}
-    
-    .hl-match { outline: 3px solid #e67e22 !important; background-color: #fef9e7 !important; transform: scale(1.02); z-index: 10; position: relative; transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1); box-shadow: 0 4px 15px rgba(230,126,34,0.3) !important; }
+:root{--bg:#f4f7f6;--line:#95a5a6;--primary:#2c3e50;--accent:#3498db;--high:#e67e22;--crit:#e74c3c;--grid:rgba(0,0,0,0.05);--st-todo:#95a5a6;--st-doing:#3498db;--st-done:#27ae60;--st-wait:#f39c12;}
+body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:sans-serif;user-select:none;}
+#loupe{position:fixed;width:250px;height:250px;border:3px solid #333;border-radius:50%;overflow:hidden;pointer-events:none;z-index:9000;display:none;background:white;box-shadow:0 10px 30px rgba(0,0,0,0.5);}
+#loupe-content{transform-origin:center center;width:100%;height:100%;position:absolute;}
+.magnify-cursor{cursor:crosshair!important;}
+#viewport{width:100vw;height:100vh;overflow:hidden;cursor:grab;position:relative;background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:20px 20px;}
+#viewport:active{cursor:grabbing;}
+#canvas{transform-origin:0 0;position:absolute;top:0;left:0;}
+.smooth{transition:transform 0.3s cubic-bezier(0.4,0,0.2,1);}
+.node{position:absolute;background:white;border-radius:6px;box-shadow:0 4px 10px rgba(0,0,0,0.1);width:240px;border:1px solid #bbb;z-index:10;display:flex;flex-direction:column;overflow:hidden;transition:border-radius 0.3s;}
+.node:hover{box-shadow:0 10px 25px rgba(0,0,0,0.2);z-index:20;}
+.node.sel{border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(52,152,219,0.3);}
+.node.src{border:2px solid var(--high);box-shadow:0 0 0 4px rgba(230,126,34,0.6);}
+.node.hit{border:3px solid var(--high);transform:scale(1.05);z-index:30;}
+.node.err{border:3px solid var(--crit);}
+.node.phy{transition:left 0.1s linear,top 0.1s linear;}
+.node.decision{border-radius:24px;border:2px solid #8e44ad;}
+.node.decision .nh{background:linear-gradient(to bottom,#9b59b6,#8e44ad);}
+.node.decision .nh::after{color:rgba(255,255,255,0.7);content:"⬢";}
+.node.decision .nt{background:#2c3e50;text-align:center;}
+.stamp{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-15deg);color:rgba(231,76,60,0.85);border:4px solid rgba(231,76,60,0.85);font-size:26px;font-weight:bold;padding:5px 15px;border-radius:8px;pointer-events:none;z-index:50;text-transform:uppercase;letter-spacing:3px;text-shadow:1px 1px 0 rgba(255,255,255,0.8);}
+.nh{height:22px;background:linear-gradient(to bottom,#eee,#ccc);border-bottom:1px solid #999;cursor:grab;display:flex;justify-content:center;align-items:center;}
+.nh::after{content:"⠿";color:#666;}
+.nt{color:white;padding:6px 10px;font-weight:bold;cursor:pointer;}
+.h-todo{background:var(--st-todo);}.h-doing{background:var(--st-doing);}.h-done{background:var(--st-done);}.h-wait{background:var(--st-wait);}
+.nf{padding:5px;flex-grow:1;background:white;}
+.fr{display:flex;gap:5px;font-size:11px;border-bottom:1px solid #eee;padding:2px 0;}
+.fl{color:#7f8c8d;width:70px;text-align:right;font-weight:bold;overflow:hidden;}
+.fv{color:#2c3e50;flex-grow:1;cursor:pointer;}
+.fv:hover{background:#f9f9f9;}
+.n-add{text-align:center;color:#bdc3c7;cursor:pointer;background:#fafafa;}
+.n-add:hover{color:var(--accent);background:#f0f0f0;}
+.np{height:4px;background:#eee;}.np-bar{height:100%;background:#2ecc71;transition:width 0.3s;}
+svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
+.chart-arrow{stroke:#7f8c8d;stroke-width:2.5px;fill:none;stroke-linejoin:round;stroke-linecap:round;transition:stroke 0.2s,stroke-width 0.2s;pointer-events:visibleStroke;cursor:pointer;}
+.chart-arrow:hover{stroke:var(--accent);stroke-width:4.5px;z-index:100;}
+.chart-arrow.crit{stroke:var(--high);stroke-width:3px;stroke-dasharray:5,3;}
+.chart-arrow.crit:hover{stroke:#d35400;stroke-width:5px;}
+.chart-arrow.err{stroke:var(--crit);stroke-width:3px;}
+.chart-arrow.err:hover{stroke:#c0392b;stroke-width:5px;}
+.pnl{position:fixed;background:white;padding:6px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);display:flex;gap:5px;z-index:1000;cursor:move;align-items:center;}
+.pnl button{border:none;background:#ecf0f1;min-width:36px;height:36px;border-radius:4px;font-size:16px;cursor:pointer;color:#2c3e50;font-weight:bold;padding:0 8px;}
+.pnl button:hover{background:#dcdcdc;}
+.pnl button.act{background:var(--accent);color:white;}
+.pnl button.lnk{background:var(--high);color:white;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
+.sep{width:1px;height:20px;background:#ddd;margin:0 2px;}.sep-h{width:20px;height:1px;background:#ddd;margin:2px 0;}
+.dept-arr{cursor:pointer;opacity:0.8;padding:0 8px;font-size:12px;user-select:none;color:white;border-radius:4px;transition:0.2s;}
+.dept-arr:hover{background:rgba(0,0,0,0.2);}
+.g-arr-btn{cursor:pointer;opacity:0.8;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;transition:0.2s;}
+.g-arr-btn:hover{background:#eee;}
+#menu{top:20px;left:20px;flex-wrap:wrap;max-width:320px;}
+#search{top:20px;left:50%;transform:translateX(-50%);}
+#views{top:20px;right:20px;z-index:3000;}
+#zoom{bottom:20px;right:20px;flex-direction:column;}
+#edit{bottom:20px;left:20px;}
+#pres{bottom:20px;left:50%;transform:translateX(-50%);display:none;}
+#pres-ind{position:fixed;top:0;left:0;width:100%;height:40px;background:var(--crit);color:white;display:none;align-items:center;justify-content:center;z-index:3000;pointer-events:none;font-weight:bold;}
+#g-scale{top:80px;right:20px;z-index:3000;}
+#s-fit{top:80px;right:20px;z-index:3000;}
+.view{position:fixed;top:0;left:0;width:100%;height:100%;background:white;z-index:2000;display:none;flex-direction:column;}
+.v-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;padding-top:20px;}
+.v-title{font-size:18px;font-weight:bold;color:#333;}
+.v-body{flex-grow:1;overflow:auto;position:relative;min-height:100vh;}
+.g-month-light{position:absolute;top:0;bottom:0;border-left:1px solid #ddd;z-index:1;}
+.g-wrap{position:relative;min-height:100%;transform-origin:top left;}
+.g-hdr{display:flex;height:40px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;align-items:center;}
+.g-cell{flex-shrink:0;text-align:center;font-size:11px;line-height:40px;border-right:1px solid #eee;color:#555;font-weight:bold;}
+.g-row{display:flex;border-bottom:1px solid #eee;height:40px;align-items:center;position:relative;}
+.g-row:hover{background:#f0f8ff;}
+.g-grp{background:#ecf0f1;border-bottom:1px solid #bdc3c7;height:30px;display:flex;align-items:center;padding-left:10px;font-weight:bold;color:#2c3e50;font-size:12px;position:sticky;left:0;z-index:15;width:100%;transition:background-color 0.2s;}
+.g-grp.all{background:#34495e;color:white;cursor:default;}
+.g-lbl{width:200px;min-width:200px;padding:0 10px;border-right:1px solid #ddd;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:white;position:sticky;left:0;z-index:10;height:40px;display:flex;align-items:center;}
+.g-lbl.err{color:var(--crit);}
+.g-area{flex-grow:1;position:relative;height:100%;}
+.g-grid{position:absolute;top:0;bottom:0;border-left:1px dashed #eee;z-index:0;}
+.g-bar-p{position:absolute;top:6px;height:10px;background:#bdc3c7;border-radius:2px;opacity:0.9;z-index:1;pointer-events:none;}
+.g-mil-p{position:absolute;top:6px;width:14px;height:14px;background:#bdc3c7;transform:rotate(45deg);z-index:1;border:1px solid #999;}
+.g-bar-a{position:absolute;top:18px;height:14px;border-radius:3px;color:white;font-size:10px;line-height:14px;padding:0 2px;white-space:nowrap;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.2);z-index:2;cursor:pointer;transition:transform 0.1s;}
+.g-bar-a:hover{transform:scale(1.02);z-index:3;}
+.g-mil-a{position:absolute;top:18px;width:16px;height:16px;transform:rotate(45deg);box-shadow:0 2px 4px rgba(0,0,0,0.2);z-index:2;cursor:pointer;border:2px solid #fff;}
+.g-crit{border:2px solid var(--crit);}
+.g-month-sep{position:absolute;top:0;bottom:0;border-left:2px solid #bbb;z-index:1;}
+.g-quarter-sep{position:absolute;top:0;bottom:0;border-left:3px solid #7f8c8d;z-index:1;}
+.g-month-lbl{position:absolute;top:10px;font-size:13px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:3px 8px;border-radius:3px;}
+.g-quarter-lbl{position:absolute;top:8px;font-size:14px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:4px;border:1px solid #ccc;}
+.s-cont{display:flex;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
+.s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
+.s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
+.node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
+.s-col.drag-over{background-color:rgba(52,152,219,0.15)!important;box-shadow:inset 0 0 0 3px var(--accent);}
+.g-grp.drag-over{background-color:#d6eaf8!important;box-shadow:inset 0 0 0 2px var(--accent);}
+body.is-dragging .s-col *{pointer-events:none!important;}
+body.is-dragging .g-grp *{pointer-events:none!important;}
+#modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:5000;display:none;align-items:center;justify-content:center;}
+.m-cnt{background:white;padding:25px;border-radius:8px;width:440px;box-shadow:0 10px 40px rgba(0,0,0,0.4);max-height:90vh;overflow-y:auto;}
+.m-row{margin-bottom:12px;}
+.m-row label{display:block;font-size:12px;color:#555;margin-bottom:4px;font-weight:bold;}
+.m-row input,.m-row select,.m-row textarea{width:100%;padding:8px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box;font-size:14px;}
+.m-act{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+.btn-s{background:var(--accent);color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;}
+.btn-c{background:#eee;color:#333;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;}
+.add-btn{background:#ecf0f1;border:1px dashed #bdc3c7;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;color:#7f8c8d;margin-top:4px;width:100%;transition:0.2s;}
+.add-btn:hover{background:#dcdcdc;color:#333;}
+input[type="range"]{width:100%;}
+#toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:6000;}
+.sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
+.sc-mode .view{margin-top:0;}.sc-mode .v-head{padding-top:10px;}
+.hl-match{outline:3px solid #e67e22!important;background-color:#fef9e7!important;transform:scale(1.02);z-index:10;position:relative;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);box-shadow:0 4px 15px rgba(230,126,34,0.3)!important;}
 </style>
 </head>
 <body onclick="clearHl()">
+
 <div id="pres-ind">🔴 PRESENTATION MODE</div>
-<div id="toast">保存しました</div>
+<div id="toast">Excelとして保存しました</div>
 <div id="loupe"><div id="loupe-content"></div></div>
 
 <div id="modal">
@@ -175,8 +169,12 @@
 </div>
 
 <div id="menu" class="pnl">
-    <button onclick="newFile()" title="新規">📄</button><button onclick="saveOver()" title="上書き保存">💾</button><button onclick="saveAs()" title="名前を付けて保存">📑</button><button onclick="openFile()" title="開く">📂</button><button onclick="toggleScreenshotMode()" title="撮影">📷</button>
-    <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div><input type="file" id="f-in" style="display: none;" accept=".json" onchange="loadFileFallback(this)">
+    <button onclick="newFile()" title="新規">📄</button>
+    <button onclick="saveOver()" title="上書き保存 (Excel)">💾</button>
+    <button onclick="saveAs()" title="名前を付けて保存 (Excel)">📑</button>
+    <button onclick="openFile()" title="開く">📂</button>
+    <button onclick="toggleScreenshotMode()" title="撮影">📷</button>
+    <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div><input type="file" id="f-in" style="display: none;" accept=".xlsx, .xls, .json" onchange="loadFileFallback(this)">
 </div>
 <div id="search" class="pnl"><span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索..."><span id="q-cnt" style="font-size:11px;color:#888;"></span><button onclick="jumpToNextMatch()" title="次へ">▼</button></div>
 <div id="views" class="pnl"><button id="b-map" onclick="switchView('map')" class="act">🗺</button><div class="sep"></div><button id="b-gantt" onclick="switchView('gantt')">📊</button><div class="sep"></div><button id="b-swim" onclick="switchView('swim')">🏊</button><div class="sep"></div><button id="b-doc" onclick="switchView('doc')" title="Doc Binding">📄</button></div>
@@ -198,16 +196,15 @@
         <div class="v-title">Doc Binding</div>
         <div style="display:flex;gap:10px;align-items:center;">
             <input type="file" id="excel-file" accept=".xlsx, .xls" style="display:none;" onchange="handleExcelUpload(event)">
-            <button class="btn-c" onclick="document.getElementById('excel-file').click()">📂 読込</button>
+            <button class="btn-c" onclick="document.getElementById('excel-file').click()">📂 テンプレート読込</button>
             <select id="sheet-select" onchange="changeSheet()" style="padding:6px;border-radius:4px;border:1px solid #ccc;"></select>
-            <button class="btn-s" onclick="exportExcel()">📥 出力</button>
         </div>
     </div>
     <div class="v-body" style="display:flex;overflow:hidden;">
         <div id="doc-palette" style="width:280px;background:white;border-right:1px solid #ddd;overflow-y:auto;padding:15px;flex-shrink:0;"></div>
         <div id="doc-preview" style="flex-grow:1;overflow:auto;padding:20px;">
             <div id="excel-table-container" style="background:white;box-shadow:0 4px 15px rgba(0,0,0,0.1);padding:20px;min-height:500px; display:inline-block; min-width:100%;">
-                <div style="color:#999;text-align:center;padding-top:50px;">上部からxlsx/xlsを読み込んでください</div>
+                <div style="color:#999;text-align:center;padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>
             </div>
         </div>
     </div>
@@ -375,17 +372,6 @@
         sel(id,false); const n=st.nodes.find(x=>x.id==id);
         if(n){ st.x=-(n.x||0)*st.sc + innerWidth/2 - 120*st.sc; st.y=-(n.y||0)*st.sc + innerHeight/2 - 80*st.sc; ren(); }
         const cntEl = $('q-cnt'); if(cntEl) cntEl.innerText=`${qIdx+1}/${qRes.length}`;
-    }
-
-    async function openFile(){
-        if(window.showOpenFilePicker){
-            try{
-                const [h] = await window.showOpenFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}]});
-                fH=h; const f=await h.getFile(); $('f-name').innerText=f.name; load(await f.text());
-            }catch(e){console.error('Open failed:',e);}
-        } else {
-            $('f-in').click();
-        }
     }
 
     // ==========================================
@@ -722,9 +708,36 @@
         });
         mn=addDays(mn,-5); mx=addDays(mx,30); const days=Math.max(10,Math.ceil((mx-mn)/86400000)); let px=40; if(gSc===30)px=20; if(gSc===90)px=8;
         const hd=document.createElement('div'); hd.className='g-hdr';
-        if(gSc===1){for(let i=0;i<=days;i++){const d=addDays(mn,i),ce=document.createElement('div');ce.className='g-cell';ce.style.width=px+'px';ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;hd.appendChild(ce);}}
-        else if(gSc===30){let cM=-1,cY=-1;for(let i=0;i<=days;i++){const d=addDays(mn,i),m=d.getMonth(),y=d.getFullYear();if(m!==cM||y!==cY){const lb=document.createElement('div');lb.className='g-month-lbl';lb.style.left=(i*px)+'px';lb.innerText=`${y}/${m+1}月`;hd.appendChild(lb);const sp=document.createElement('div');sp.className='g-month-sep';sp.style.left=(i*px)+'px';hd.appendChild(sp);cM=m;cY=y;}}}
-        else{const getQ=(d)=>{const m=d.getMonth();if(m>=3&&m<=5)return 1;if(m>=6&&m<=8)return 2;if(m>=9&&m<=11)return 3;return 4;};const getQM=(q)=>{if(q===1)return '4-6月';if(q===2)return '7-9月';if(q===3)return '10-12月';return '1-3月';};let sw=new Set();for(let i=0;i<=days;i++){const d=addDays(mn,i),m=d.getMonth(),q=getQ(d),y=d.getFullYear(),fY=m<3?y:y+1,k=`${fY}-FQ${q}`,isS=d.getDate()===1&&[3,6,9,0].includes(m);if(!sw.has(k)&&(i===0||isS)){const lb=document.createElement('div');lb.className='g-quarter-lbl';lb.style.left=(i*px)+'px';lb.innerHTML=`FY${fY}/Q${q}<br><span style="font-size:10px;color:#7f8c8d;">${getQM(q)}</span>`;hd.appendChild(lb);const sp=document.createElement('div');sp.className='g-quarter-sep';sp.style.left=(i*px)+'px';hd.appendChild(sp);sw.add(k);}}}
+        if(gSc===1){
+            for(let i=0;i<=days;i++){const d=addDays(mn,i),ce=document.createElement('div');ce.className='g-cell';ce.style.width=px+'px';ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;hd.appendChild(ce);}
+        } else if(gSc===30){
+            let curMonth=-1, curYear=-1;
+            for(let i=0;i<=days;i++){
+                const d=addDays(mn,i); const m=d.getMonth(), y=d.getFullYear();
+                if(m!==curMonth || y!==curYear){
+                    const lbl=document.createElement('div'); lbl.className='g-month-lbl'; lbl.style.left=(i*px)+'px'; lbl.innerText=`${y}/${m+1}月`; hd.appendChild(lbl);
+                    const sep=document.createElement('div'); sep.className='g-month-sep'; sep.style.left=(i*px)+'px'; hd.appendChild(sep);
+                    curMonth=m; curYear=y;
+                }
+            }
+        } else {
+            const getFiscalQ=(d)=>{ const m=d.getMonth(); if(m>=3&&m<=5)return 1; if(m>=6&&m<=8)return 2; if(m>=9&&m<=11)return 3; return 4; };
+            const getQMonths=(q)=>{ if(q===1)return '4-6月'; if(q===2)return '7-9月'; if(q===3)return '10-12月'; return '1-3月'; };
+            let shown = new Set();
+            for(let i=0;i<=days;i++){
+                const d=addDays(mn,i); const m=d.getMonth(); const q=getFiscalQ(d); const y=d.getFullYear();
+                const fiscalYear = m < 3 ? y : y+1; const key=`${fiscalYear}-FQ${q}`;
+                const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
+                const isFirstOccurrence = !shown.has(key) && (i===0 || isQuarterStart);
+                if(isFirstOccurrence){
+                    const lbl=document.createElement('div'); lbl.className='g-quarter-lbl'; lbl.style.left=(i*px)+'px';
+                    lbl.innerHTML=`FY${fiscalYear}/Q${q}<br><span style="font-size:10px;color:#7f8c8d;">${getQMonths(q)}</span>`;
+                    hd.appendChild(lbl);
+                    const sep=document.createElement('div'); sep.className='g-quarter-sep'; sep.style.left=(i*px)+'px'; hd.appendChild(sep);
+                    shown.add(key);
+                }
+            }
+        }
         const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`; wp.appendChild(hd);
         const gb=document.createElement('div'); gb.className='g-area'; gb.style.position='absolute'; gb.style.width='100%'; gb.style.marginLeft='200px';
         if(gSc===1){for(let i=0;i<=days;i++){const l=document.createElement('div');l.className='g-grid';l.style.left=`${i*px}px`;gb.appendChild(l);}}
@@ -847,8 +860,11 @@
         rawEdges.forEach(ed=>{const p=ui[ed.p],ch=ui[ed.c];ed.sx=p?(p.l+p.r)/2:0;ed.ex=ch?(ch.l+ch.r)/2:0;});
         
         const outC={},inC={}; rawEdges.forEach(ed=>{outC[ed.p]=(outC[ed.p]||0)+1;inC[ed.c]=(inC[ed.c]||0)+1;});
+        
+        // 💡 修正：矢印の交差を防ぐためのX座標ソート
         const outEdges=[...rawEdges].sort((a,b)=>a.ex-b.ex), outI_map=new Map();
         outEdges.forEach(ed=>{if(!outI_map.has(ed.p))outI_map.set(ed.p,1);ed.outI=outI_map.get(ed.p);outI_map.set(ed.p,ed.outI+1);});
+        
         const inEdges=[...rawEdges].sort((a,b)=>a.sx-b.sx), inI_map=new Map();
         inEdges.forEach(ed=>{if(!inI_map.has(ed.c))inI_map.set(ed.c,1);ed.inI=inI_map.get(ed.c);inI_map.set(ed.c,ed.inI+1);});
 
@@ -862,7 +878,7 @@
                 hC[pLv]=(hC[pLv]||0)+1; const oy=lMB[pLv]+15+(hC[pLv]%8)*8, tHLv=cLv>0?cLv-1:0; hC[tHLv]=(hC[tHLv]||0)+1; let iy=lS[cLv]-15-(hC[tHLv]%8)*8;
                 if(pLv===cLv)iy=oy; pts.push({x:sx,y:oy});
                 
-                // 💡 修正：階層が隣接している場合は迂回処理をスキップ（直接S字で結ぶ）
+                // 💡 修正：階層が隣接している場合は迂回処理をスキップし、S字で直接結ぶ
                 const isAdj=(cLv-pLv<=1);
                 if(!isAdj && pLv!==cLv){
                     let vCol; 
@@ -874,11 +890,11 @@
                     vC[vCol]=(vC[vCol]||0)+1; const vx=vCol*cw+((vC[vCol]%6)-2.5)*6; 
                     pts.push({x:vx,y:oy}); pts.push({x:vx,y:iy});
                 } else {
-                    // 隣接階層で大きく横移動する場合は、中央で水平に曲げる（綺麗なS字）
                     if(Math.abs(sx-ex)>5){const my=(oy+iy)/2;pts.push({x:sx,y:my});pts.push({x:ex,y:my});}
                 }
                 
                 pts.push({x:ex,y:iy}); pts.push({x:ex,y:ey});
+                
                 const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); pt.setAttribute('d',drawRoundedPath(pts,12)); pt.setAttribute('marker-end','url(#sa)');
                 pt.setAttribute('class', `chart-arrow ${an.err.has(cid)&&an.err.has(pid)?'err':(an.crt.has(`${pid}-${cid}`)?'crit':'')}`); svg.appendChild(pt);
             }
@@ -986,37 +1002,110 @@
 
     function dropToCell(e, cR) { e.preventDefault(); const dS = e.dataTransfer.getData("text/plain"); if(!dS) return; try { const m = JSON.parse(dS); if (!st.cellMappings) st.cellMappings = {}; if (!st.cellMappings[currentSheetName]) st.cellMappings[currentSheetName] = {}; st.cellMappings[currentSheetName][cR] = m; renderExcelTable(); hlFromCell(cR); } catch(err) { console.error("Drop Parse Error", err); } }
     function clearMapping(cR) { if(st.cellMappings && st.cellMappings[currentSheetName]) { delete st.cellMappings[currentSheetName][cR]; clearHl(); renderExcelTable(); } }
-    function exportExcel() {
-        if(!excelWb) { alert('テンプレートを読み込んでください'); return; }
-        if(st.cellMappings) { Object.keys(st.cellMappings).forEach(sN => { const sh = excelWb.Sheets[sN]; if(sh) Object.keys(st.cellMappings[sN]).forEach(cR => { const dV = getDynamicValue(st.cellMappings[sN][cR]); if(sh[cR]) { sh[cR].v = dV; sh[cR].t = 's'; } else XLSX.utils.sheet_add_aoa(sh, [[dV]], {origin: cR}); }); }); }
-        XLSX.writeFile(excelWb, st.docTemplateName ? `exported_${st.docTemplateName}` : `exported_${todayStr}.xlsx`);
-        const t=$('toast'); if(t){t.innerText = "Excelを出力しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);}
+    
+    // ==========================================
+    // 12. Save & Load (Excel Integration)
+    // ==========================================
+    function saveToExcelWb() {
+        let wb = excelWb;
+        if (!wb) { wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[]]), "Sheet1"); }
+
+        if (st.cellMappings) {
+            Object.keys(st.cellMappings).forEach(sN => {
+                const sh = wb.Sheets[sN];
+                if (sh) {
+                    Object.keys(st.cellMappings[sN]).forEach(cR => {
+                        const dV = getDynamicValue(st.cellMappings[sN][cR]);
+                        if (sh[cR]) { sh[cR].v = dV; sh[cR].t = 's'; } else XLSX.utils.sheet_add_aoa(sh, [[dV]], { origin: cR });
+                    });
+                }
+            });
+        }
+
+        const stClone = JSON.parse(JSON.stringify(st)); stClone.docTemplate = null; 
+        const jsonStr = JSON.stringify(stClone), chunks = jsonStr.match(/.{1,30000}/g) || [], aoa = chunks.map(chunk => [chunk]);
+        
+        if (wb.SheetNames.includes("__ProMapData__")) wb.Sheets["__ProMapData__"] = XLSX.utils.aoa_to_sheet(aoa);
+        else XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "__ProMapData__");
+
+        return wb;
     }
 
-    // ==========================================
-    // 12. Save & Load
-    // ==========================================
-    async function saveOver(){ if(fH){ try{ const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close(); const t=$('toast'); if(t){t.innerText = "保存しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);} }catch(e){console.error('Save failed:',e);} } else saveAs(); }
-    async function saveAs(){ if(window.showSaveFilePicker){ try{ fH=await window.showSaveFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}], suggestedName:`map_${todayStr}.json`}); $('f-name').innerText=fH.name; saveOver(); }catch(e){console.error('SaveAs failed:',e);} } else { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(st)],{type:"application/json"})); a.download=`map_${todayStr}.json`; a.click(); } }
-    function loadFileFallback(i){const f=i.files[0]; if(f){const r=new FileReader(); r.onload=e=>load(e.target.result); r.readAsText(f);}}
-    
-    function load(t){
-        try{
-            const j=JSON.parse(t); 
-            if(j.nodes){
-                j.nodes.forEach(n=>{
-                    if(!n.f && n.fields) n.f = n.fields; if(!n.pIds && n.parentIds) n.pIds = n.parentIds;
-                    if(!n.inputs) { n.inputs = []; const oI = getField(n, "Input"); if(oI) n.inputs.push({name: oI, path: getField(n, "InputPath") || ""}); }
-                    if(!n.outputs) { n.outputs = []; const oO = getField(n, "Output"); if(oO) n.outputs.push({name: oO, path: getField(n, "OutputPath") || ""}); }
-                });
-                if (!j.cellMappings) j.cellMappings = {}; st=j; st.sel=new Set();
-                if(st.docTemplate) loadExcelFromBase64(st.docTemplate); else { excelWb = null; $('excel-table-container').innerHTML = '<div style="color:#999; text-align:center; padding-top:50px;">上部からxlsx/xlsを読み込んでください</div>'; }
-                fitToScreen(); ren(); if(mode==='doc') { renderDocPalette(); if(excelWb) renderExcelTable(); }
-            }
-        }catch(e){alert("読込エラー"); console.error(e);}
+    async function saveOver(){ 
+        const wb = saveToExcelWb(), buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        if(fH){ 
+            try{ const w = await fH.createWritable(); await w.write(buffer); await w.close(); const t=$('toast'); if(t){t.innerText = "Excelとして保存しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);} }
+            catch(e){console.error('Save failed:',e); saveAs();} 
+        } else saveAs(); 
     }
-    
-    function newFile(){ if(confirm("新規作成しますか？")){ st={sc:1,x:0,y:0,sOrd:[],gOrd:[],nodes:[{id:Date.now(),title:"開始",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l: "承認者", v: ""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],x:0,y:0,pIds:[]}],sel:new Set(),docTemplate:null,docTemplateName:"",cellMappings:{}}; fH=null; $('f-name').innerText='(未保存)'; excelWb=null; $('excel-table-container').innerHTML='<div style="color:#999;text-align:center;padding-top:50px;">上部からxlsx/xlsを読み込んでください</div>'; fitToScreen(); if(mode==='doc')renderDocPalette(); } }
+
+    async function saveAs(){ 
+        const wb = saveToExcelWb(), buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const defaultName = st.docTemplateName ? (st.docTemplateName.endsWith('.xlsx') ? st.docTemplateName : st.docTemplateName + '.xlsx') : `map_${todayStr}.xlsx`;
+        
+        if(window.showSaveFilePicker){ 
+            try{ 
+                fH = await window.showSaveFilePicker({types:[{description:'Excel File',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}], suggestedName: defaultName}); 
+                $('f-name').innerText = fH.name; saveOver(); 
+            }catch(e){console.error('SaveAs failed:',e);} 
+        } else { 
+            const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([buffer],{type:"application/octet-stream"})); a.download=defaultName; a.click(); 
+        } 
+    }
+
+    async function openFile(){
+        if(window.showOpenFilePicker){
+            try{
+                const [h] = await window.showOpenFilePicker({types:[{description:'Pro Map Excel / JSON',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx', '.xls'], 'application/json':['.json']}}]});
+                fH=h; const f=await h.getFile(); $('f-name').innerText=f.name; 
+                loadFromBuffer(await f.arrayBuffer(), f.name);
+            }catch(e){console.error('Open failed:',e);}
+        } else $('f-in').click();
+    }
+
+    function loadFileFallback(i){
+        const f=i.files[0]; if(!f) return;
+        const r=new FileReader(); r.onload = e => loadFromBuffer(e.target.result, f.name); r.readAsArrayBuffer(f);
+    }
+
+    function loadFromBuffer(buf, fileName) {
+        try {
+            if (fileName.endsWith('.json')) { const decoder = new TextDecoder('utf-8'); loadJsonText(decoder.decode(buf)); return; }
+
+            const wb = XLSX.read(buf, { type: 'array' });
+            if (wb.SheetNames.includes("__ProMapData__")) {
+                const sh = wb.Sheets["__ProMapData__"], aoa = XLSX.utils.sheet_to_json(sh, { header: 1 });
+                let jsonStr = ""; aoa.forEach(row => { if(row[0]) jsonStr += row[0]; }); applyState(JSON.parse(jsonStr));
+            } else {
+                if(confirm("このExcelを新しいテンプレートとして読み込みますか？")) { st.docTemplateName = fileName; st.cellMappings = {}; } else return;
+            }
+            
+            excelWb = wb; const sel = $('sheet-select'); sel.innerHTML = '';
+            excelWb.SheetNames.forEach(name => { if (name !== "__ProMapData__") { const opt = document.createElement('option'); opt.value = name; opt.innerText = name; sel.appendChild(opt); } });
+            currentSheetName = sel.options.length > 0 ? sel.options[0].value : null;
+            
+            fitToScreen(); ren(); if(mode==='doc') { renderDocPalette(); renderExcelTable(); }
+        } catch(e) { alert("読込エラー: " + e.message); console.error(e); }
+    }
+
+    function loadJsonText(t) {
+        applyState(JSON.parse(t));
+        if(st.docTemplate) loadExcelFromBase64(st.docTemplate); else { excelWb = null; $('excel-table-container').innerHTML = '<div style="color:#999; text-align:center; padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>'; }
+        fitToScreen(); ren(); if(mode==='doc') { renderDocPalette(); if(excelWb) renderExcelTable(); }
+    }
+
+    function applyState(j) {
+        if(j.nodes){
+            j.nodes.forEach(n=>{
+                if(!n.f && n.fields) n.f = n.fields; if(!n.pIds && n.parentIds) n.pIds = n.parentIds;
+                if(!n.inputs) { n.inputs = []; const oI = getField(n, "Input"); if(oI) n.inputs.push({name: oI, path: getField(n, "InputPath") || ""}); }
+                if(!n.outputs) { n.outputs = []; const oO = getField(n, "Output"); if(oO) n.outputs.push({name: oO, path: getField(n, "OutputPath") || ""}); }
+            });
+            if (!j.cellMappings) j.cellMappings = {}; st=j; st.sel=new Set();
+        }
+    }
+
+    function newFile(){ if(confirm("新規作成しますか？")){ st={sc:1,x:0,y:0,sOrd:[],gOrd:[],nodes:[{id:Date.now(),title:"開始",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l: "承認者", v: ""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],x:0,y:0,pIds:[]}],sel:new Set(),docTemplate:null,docTemplateName:"",cellMappings:{}}; fH=null; $('f-name').innerText='(未保存)'; excelWb=null; $('excel-table-container').innerHTML='<div style="color:#999;text-align:center;padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>'; fitToScreen(); if(mode==='doc')renderDocPalette(); } }
 
     function startPresentation(){pre.act=true;pre.idx=0;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='flex'; if(n)n.style.display='flex'; focusP();}
     function stopPresentation(){pre.act=false;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='none'; if(n)n.style.display='none'; fitToScreen();}
