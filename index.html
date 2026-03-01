@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v9.0 (Doc Binding)</title>
+<title>Pro Map Suite v9.1 (Dynamic Binding)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
@@ -292,8 +292,7 @@
             </div>
         </div>
         <div class="v-body" style="display:flex; overflow:hidden;">
-            <div id="doc-palette" style="width:280px; background:white; border-right:1px solid #ddd; overflow-y:auto; padding:15px; box-sizing:border-box; flex-shrink:0;">
-                </div>
+            <div id="doc-palette" style="width:280px; background:white; border-right:1px solid #ddd; overflow-y:auto; padding:15px; box-sizing:border-box; flex-shrink:0;"></div>
             <div id="doc-preview" style="flex-grow:1; overflow:auto; padding:20px;">
                 <div id="excel-table-container" style="background:white; box-shadow:0 4px 15px rgba(0,0,0,0.1); padding:20px; overflow:auto; min-height:500px;">
                     <div style="color:#999; text-align:center; padding-top:50px;">上部のボタンからテンプレート(xlsx/xls)を読み込んでください</div>
@@ -307,16 +306,34 @@
 <script>
     const todayStr = new Date().toISOString().slice(0, 10);
     const dCols = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
-    let st = { sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], sel: new Set([1]) };
+    
+    // 💡 状態管理オブジェクトにDocビューの保存領域（Base64とマッピング）を追加
+    let st = { 
+        sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], 
+        nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], x: 0, y: 0, pIds: [] }], 
+        sel: new Set([1]),
+        docTemplate: null,       // Base64エンコードされたExcelデータ
+        docTemplateName: "",     // 読み込んだExcelのファイル名
+        cellMappings: {}         // シートごとのセル紐付け情報 { sheet1: { "A1": {id: 123, field: "Output"} } }
+    };
+    
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
     let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;
     let gZoom = 1, sZoom = 1;
     let dragDept = null, dragType = null; 
-    
-    // 💡 Doc機能用グローバル変数
     let excelWb = null;
     let currentSheetName = null;
-    let cellMappings = {};
+
+    // --- Base64 <-> ArrayBuffer ユーティリティ ---
+    function base64ToArrayBuffer(base64) {
+        const binary_string = window.atob(base64);
+        const len = binary_string.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            bytes[i] = binary_string.charCodeAt(i);
+        }
+        return bytes.buffer;
+    }
 
     function drawRoundedPath(points, r) {
         let d = `M ${points[0].x} ${points[0].y}`;
@@ -477,14 +494,12 @@
         dragType = type;
         e.dataTransfer.effectAllowed = 'move';
         if(e.dataTransfer.setData) e.dataTransfer.setData('text/plain', dept);
-        
         setTimeout(() => {
             document.body.classList.add('is-dragging'); 
             if (type === 's') e.target.parentElement.style.opacity = '0.6';
             else e.target.style.opacity = '0.6';
         }, 0);
     }
-    
     function onDragOverDept(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
     function onDragEnterDept(e, dept) { e.preventDefault(); if(dept !== dragDept) e.currentTarget.classList.add('drag-over'); }
     function onDragLeaveDept(e) { e.currentTarget.classList.remove('drag-over'); }
@@ -493,12 +508,10 @@
         e.preventDefault();
         e.stopPropagation();
         e.currentTarget.classList.remove('drag-over');
-        
         if (dragDept && dragDept !== targetDept && dragType === type) {
             let arr = getOrd(type); 
             const fromIdx = arr.indexOf(dragDept);
             const toIdx = arr.indexOf(targetDept);
-            
             if (fromIdx !== -1 && toIdx !== -1) {
                 arr.splice(fromIdx, 1);
                 arr.splice(toIdx, 0, dragDept);
@@ -654,7 +667,6 @@
                     lbl.style.left=(i*px)+'px';
                     lbl.innerText=`${y}/${m+1}月`;
                     hd.appendChild(lbl);
-                    
                     const sep=document.createElement('div');
                     sep.className='g-month-sep';
                     sep.style.left=(i*px)+'px';
@@ -676,7 +688,6 @@
                 if(q===3) return '10-12月';
                 return '1-3月';
             };
-            
             let shown = new Set();
             for(let i=0;i<=days;i++){
                 const d=addDays(mn,i);
@@ -685,22 +696,18 @@
                 const y=d.getFullYear();
                 const fiscalYear = m < 3 ? y : y+1;
                 const key=`${fiscalYear}-FQ${q}`;
-                
                 const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
                 const isFirstOccurrence = !shown.has(key) && (i===0 || isQuarterStart);
-                
                 if(isFirstOccurrence){
                     const lbl=document.createElement('div');
                     lbl.className='g-quarter-lbl';
                     lbl.style.left=(i*px)+'px';
                     lbl.innerHTML=`FY${fiscalYear}/Q${q}<br><span style="font-size:10px;color:#7f8c8d;">${getQMonths(q)}</span>`;
                     hd.appendChild(lbl);
-                    
                     const sep=document.createElement('div');
                     sep.className='g-quarter-sep';
                     sep.style.left=(i*px)+'px';
                     hd.appendChild(sep);
-                    
                     shown.add(key);
                 }
             }
@@ -743,10 +750,8 @@
                 if(m >= 9 && m <= 11) return 3;
                 return 4;
             };
-            
             let shownQuarter = new Set();
             let shownMonth = new Set();
-            
             for(let i=0;i<=days;i++){
                 const d=addDays(mn,i);
                 const m=d.getMonth();
@@ -754,10 +759,8 @@
                 const fiscalYear = m < 3 ? d.getFullYear() : d.getFullYear()+1;
                 const qKey=`${fiscalYear}-FQ${q}`;
                 const mKey=`${d.getFullYear()}-${m}`;
-                
                 const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
                 const isFirstQuarter = !shownQuarter.has(qKey) && (i===0 || isQuarterStart);
-                
                 if(isFirstQuarter){
                     const l=document.createElement('div');
                     l.className='g-quarter-sep';
@@ -796,7 +799,6 @@
             if(it.d!==ld){
                 const gr=document.createElement('div'); 
                 gr.className='g-grp'+(it.d==='全体'?' all':'');
-                
                 if(it.d !== '全体') {
                     gr.draggable = true;
                     gr.ondragstart = e => onDragStartDept(e, 'g', it.d);
@@ -810,7 +812,6 @@
                 } else {
                     gr.innerHTML=`<div style="width:200px;padding-left:10px;">📂 ${it.d}</div>`;
                 }
-                
                 wp.appendChild(gr); y+=30; ld=it.d;
             }
             const row=document.createElement('div'); row.className='g-row';
@@ -875,32 +876,26 @@
         gZoom = Math.min(3, gZoom * 1.2);
         applyGanttZoom();
     }
-
     function ganttZoomOut(){
         gZoom = Math.max(0.5, gZoom * 0.8);
         applyGanttZoom();
     }
-
     function ganttFitToScreen(){
         const vb = document.getElementById('g-cnt');
         const wrap = vb.querySelector('.g-wrap');
         if(!wrap) return;
-        
         wrap.style.zoom = 1;
         const contentWidth = wrap.scrollWidth;
         const contentHeight = wrap.scrollHeight;
         const viewWidth = vb.clientWidth;
         const viewHeight = vb.clientHeight;
-        
         const scaleX = (viewWidth / contentWidth) * 0.95;
         const scaleY = (viewHeight / contentHeight) * 0.95;
         gZoom = Math.min(scaleX, scaleY, 1);
-        
         applyGanttZoom();
         vb.scrollLeft = 0;
         vb.scrollTop = 0;
     }
-
     function applyGanttZoom(){
         const wrap = document.querySelector('.g-wrap');
         if(!wrap) return;
@@ -920,7 +915,6 @@
         
         const levels = {};
         st.nodes.forEach(n => levels[n.id] = 0);
-        
         let changed = true;
         for(let iter=0; iter<50 && changed; iter++){
             changed = false;
@@ -934,7 +928,6 @@
                 }
             });
         }
-        
         const maxLv = Math.max(...Object.values(levels), 0);
         const sortedNodes = [...st.nodes].sort((a,b) => levels[a.id] - levels[b.id]);
         
@@ -991,7 +984,6 @@
             const col=document.createElement('div'); 
             col.className='s-col'; 
             col.style.background=dCols[i%6].bg; 
-            
             col.ondragover = onDragOverDept;
             col.ondragenter = e => onDragEnterDept(e, d);
             col.ondragleave = onDragLeaveDept;
@@ -1002,7 +994,6 @@
             h.style.background=dCols[i%6].border;
             const arr=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span><span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
             h.innerHTML=`${arr} <span style="opacity:0.5; margin:0 6px; cursor:grab;">⣿</span> ${d}`;
-            
             h.draggable = true;
             h.ondragstart = e => onDragStartDept(e, 's', d);
             h.ondragend = onDragEndDept;
@@ -1022,7 +1013,6 @@
             const el=document.createElement('div'); 
             const isDecision = (parseInt(getField(n,"期間")) || 0) === 0;
             el.className='node s-node' + (isDecision ? ' decision' : '');
-            
             el.dataset.id = n.id;
             el.style.width=`${(span.mx - span.minI + 1) * cw - 40}px`; 
             el.style.left=`${span.minI * cw + 20}px`; 
@@ -1039,11 +1029,9 @@
             }
             
             el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")} 日</div>`;
-            
             if (isDecision && getField(n,"ステータス") === "done") {
                 el.innerHTML += '<div class="stamp">APPROVED</div>';
             }
-            
             el.onclick=()=>openEditModal(n.id); 
             con.appendChild(el);
             ui[n.id]={l:span.minI*cw+20, r:(span.mx+1)*cw-20, t:finalY, b:finalY + 100, minI: span.minI, mx: span.mx};
@@ -1052,20 +1040,14 @@
         setTimeout(() => {
             sortedNodes.forEach(n => {
                 const el = Array.from(con.querySelectorAll('.node.s-node')).find(node => node.dataset.id == n.id); 
-                if (el) {
-                    ui[n.id].b = ui[n.id].t + el.offsetHeight;
-                }
+                if (el) ui[n.id].b = ui[n.id].t + el.offsetHeight;
             });
-
             const levelMaxB = {};
             for(let i=0; i<=maxLv; i++) levelMaxB[i] = levelStartY[i];
             sortedNodes.forEach(n => {
                 const lv = levels[n.id];
-                if (ui[n.id].b > levelMaxB[lv]) {
-                    levelMaxB[lv] = ui[n.id].b;
-                }
+                if (ui[n.id].b > levelMaxB[lv]) levelMaxB[lv] = ui[n.id].b;
             });
-
             drawArrows(levelMaxB);
         }, 0);
 
@@ -1079,7 +1061,6 @@
             
             con.style.height=`${totalHeight}px`;
             con.style.minHeight=`${totalHeight}px`;
-            
             cols.forEach(col => {
                 col.style.height = `${totalHeight}px`;
                 col.style.minHeight = `${totalHeight}px`;
@@ -1107,6 +1088,25 @@
             const outIndex = {}, inIndex = {};
             const an = ana(); 
             
+            function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
+                const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
+                for (const id in ui) {
+                    if (id == excludeId1 || id == excludeId2) continue;
+                    const n = ui[id];
+                    if (x > n.l - 10 && x < n.r + 10 && maxY > n.t - 10 && minY < n.b + 10) return true;
+                }
+                return false;
+            }
+            function horizIntersecting(y, x1, x2, excludeId1, excludeId2) {
+                const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
+                for (const id in ui) {
+                    if (id == excludeId1 || id == excludeId2) continue;
+                    const n = ui[id];
+                    if (y > n.t - 10 && y < n.b + 10 && maxX > n.l - 10 && minX < n.r + 10) return true;
+                }
+                return false;
+            }
+
             const hChannels = {}; 
             const vChannels = {}; 
 
@@ -1121,7 +1121,6 @@
 
                     const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20;
                     const cOff = (inIndex[cid] - (inCount[cid] + 1) / 2) * 20;
-
                     const sx = (p.l + p.r) / 2 + pOff;
                     const sy = p.b;
                     const ex = (ch.l + ch.r) / 2 + cOff;
@@ -1135,7 +1134,6 @@
                     const trackX = ((edgeIdx % 5) - 2) * 8;
 
                     let pts = [{x: sx, y: sy}];
-
                     hChannels[pLv] = (hChannels[pLv] || 0) + 1;
                     const outY = levelMaxB[pLv] + 15 + (hChannels[pLv] % 8) * 8; 
                     
@@ -1143,24 +1141,18 @@
                     hChannels[targetHLv] = (hChannels[targetHLv] || 0) + 1;
                     let inY = levelStartY[cLv] - 15 - (hChannels[targetHLv] % 8) * 8;
 
-                    if (pLv === cLv) {
-                        inY = outY;
-                    }
-                    
+                    if (pLv === cLv) inY = outY;
                     pts.push({x: sx, y: outY});
 
                     if (p.minI !== ch.minI || p.mx !== ch.mx || pLv !== cLv) {
                         let vCol;
-                        if (ex > sx) {
-                            vCol = Math.max(p.mx + 1, ch.minI);
-                        } else {
-                            vCol = Math.min(p.minI, ch.mx + 1);
-                        }
+                        if (Math.abs(ex - sx) < 10) vCol = p.mx + 1;
+                        else if (ex > sx) vCol = Math.max(p.mx + 1, ch.minI);
+                        else vCol = Math.min(p.minI, ch.mx + 1);
                         
                         vChannels[vCol] = (vChannels[vCol] || 0) + 1;
                         const vOffset = ((vChannels[vCol] % 6) - 2.5) * 6;
                         const vX = vCol * cw + vOffset;
-
                         pts.push({x: vX, y: outY});
                         pts.push({x: vX, y: inY});
                     }
@@ -1169,58 +1161,41 @@
                     pts.push({x: ex, y: ey});
                     
                     const d = drawRoundedPath(pts, 12);
-                    
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
                     pt.setAttribute('d',d); 
                     pt.setAttribute('marker-end','url(#sa)');
                     
                     const cr = an.crt && an.crt.has(`${pid}-${cid}`);
                     const er = an.err && an.err.has(cid) && an.err.has(pid);
-                    
                     let cls = 'chart-arrow';
-                    if (er) cls += ' err';
-                    else if (cr) cls += ' crit';
+                    if (er) cls += ' err'; else if (cr) cls += ' crit';
                     pt.setAttribute('class', cls);
                     
                     svg.appendChild(pt);
                 }
             });
-
             con.appendChild(svg);
         }
-
         c.appendChild(con);
         applySwimZoom();
     }
 
-    function swimZoomIn(){
-        sZoom = Math.min(3, sZoom * 1.2);
-        renderSwimlane(); 
-    }
-
-    function swimZoomOut(){
-        sZoom = Math.max(0.5, sZoom * 0.8);
-        renderSwimlane(); 
-    }
-
+    function swimZoomIn(){ sZoom = Math.min(3, sZoom * 1.2); renderSwimlane(); }
+    function swimZoomOut(){ sZoom = Math.max(0.5, sZoom * 0.8); renderSwimlane(); }
     function fitSwimlane(){
         const vb = document.getElementById('s-view').querySelector('.v-body');
         const con = vb.querySelector('.s-cont');
         if(!con) return;
-        
         con.style.zoom = 1;
         const contentWidth = con.scrollWidth;
         const contentHeight = con.scrollHeight;
         const viewWidth = vb.clientWidth;
         const viewHeight = vb.clientHeight;
-        
         const scaleX = (viewWidth / contentWidth) * 0.9;
         const scaleY = (viewHeight / contentHeight) * 0.9;
         sZoom = Math.min(scaleX, scaleY, 1);
-        
         renderSwimlane(); 
-        vb.scrollLeft = 0;
-        vb.scrollTop = 0;
+        vb.scrollLeft = 0; vb.scrollTop = 0;
     }
 
     function applySwimZoom(){
@@ -1270,19 +1245,12 @@
             s = getField(p,"予定開始")||todayStr;
         }
         st.nodes.push({
-            id, 
-            title:"Task", 
+            id, title:"Task", 
             f:[
-                {l:"予定開始",v:s},
-                {l:"期間",v:"1"},
-                {l:"予定終了",v:s},
-                {l:"担当部署",v:getField(p,"担当部署")||"全体"},
-                {l:"ステータス",v:"todo"},
-                {l:"進捗",v:"0"}
+                {l:"予定開始",v:s}, {l:"期間",v:"1"}, {l:"予定終了",v:s},
+                {l:"担当部署",v:getField(p,"担当部署")||"全体"}, {l:"ステータス",v:"todo"}, {l:"進捗",v:"0"}
             ], 
-            x:nx, 
-            y:ny, 
-            pIds:isC?[p.id]:[...p.pIds]
+            x:nx, y:ny, pIds:isC?[p.id]:[...p.pIds]
         });
         sel(id,false); openEditModal(id, true);
     }
@@ -1290,33 +1258,18 @@
     function addFreeNode(){
         const id=Date.now() + Math.floor(Math.random()*1000);
         phy.act = false;
-        
         const cx = -(st.x||0) / (st.sc||1) - 120 + (Math.random() - 0.5) * 40;
         const cy = -(st.y||0) / (st.sc||1) - 80 + (Math.random() - 0.5) * 40;
-        
         st.nodes.push({
-            id, 
-            title:"Task", 
+            id, title:"Task", 
             f:[
-                {l:"予定開始",v:todayStr},
-                {l:"期間",v:"1"},
-                {l:"予定終了",v:todayStr},
-                {l:"担当部署",v:"全体"},
-                {l:"ステータス",v:"todo"},
-                {l:"進捗",v:"0"}
+                {l:"予定開始",v:todayStr}, {l:"期間",v:"1"}, {l:"予定終了",v:todayStr},
+                {l:"担当部署",v:"全体"}, {l:"ステータス",v:"todo"}, {l:"進捗",v:"0"}
             ], 
-            x:cx, 
-            y:cy, 
-            pIds:[]
+            x:cx, y:cy, pIds:[]
         });
-        sel(id,false);
-        ren();
-        
-        setTimeout(() => {
-            phy.act = true;
-            runPhy();
-        }, 100);
-        
+        sel(id,false); ren();
+        setTimeout(() => { phy.act = true; runPhy(); }, 100);
         setTimeout(()=>openEditModal(id, true),200);
     }
 
@@ -1368,18 +1321,19 @@
         const input = document.getElementById('m-log-in');
         const val = input.value.trim();
         if(!val) return;
-        
         const n = st.nodes.find(x => x.id == curEd);
         if(n) {
             if(!n.logs) n.logs = [];
             const now = new Date().toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
             n.logs.push({date: now, comment: val});
-            
             const logList = document.getElementById('m-log-list');
             logList.innerHTML += `<div style="border-bottom:1px solid #eee; padding:2px 0;"><span style="color:#888;">[${now}]</span> ${val}</div>`;
             input.value = '';
-            
             ren();
+            if(mode==='doc') {
+                renderDocPalette();
+                if(excelWb) renderExcelTable();
+            }
         }
     }
     
@@ -1418,13 +1372,10 @@
         }));
         ds.forEach(d=>{
             const o=document.createElement('option'); 
-            o.value=d; 
-            o.innerText=d;
-            dl.appendChild(o);
+            o.value=d; o.innerText=d; dl.appendChild(o);
         });
         
         toggleModalUI(); 
-        
         document.getElementById('modal').style.display='flex';
         document.getElementById('m-tit').focus();
     }
@@ -1433,17 +1384,12 @@
         const sel=document.getElementById('m-dep-list');
         const val=sel.value;
         if(!val)return;
-        
         const inp=document.getElementById('m-dep');
         const current=inp.value.trim();
         if(current){
             const depts=current.split(/[,、]/).map(s=>s.trim());
-            if(!depts.includes(val)){
-                inp.value=current+', '+val;
-            }
-        } else {
-            inp.value=val;
-        }
+            if(!depts.includes(val)){ inp.value=current+', '+val; }
+        } else { inp.value=val; }
         sel.value='';
     }
     
@@ -1459,7 +1405,6 @@
     
     function saveModal(){
         newNodeId = null;
-        
         const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
         
         const s=document.getElementById('m-s').value;
@@ -1486,7 +1431,10 @@
         ren(); 
         if(mode==='gantt')renderGantt(); 
         if(mode==='swim')renderSwimlane();
-        if(mode==='doc')renderDocPalette();
+        if(mode==='doc') {
+            renderDocPalette();
+            if(excelWb) renderExcelTable(); // 💡 動的バインディングの即時反映
+        }
         closeModal();
     }
 
@@ -1495,11 +1443,9 @@
         const sd=parseDate(s), ed=parseDate(e);
         if(k==='start'||k==='d'){ if(sd&&!isNaN(d)) document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10); }
         else if(k==='end'){ if(sd&&ed) document.getElementById('m-d').value=Math.max(1,diffDays(sd,ed)); }
-        
         toggleModalUI(); 
     }
     
-    // 💡 画面切り替えの制御
     function switchView(m){
         mode=m; 
         document.getElementById('b-map').className=m==='map'?'act':'';
@@ -1523,36 +1469,64 @@
             renderDocPalette();
             if(excelWb) renderExcelTable();
         }
-        
         if(pre.act && m!=='map')stopPresentation();
     }
 
-    // 💡 Docビュー用の関数群
+    // --- 💡 Doc機能用ロジック ---
     function handleExcelUpload(e) {
         const file = e.target.files[0];
         if(!file) return;
+        st.docTemplateName = file.name;
+        
         const reader = new FileReader();
         reader.onload = function(evt) {
-            const data = new Uint8Array(evt.target.result);
-            excelWb = XLSX.read(data, {type: 'array'});
-            const sel = document.getElementById('sheet-select');
-            sel.innerHTML = '';
-            excelWb.SheetNames.forEach(name => {
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.innerText = name;
-                sel.appendChild(opt);
-            });
-            cellMappings = {}; 
-            currentSheetName = excelWb.SheetNames[0];
-            renderExcelTable();
+            const dataUrl = evt.target.result;
+            // Base64部分のみ抽出してステートに保存（ファイル保存時に同梱するため）
+            const base64 = dataUrl.split(',')[1];
+            st.docTemplate = base64;
+            st.cellMappings = {}; // 新しいファイルを読んだらマッピングをリセット
+            
+            loadExcelFromBase64(base64);
         };
-        reader.readAsArrayBuffer(file);
+        // DataURLとして読み込む
+        reader.readAsDataURL(file);
+    }
+
+    function loadExcelFromBase64(base64) {
+        const buffer = base64ToArrayBuffer(base64);
+        excelWb = XLSX.read(buffer, {type: 'array'});
+        const sel = document.getElementById('sheet-select');
+        sel.innerHTML = '';
+        excelWb.SheetNames.forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.innerText = name;
+            sel.appendChild(opt);
+        });
+        currentSheetName = excelWb.SheetNames[0];
+        renderExcelTable();
     }
 
     function changeSheet() {
         currentSheetName = document.getElementById('sheet-select').value;
         renderExcelTable();
+    }
+
+    // 💡 動的に最新の値を取得する関数
+    function getDynamicValue(mapping) {
+        const node = st.nodes.find(n => n.id === mapping.id);
+        if (!node) return "※ノード削除済";
+        const f = mapping.field;
+        if (f === '予定期間') return `${getField(node, '予定開始')} ~ ${getField(node, '予定終了')}`;
+        if (f === 'ステータス') return getField(node, 'ステータス') === 'done' ? '承認済' : '未承認';
+        if (f === '最新ログ') {
+            if (node.logs && node.logs.length > 0) {
+                const lg = node.logs[node.logs.length - 1];
+                return `[${lg.date}] ${lg.comment}`;
+            }
+            return "";
+        }
+        return getField(node, f) || "";
     }
 
     function renderExcelTable() {
@@ -1566,9 +1540,15 @@
             for(let c=0; c<json[r].length; c++) {
                 const cellRef = XLSX.utils.encode_cell({c:c, r:r});
                 const rawVal = json[r][c] || "";
-                const mappedVal = cellMappings[currentSheetName] && cellMappings[currentSheetName][cellRef] ? cellMappings[currentSheetName][cellRef] : rawVal;
                 
-                const isMapped = cellMappings[currentSheetName] && cellMappings[currentSheetName][cellRef];
+                // 💡 動的バインディングの解決
+                const isMapped = st.cellMappings && st.cellMappings[currentSheetName] && st.cellMappings[currentSheetName][cellRef];
+                let displayVal = rawVal;
+                if (isMapped) {
+                    displayVal = getDynamicValue(st.cellMappings[currentSheetName][cellRef]);
+                }
+                if (typeof displayVal === 'object') displayVal = JSON.stringify(displayVal);
+                
                 const bg = isMapped ? '#e8f8f5' : 'white';
                 const color = isMapped ? '#16a085' : '#333';
                 
@@ -1577,7 +1557,7 @@
                             ondragleave="this.style.backgroundColor='${bg}';"
                             ondrop="dropToCell(event, '${cellRef}')" 
                             style="padding:8px 5px; min-width:60px; height:20px; cursor:crosshair; background-color:${bg}; color:${color}; position:relative; vertical-align:top;">
-                            ${mappedVal}
+                            ${displayVal}
                             ${isMapped ? `<span onclick="clearMapping('${cellRef}')" style="position:absolute; top:2px; right:2px; font-size:10px; cursor:pointer; color:#e74c3c;">×</span>` : ''}
                          </td>`;
             }
@@ -1589,16 +1569,23 @@
 
     function dropToCell(e, cellRef) {
         e.preventDefault();
-        const data = e.dataTransfer.getData("text/plain");
-        if(!data) return;
-        if(!cellMappings[currentSheetName]) cellMappings[currentSheetName] = {};
-        cellMappings[currentSheetName][cellRef] = data;
-        renderExcelTable();
+        const dataStr = e.dataTransfer.getData("text/plain");
+        if(!dataStr) return;
+        try {
+            // 💡 単なる文字ではなく、オブジェクト（参照）として保存
+            const mapping = JSON.parse(dataStr);
+            if (!st.cellMappings) st.cellMappings = {};
+            if (!st.cellMappings[currentSheetName]) st.cellMappings[currentSheetName] = {};
+            st.cellMappings[currentSheetName][cellRef] = mapping;
+            renderExcelTable();
+        } catch(err) {
+            console.error("Drop Parse Error", err);
+        }
     }
 
     function clearMapping(cellRef) {
-        if(cellMappings[currentSheetName]) {
-            delete cellMappings[currentSheetName][cellRef];
+        if(st.cellMappings && st.cellMappings[currentSheetName]) {
+            delete st.cellMappings[currentSheetName][cellRef];
             renderExcelTable();
         }
     }
@@ -1613,26 +1600,28 @@
             html += `<div style="margin-bottom:12px; background:white; padding:8px; border-radius:6px; border:1px solid #ddd; box-shadow:0 2px 4px rgba(0,0,0,0.05);">`;
             html += `<div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:${typeColor}; border-bottom:1px solid #eee; padding-bottom:4px;">${n.title} ${isDecision?'(合意)':'(作業)'}</div>`;
             
-            const addDragItem = (label, val) => {
-                if(!val) return;
-                html += `<div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${val}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between;">
+            // 💡 ドラッグ時に「ID」と「フィールド名」をJSONとして持たせる
+            const addDragItem = (label, fieldName, displayVal) => {
+                if(!displayVal) return;
+                const dragData = JSON.stringify({id: n.id, field: fieldName});
+                html += `<div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${dragData}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between;">
                     <span style="color:#7f8c8d; font-weight:bold; flex-shrink:0;">${label}</span>
-                    <span style="color:#2c3e50; text-align:right; margin-left:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${val}</span>
+                    <span style="color:#2c3e50; text-align:right; margin-left:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${displayVal}</span>
                 </div>`;
             };
             
             if(!isDecision) {
-                addDragItem('Output', getField(n, 'Output'));
-                addDragItem('Input', getField(n, 'Input'));
-                addDragItem('担当', getField(n, '担当部署'));
-                addDragItem('予定期間', `${getField(n, '予定開始')} ~ ${getField(n, '予定終了')}`);
+                addDragItem('Output', 'Output', getField(n, 'Output'));
+                addDragItem('Input', 'Input', getField(n, 'Input'));
+                addDragItem('担当', '担当部署', getField(n, '担当部署'));
+                addDragItem('予定期間', '予定期間', `${getField(n, '予定開始')} ~ ${getField(n, '予定終了')}`);
             } else {
-                addDragItem('条件(Control)', getField(n, 'Control'));
-                addDragItem('合意日(予定)', getField(n, '予定開始'));
-                addDragItem('ステータス', getField(n, 'ステータス')==='done'?'承認済':'未承認');
+                addDragItem('条件(Control)', 'Control', getField(n, 'Control'));
+                addDragItem('合意日(予定)', '予定開始', getField(n, '予定開始'));
+                addDragItem('ステータス', 'ステータス', getField(n, 'ステータス')==='done'?'承認済':'未承認');
                 if (n.logs && n.logs.length > 0) {
                     const latestLog = n.logs[n.logs.length - 1];
-                    addDragItem('最新ログ', `[${latestLog.date}] ${latestLog.comment}`);
+                    addDragItem('最新ログ', '最新ログ', `[${latestLog.date}] ${latestLog.comment}`);
                 }
             }
             html += `</div>`;
@@ -1643,27 +1632,32 @@
     function exportExcel() {
         if(!excelWb) { alert('テンプレートを読み込んでください'); return; }
         
-        Object.keys(cellMappings).forEach(sheetName => {
-            const sheet = excelWb.Sheets[sheetName];
-            if(sheet) {
-                Object.keys(cellMappings[sheetName]).forEach(cellRef => {
-                    const val = cellMappings[sheetName][cellRef];
-                    if(sheet[cellRef]) {
-                        sheet[cellRef].v = val;
-                        sheet[cellRef].t = 's';
-                    } else {
-                        XLSX.utils.sheet_add_aoa(sheet, [[val]], {origin: cellRef});
-                    }
-                });
-            }
-        });
+        // 出力直前に最新の値でシートを上書きする
+        if(st.cellMappings) {
+            Object.keys(st.cellMappings).forEach(sheetName => {
+                const sheet = excelWb.Sheets[sheetName];
+                if(sheet) {
+                    Object.keys(st.cellMappings[sheetName]).forEach(cellRef => {
+                        const dynamicVal = getDynamicValue(st.cellMappings[sheetName][cellRef]);
+                        if(sheet[cellRef]) {
+                            sheet[cellRef].v = dynamicVal;
+                            sheet[cellRef].t = 's'; // 文字列として強制
+                        } else {
+                            XLSX.utils.sheet_add_aoa(sheet, [[dynamicVal]], {origin: cellRef});
+                        }
+                    });
+                }
+            });
+        }
         
-        XLSX.writeFile(excelWb, `exported_${todayStr}.xlsx`);
+        const outName = st.docTemplateName ? `exported_${st.docTemplateName}` : `exported_${todayStr}.xlsx`;
+        XLSX.writeFile(excelWb, outName);
         
         const t=document.getElementById('toast'); 
         t.innerText = "Excelを出力しました";
         t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
     }
+    // ------------------------------------
 
     function autoAlign(){
         const comp = [];
@@ -1844,14 +1838,19 @@
             }catch(e){console.error('Open failed:',e);}
         } else document.getElementById('f-in').click();
     }
+    
+    // 💡 保存時の通知メッセージ変更
     async function saveOver(){
         if(fH){
             try{
                 const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close();
-                const t=document.getElementById('toast'); t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
+                const t=document.getElementById('toast'); 
+                t.innerText = "保存しました（Excel設定含む）";
+                t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
             }catch(e){console.error('Save failed:',e);}
         } else saveAs();
     }
+    
     async function saveAs(){
         if(window.showSaveFilePicker){
             try{
@@ -1863,7 +1862,9 @@
             a.download=`map_${todayStr}.json`; a.click();
         }
     }
+    
     function loadFileFallback(i){const f=i.files[0]; if(f){const r=new FileReader(); r.onload=e=>load(e.target.result); r.readAsText(f);}}
+    
     function load(t){
         try{
             const j=JSON.parse(t); 
@@ -1872,13 +1873,32 @@
                     if(!n.f && n.fields) n.f = n.fields;
                     if(!n.pIds && n.parentIds) n.pIds = n.parentIds;
                 });
+                
+                // 💡 マッピング情報がない過去のファイルへの互換性対応
+                if (!j.cellMappings) j.cellMappings = {};
+                
                 st=j;
                 st.sel=new Set();
+                
+                // 💡 Base64データがあればExcelビューを復元
+                if(st.docTemplate) {
+                    loadExcelFromBase64(st.docTemplate);
+                } else {
+                    excelWb = null;
+                    document.getElementById('excel-table-container').innerHTML = '<div style="color:#999; text-align:center; padding-top:50px;">上部のボタンからテンプレート(xlsx/xls)を読み込んでください</div>';
+                }
+                
                 fitToScreen();
                 ren();
+                
+                if(mode==='doc') {
+                    renderDocPalette();
+                    if(excelWb) renderExcelTable();
+                }
             }
         }catch(e){alert("読込エラー"); console.error(e);}
     }
+    
     function newFile(){
         if(confirm("新規作成しますか？")){
             st={
@@ -1896,11 +1916,17 @@
                     ],
                     x:0, y:0, pIds:[]
                 }],
-                sel:new Set()
+                sel:new Set(),
+                docTemplate: null,
+                docTemplateName: "",
+                cellMappings: {}
             };
             fH=null;
             document.getElementById('f-name').innerText='(未保存)';
+            excelWb = null;
+            document.getElementById('excel-table-container').innerHTML = '<div style="color:#999; text-align:center; padding-top:50px;">上部のボタンからテンプレート(xlsx/xls)を読み込んでください</div>';
             fitToScreen();
+            if(mode==='doc') renderDocPalette();
         }
     }
 
