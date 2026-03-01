@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v9.5 (Multi I/O Binding)</title>
+<title>Pro Map Suite v9.6 (Fix & All-Lane)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
@@ -143,7 +143,6 @@
     .btn-c{background:#eee;color:#333;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;font-weight:bold;}
     input[type="range"]{width:100%;}
     
-    /* 💡 I/Oの追加ボタン用スタイル */
     .add-btn { background:#ecf0f1; border:1px dashed #bdc3c7; border-radius:4px; padding:4px 8px; font-size:11px; cursor:pointer; color:#7f8c8d; margin-top:4px; width:100%; transition: 0.2s;}
     .add-btn:hover { background:#dcdcdc; color:#333; }
 
@@ -324,10 +323,121 @@
     <div id="pres" class="pnl"><button onclick="startPresentation()">▶</button><div id="p-nav" style="display:none;align-items:center;"><button onclick="prevSlide()">◀</button><span id="s-num" style="font-size:12px;margin:0 5px;"></span><button onclick="nextSlide()">▶</button><button onclick="stopPresentation()">■</button></div></div>
 
 <script>
+    // --- 💡 必須関数群のホイスティング用先行定義 ---
+    function fitToScreen(){
+        if(!st.nodes.length)return;
+        let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
+        st.nodes.forEach(n=>{
+            const nx=n.x||0, ny=n.y||0;
+            if(nx<Mx)Mx=nx; if(ny<My)My=ny; if(nx+240>mx)mx=nx+240; if(ny+160>my)my=ny+160;
+        });
+        const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
+        const c = document.getElementById('canvas');
+        if(c) c.classList.add('smooth');
+        st.sc=Math.max(0.1,sc); 
+        st.x=-(Mx+(mx-Mx)/2)*st.sc; 
+        st.y=-(My+(my-My)/2)*st.sc; 
+        ren();
+        setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400);
+    }
+    function zoomIn(){
+        const c = document.getElementById('canvas');
+        if(c) c.classList.add('smooth'); st.sc*=1.2; ren();
+        setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400);
+    }
+    function zoomOut(){
+        const c = document.getElementById('canvas');
+        if(c) c.classList.add('smooth'); st.sc = Math.max(0.1, st.sc * 0.8); ren();
+        setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400);
+    }
+    function autoAlign(){
+        const comp = []; const visited = new Set(); const adj = {};
+        st.nodes.forEach(n => adj[n.id] = []);
+        st.nodes.forEach(n => {
+            n.pIds.forEach(pid => {
+                if(adj[pid]) adj[pid].push(n.id);
+                if(adj[n.id]) adj[n.id].push(pid);
+            });
+        });
+        st.nodes.forEach(n => {
+            if(!visited.has(n.id)){
+                const c = []; const q = [n.id]; visited.add(n.id);
+                while(q.length > 0){
+                    const cur = q.shift(); c.push(cur);
+                    adj[cur].forEach(nei => {
+                        if(!visited.has(nei)){ visited.add(nei); q.push(nei); }
+                    });
+                }
+                comp.push(c);
+            }
+        });
+        let currentYOffset = 0;
+        comp.forEach(cIds => {
+            const cNodes = st.nodes.filter(n => cIds.includes(n.id));
+            const levels = {}; cNodes.forEach(n => levels[n.id] = 0);
+            let changed = true;
+            for(let iter=0; iter<50 && changed; iter++){
+                changed = false;
+                cNodes.forEach(n => {
+                    if(n.pIds.length > 0){
+                        const pLv = n.pIds.map(pid => levels[pid]).filter(l => l !== undefined);
+                        if(pLv.length > 0) {
+                            const maxParentLevel = Math.max(...pLv);
+                            if(levels[n.id] !== maxParentLevel + 1){
+                                levels[n.id] = maxParentLevel + 1; changed = true;
+                            }
+                        }
+                    }
+                });
+            }
+            const groups = {};
+            cNodes.forEach(n => {
+                const lv = levels[n.id];
+                if(!groups[lv]) groups[lv] = [];
+                groups[lv].push(n);
+            });
+            let maxNodesInLevel = 0;
+            Object.values(groups).forEach(g => { if(g.length > maxNodesInLevel) maxNodesInLevel = g.length; });
+            const compHeight = maxNodesInLevel * 200;
+            Object.keys(groups).forEach(lv => {
+                const nodes = groups[lv]; const spacing = 200;
+                const startY = currentYOffset - (nodes.length - 1) * spacing / 2;
+                nodes.forEach((n, i) => { n.x = parseInt(lv) * 350; n.y = startY + i * spacing; });
+            });
+            currentYOffset += compHeight + 100; 
+        });
+        const c = document.getElementById('canvas');
+        if(c) c.classList.add('smooth');
+        ren();
+        setTimeout(() => { if(c) c.classList.remove('smooth'); fitToScreen(); }, 400);
+    }
+    function runPhy(){
+        let i=0; 
+        const tick=()=>{
+            if(!phy.act || i>100){ phy.act=false; ren(); return; }
+            let mv=false;
+            for(let a of st.nodes){
+                for(let b of st.nodes){
+                    if(a===b)continue;
+                    const dx=(a.x||0)-(b.x||0), dy=(a.y||0)-(b.y||0), d=Math.sqrt(dx*dx+dy*dy);
+                    if(d<280 && d>0.1){
+                        const f=(280-d)*0.15; const ang=Math.atan2(dy,dx);
+                        a.x=(a.x||0)+Math.cos(ang)*f; a.y=(a.y||0)+Math.sin(ang)*f; mv=true;
+                    }
+                }
+            }
+            if(mv)ren(); 
+            i++; 
+            if(!mv && i>15){ phy.act=false; ren(); return; }
+            requestAnimationFrame(tick);
+        }; 
+        tick();
+    }
+
+    // --- メイン処理 ---
     const todayStr = new Date().toISOString().slice(0, 10);
     const dCols = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
     
-    // 💡 状態管理オブジェクトに inputs / outputs の初期枠を追加
     let st = { 
         sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], 
         nodes: [{ 
@@ -336,18 +446,12 @@
             inputs: [], outputs: [],
             x: 0, y: 0, pIds: [] 
         }], 
-        sel: new Set([1]),
-        docTemplate: null,       
-        docTemplateName: "",     
-        cellMappings: {}         
+        sel: new Set([1]), docTemplate: null, docTemplateName: "", cellMappings: {}         
     };
     
     let pre = { act: false, idx: 0 }, lnk = { act: false, src: null }, phy = { act: false }, clip = null, curEd = null, mode = 'map';
     let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;
-    let gZoom = 1, sZoom = 1;
-    let dragDept = null, dragType = null; 
-    let excelWb = null;
-    let currentSheetName = null;
+    let gZoom = 1, sZoom = 1; let dragDept = null, dragType = null; let excelWb = null; let currentSheetName = null;
 
     function base64ToArrayBuffer(base64) {
         const binary_string = window.atob(base64);
@@ -355,29 +459,6 @@
         const bytes = new Uint8Array(len);
         for (let i = 0; i < len; i++) bytes[i] = binary_string.charCodeAt(i);
         return bytes.buffer;
-    }
-
-    function drawRoundedPath(points, r) {
-        let d = `M ${points[0].x} ${points[0].y}`;
-        for (let i = 1; i < points.length - 1; i++) {
-            const p0 = points[i - 1], p1 = points[i], p2 = points[i + 1];
-            const dx1 = p1.x - p0.x, dy1 = p1.y - p0.y, len1 = Math.sqrt(dx1*dx1 + dy1*dy1);
-            const dx2 = p2.x - p1.x, dy2 = p2.y - p1.y, len2 = Math.sqrt(dx2*dx2 + dy2*dy2);
-
-            const actualR = Math.min(r, len1 / 2, len2 / 2);
-            if (actualR <= 0.1) {
-                d += ` L ${p1.x} ${p1.y}`;
-                continue;
-            }
-            const startX = p1.x - (dx1 / len1) * actualR;
-            const startY = p1.y - (dy1 / len1) * actualR;
-            const endX = p1.x + (dx2 / len2) * actualR;
-            const endY = p1.y + (dy2 / len2) * actualR;
-            d += ` L ${startX} ${startY} Q ${p1.x} ${p1.y} ${endX} ${endY}`;
-        }
-        const last = points[points.length - 1];
-        d += ` L ${last.x} ${last.y}`;
-        return d;
     }
 
     function init() {
@@ -392,53 +473,27 @@
             p.ontouchstart = e => start(e, e.touches[0].clientX, e.touches[0].clientY);
         });
         window.onmousemove = e => {
-            if(panD.act && panD.el){ 
-                panD.el.style.left=(e.clientX-panD.ox)+'px'; 
-                panD.el.style.top=(e.clientY-panD.oy)+'px'; 
-                return; 
-            }
+            if(panD.act && panD.el){ panD.el.style.left=(e.clientX-panD.ox)+'px'; panD.el.style.top=(e.clientY-panD.oy)+'px'; return; }
             if(mapD){
                 if(mapD.t==='pan'){ st.x+=e.clientX-mapD.x; st.y+=e.clientY-mapD.y; }
                 else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id==id); if(n){n.x+=(e.clientX-mapD.x)/st.sc; n.y+=(e.clientY-mapD.y)/st.sc;} }); }
                 mapD.x=e.clientX; mapD.y=e.clientY; ren(); return;
             }
             if(mode==='map' && e.shiftKey){
-                const lp=document.getElementById('loupe');
-                const lc=document.getElementById('loupe-content');
-                lp.style.display='block';
-                lp.style.left=(e.clientX-125)+'px';
-                lp.style.top=(e.clientY-125)+'px';
-                const worldX = (e.clientX - st.x - innerWidth/2) / st.sc;
-                const worldY = (e.clientY - st.y - innerHeight/2) / st.sc;
-                const zoom = 3;
-                const tx = 125 - worldX * zoom * st.sc;
-                const ty = 125 - worldY * zoom * st.sc;
+                const lp=document.getElementById('loupe'); const lc=document.getElementById('loupe-content');
+                lp.style.display='block'; lp.style.left=(e.clientX-125)+'px'; lp.style.top=(e.clientY-125)+'px';
+                const worldX = (e.clientX - st.x - innerWidth/2) / st.sc; const worldY = (e.clientY - st.y - innerHeight/2) / st.sc;
+                const zoom = 3; const tx = 125 - worldX * zoom * st.sc; const ty = 125 - worldY * zoom * st.sc;
                 lc.innerHTML = document.getElementById('canvas').innerHTML;
                 lc.style.transform = `translate(${tx}px, ${ty}px) scale(${zoom * st.sc})`;
                 document.body.classList.add('magnify-cursor');
             } else {
-                document.getElementById('loupe').style.display='none';
-                document.body.classList.remove('magnify-cursor');
+                document.getElementById('loupe').style.display='none'; document.body.classList.remove('magnify-cursor');
             }
         };
-
-        window.onmouseup = () => { 
-            panD.act=false;
-            const vp = document.getElementById('viewport');
-            vp.style.willChange = 'auto';
-            if(mapD && mapD.t==='node'){ phy.act = true; runPhy(); }
-            mapD=null; 
-        };
-        
+        window.onmouseup = () => { panD.act=false; const vp = document.getElementById('viewport'); vp.style.willChange = 'auto'; if(mapD && mapD.t==='node'){ phy.act = true; runPhy(); } mapD=null; };
         const vp = document.getElementById('viewport');
-        vp.onmousedown = e => { 
-            if(e.target===vp||e.target.id==='canvas'){ 
-                mapD={t:'pan',x:e.clientX,y:e.clientY}; 
-                vp.style.willChange = 'background-position';
-                if(pre.act)stopPresentation(); 
-            }
-        };
-        
+        vp.onmousedown = e => { if(e.target===vp||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; vp.style.willChange = 'background-position'; if(pre.act)stopPresentation(); }};
         vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); const os=st.sc; st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/os*st.sc; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/os*st.sc; ren(); };
         
         document.onkeydown = e => {
@@ -461,7 +516,6 @@
                 if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}
             }
         };
-        
         const qIn = document.getElementById('q-in');
         qIn.oninput = e => {
             if(e.isComposing) return;
@@ -485,84 +539,32 @@
         return getField(n,"担当部署") || "全体";
     }
 
+    // 💡 修正：「全体」はスイムレーンで単独の列を作らない
     function getOrd(t){
         const isSwim = (t === 's' || t === 'swim');
         const act=new Set(); 
         st.nodes.forEach(n=>{
             const ds = (getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);
             if(!isSwim) {
-                if (ds.length <= 1) act.add(ds[0] || "未配属");
+                if (ds.length === 0) act.add("全体");
+                else if (ds.length <= 1) act.add(ds[0] || "全体");
             } else {
                 if (ds.length === 0) act.add("未配属");
-                else ds.forEach(d => act.add(d));
+                else ds.forEach(d => { if(d !== "全体") act.add(d); });
             }
         });
         let l = isSwim ? st.sOrd : st.gOrd; 
         if(!l) l = [];
         act.forEach(d=>{ if(!l.includes(d)) l.push(d); });
         l = l.filter(d=>act.has(d));
+        if(isSwim && l.length === 0) l.push("未配属");
         if(isSwim) st.sOrd = l; else st.gOrd = l;
         return l;
     }
 
-    function mvD(t,d,dir){
-        const isSwim = (t === 's' || t === 'swim');
-        const l = isSwim ? st.sOrd : st.gOrd; 
-        const i = l.indexOf(d);
-        if(i>-1 && i+dir>=0 && i+dir<l.length){ 
-            [l[i],l[i+dir]]=[l[i+dir],l[i]]; 
-            if(isSwim) renderSwimlane(); else renderGantt(); 
-        }
-    }
-
-    function onDragStartDept(e, type, dept) {
-        dragDept = dept;
-        dragType = type;
-        e.dataTransfer.effectAllowed = 'move';
-        if(e.dataTransfer.setData) e.dataTransfer.setData('text/plain', dept);
-        setTimeout(() => {
-            document.body.classList.add('is-dragging'); 
-            if (type === 's') e.target.parentElement.style.opacity = '0.6';
-            else e.target.style.opacity = '0.6';
-        }, 0);
-    }
-    function onDragOverDept(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; return false; }
-    function onDragEnterDept(e, dept) { e.preventDefault(); if(dept !== dragDept) e.currentTarget.classList.add('drag-over'); }
-    function onDragLeaveDept(e) { e.currentTarget.classList.remove('drag-over'); }
-    
-    function onDropDept(e, type, targetDept) {
-        e.preventDefault();
-        e.stopPropagation();
-        e.currentTarget.classList.remove('drag-over');
-        if (dragDept && dragDept !== targetDept && dragType === type) {
-            let arr = getOrd(type); 
-            const fromIdx = arr.indexOf(dragDept);
-            const toIdx = arr.indexOf(targetDept);
-            if (fromIdx !== -1 && toIdx !== -1) {
-                arr.splice(fromIdx, 1);
-                arr.splice(toIdx, 0, dragDept);
-                const isSwim = (type === 's' || type === 'swim');
-                if (isSwim) { st.sOrd = arr; renderSwimlane(); } 
-                else { st.gOrd = arr; renderGantt(); }
-            }
-        }
-        dragDept = null; dragType = null;
-        document.body.classList.remove('is-dragging');
-    }
-    
-    function onDragEndDept(e) {
-        if (dragType === 's') e.target.parentElement.style.opacity = '1';
-        else e.target.style.opacity = '1';
-        document.body.classList.remove('is-dragging');
-        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
-        dragDept = null; dragType = null;
-    }
-
-    // 💡 複数Input/Output対応のUI用スクリプト
     function addInputRow(name, path) {
         const cont = document.getElementById('m-inputs-container');
-        const row = document.createElement('div');
-        row.style.display = 'flex'; row.style.gap = '5px'; row.style.marginBottom = '5px';
+        const row = document.createElement('div'); row.style.display = 'flex'; row.style.gap = '5px'; row.style.marginBottom = '5px';
         row.innerHTML = `
             <input type="text" class="in-name" placeholder="名称" value="${name}" style="flex:1;">
             <input type="text" class="in-path" placeholder="パス/URL" value="${path}" style="flex:1; font-size:11px; background:#f9f9f9; color:#2980b9;">
@@ -572,8 +574,7 @@
     }
     function addOutputRow(name, path) {
         const cont = document.getElementById('m-outputs-container');
-        const row = document.createElement('div');
-        row.style.display = 'flex'; row.style.gap = '5px'; row.style.marginBottom = '5px';
+        const row = document.createElement('div'); row.style.display = 'flex'; row.style.gap = '5px'; row.style.marginBottom = '5px';
         row.innerHTML = `
             <input type="text" class="out-name" placeholder="名称" value="${name}" style="flex:1;">
             <input type="text" class="out-path" placeholder="パス/URL" value="${path}" style="flex:1; font-size:11px; background:#f9f9f9; color:#2980b9;">
@@ -586,12 +587,10 @@
         if(mode!=='map')return;
         const an=ana(); const c=document.getElementById('canvas');
         if(!c) return; 
-        
         const vp = document.getElementById('viewport');
         c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
         vp.style.backgroundSize=`${20*st.sc}px ${20*st.sc}px`; 
         vp.style.backgroundPosition=`${st.x+innerWidth/2}px ${st.y+innerHeight/2}px`;
-
         const ex=c.querySelectorAll('.node'); 
         ex.forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
         
@@ -627,14 +626,12 @@
             if (isDecision && stt === "done") {
                 if(!el.querySelector('.stamp')) el.insertAdjacentHTML('beforeend', '<div class="stamp">APPROVED</div>');
             } else {
-                const stp = el.querySelector('.stamp');
-                if(stp) stp.remove();
+                const stp = el.querySelector('.stamp'); if(stp) stp.remove();
             }
 
             el.querySelector('.np-bar').style.width=(getField(d,"進捗")||0)+'%';
             const nf=el.querySelector('.nf'); nf.innerHTML='';
             
-            // 💡 複数I/Oの描画
             if (d.inputs && d.inputs.length > 0) {
                 d.inputs.forEach((inp, idx) => {
                     const r=document.createElement('div'); r.className='fr';
@@ -653,7 +650,7 @@
             }
 
             d.f.forEach(f=>{
-                if(f.l==='Input' || f.l==='Output' || f.l==='InputPath' || f.l==='OutputPath') return; // 旧形式はスキップ
+                if(f.l==='Input' || f.l==='Output' || f.l==='InputPath' || f.l==='OutputPath') return; 
                 if(isDecision && (f.l==='担当部署')) return;
                 if(!isDecision && (f.l==='Control' || f.l==='合意部署')) return;
                 if(f.l==='Control' && !f.v) return;
@@ -679,21 +676,12 @@
                     const er=an.err.has(n.id) && an.err.has(pid);
                     const sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
                     let cls = 'chart-arrow';
-                    if (er) cls += ' err';
-                    else if (cr) cls += ' crit';
+                    if (er) cls += ' err'; else if (cr) cls += ' crit';
                     h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="${cls}" marker-end="url(#ah)"/>`;
                 }
             });
         });
         pg.innerHTML=h;
-    }
-
-    function changeGanttScale(v){
-        gSc=v;
-        document.getElementById('sc-day').className = v===1?'act':'';
-        document.getElementById('sc-month').className = v===30?'act':'';
-        document.getElementById('sc-quarter').className = v===90?'act':'';
-        renderGantt();
     }
 
     function renderGantt(){
@@ -707,139 +695,69 @@
         });
         mn=addDays(mn,-5); mx=addDays(mx,30); 
         const days=Math.max(10,Math.ceil((mx-mn)/86400000));
-        
-        let px=40; 
-        if(gSc===30)px=20;
-        if(gSc===90)px=8;
-        
+        let px=40; if(gSc===30)px=20; if(gSc===90)px=8;
         const hd=document.createElement('div'); hd.className='g-hdr'; hd.style.position='sticky'; hd.style.top='0'; hd.style.height='40px';
-        
         if(gSc===1){
             for(let i=0;i<=days;i++){
-                const d=addDays(mn,i);
-                const ce=document.createElement('div');
-                ce.className='g-cell';
-                ce.style.width=px+'px';
-                ce.innerText=`${d.getMonth()+1}/${d.getDate()}`;
-                hd.appendChild(ce);
+                const d=addDays(mn,i); const ce=document.createElement('div');
+                ce.className='g-cell'; ce.style.width=px+'px'; ce.innerText=`${d.getMonth()+1}/${d.getDate()}`; hd.appendChild(ce);
             }
         } else if(gSc===30){
             let curMonth=-1, curYear=-1;
             for(let i=0;i<=days;i++){
-                const d=addDays(mn,i);
-                const m=d.getMonth(), y=d.getFullYear();
+                const d=addDays(mn,i); const m=d.getMonth(), y=d.getFullYear();
                 if(m!==curMonth || y!==curYear){
-                    const lbl=document.createElement('div');
-                    lbl.className='g-month-lbl';
-                    lbl.style.left=(i*px)+'px';
-                    lbl.innerText=`${y}/${m+1}月`;
-                    hd.appendChild(lbl);
-                    const sep=document.createElement('div');
-                    sep.className='g-month-sep';
-                    sep.style.left=(i*px)+'px';
-                    hd.appendChild(sep);
+                    const lbl=document.createElement('div'); lbl.className='g-month-lbl'; lbl.style.left=(i*px)+'px'; lbl.innerText=`${y}/${m+1}月`; hd.appendChild(lbl);
+                    const sep=document.createElement('div'); sep.className='g-month-sep'; sep.style.left=(i*px)+'px'; hd.appendChild(sep);
                     curMonth=m; curYear=y;
                 }
             }
         } else {
-            const getFiscalQ=(d)=>{
-                const m = d.getMonth();
-                if(m >= 3 && m <= 5) return 1;
-                if(m >= 6 && m <= 8) return 2;
-                if(m >= 9 && m <= 11) return 3;
-                return 4;
-            };
-            const getQMonths=(q)=>{
-                if(q===1) return '4-6月';
-                if(q===2) return '7-9月';
-                if(q===3) return '10-12月';
-                return '1-3月';
-            };
+            const getFiscalQ=(d)=>{ const m=d.getMonth(); if(m>=3&&m<=5)return 1; if(m>=6&&m<=8)return 2; if(m>=9&&m<=11)return 3; return 4; };
+            const getQMonths=(q)=>{ if(q===1)return '4-6月'; if(q===2)return '7-9月'; if(q===3)return '10-12月'; return '1-3月'; };
             let shown = new Set();
             for(let i=0;i<=days;i++){
-                const d=addDays(mn,i);
-                const m=d.getMonth();
-                const q=getFiscalQ(d);
-                const y=d.getFullYear();
-                const fiscalYear = m < 3 ? y : y+1;
-                const key=`${fiscalYear}-FQ${q}`;
+                const d=addDays(mn,i); const m=d.getMonth(); const q=getFiscalQ(d); const y=d.getFullYear();
+                const fiscalYear = m < 3 ? y : y+1; const key=`${fiscalYear}-FQ${q}`;
                 const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
                 const isFirstOccurrence = !shown.has(key) && (i===0 || isQuarterStart);
                 if(isFirstOccurrence){
-                    const lbl=document.createElement('div');
-                    lbl.className='g-quarter-lbl';
-                    lbl.style.left=(i*px)+'px';
+                    const lbl=document.createElement('div'); lbl.className='g-quarter-lbl'; lbl.style.left=(i*px)+'px';
                     lbl.innerHTML=`FY${fiscalYear}/Q${q}<br><span style="font-size:10px;color:#7f8c8d;">${getQMonths(q)}</span>`;
                     hd.appendChild(lbl);
-                    const sep=document.createElement('div');
-                    sep.className='g-quarter-sep';
-                    sep.style.left=(i*px)+'px';
-                    hd.appendChild(sep);
+                    const sep=document.createElement('div'); sep.className='g-quarter-sep'; sep.style.left=(i*px)+'px'; hd.appendChild(sep);
                     shown.add(key);
                 }
             }
         }
-
-        const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`;
-        wp.appendChild(hd);
-
-        const gb=document.createElement('div'); 
-        gb.className='g-area'; 
-        gb.style.position='absolute'; 
-        gb.style.width='100%';
-        gb.style.marginLeft='200px';
+        const wp=document.createElement('div'); wp.className='g-wrap'; wp.style.minWidth=`${220+days*px}px`; wp.appendChild(hd);
+        const gb=document.createElement('div'); gb.className='g-area'; gb.style.position='absolute'; gb.style.width='100%'; gb.style.marginLeft='200px';
 
         if(gSc===1){
-            for(let i=0;i<=days;i++){
-                const l=document.createElement('div');
-                l.className='g-grid';
-                l.style.left=`${i*px}px`;
-                gb.appendChild(l);
-            }
+            for(let i=0;i<=days;i++){ const l=document.createElement('div'); l.className='g-grid'; l.style.left=`${i*px}px`; gb.appendChild(l); }
         } else if(gSc===30){
             let curMonth=-1, curYear=-1;
             for(let i=0;i<=days;i++){
-                const d=addDays(mn,i);
-                const m=d.getMonth(), y=d.getFullYear();
+                const d=addDays(mn,i); const m=d.getMonth(), y=d.getFullYear();
                 if(m!==curMonth || y!==curYear){
-                    const l=document.createElement('div');
-                    l.className='g-month-sep';
-                    l.style.left=`${i*px}px`;
-                    gb.appendChild(l);
+                    const l=document.createElement('div'); l.className='g-month-sep'; l.style.left=`${i*px}px`; gb.appendChild(l);
                     curMonth=m; curYear=y;
                 }
             }
         } else {
-            const getFiscalQ=(d)=>{
-                const m = d.getMonth();
-                if(m >= 3 && m <= 5) return 1;
-                if(m >= 6 && m <= 8) return 2;
-                if(m >= 9 && m <= 11) return 3;
-                return 4;
-            };
-            let shownQuarter = new Set();
-            let shownMonth = new Set();
+            const getFiscalQ=(d)=>{ const m=d.getMonth(); if(m>=3&&m<=5)return 1; if(m>=6&&m<=8)return 2; if(m>=9&&m<=11)return 3; return 4; };
+            let shownQuarter = new Set(); let shownMonth = new Set();
             for(let i=0;i<=days;i++){
-                const d=addDays(mn,i);
-                const m=d.getMonth();
-                const q=getFiscalQ(d);
+                const d=addDays(mn,i); const m=d.getMonth(); const q=getFiscalQ(d);
                 const fiscalYear = m < 3 ? d.getFullYear() : d.getFullYear()+1;
-                const qKey=`${fiscalYear}-FQ${q}`;
-                const mKey=`${d.getFullYear()}-${m}`;
+                const qKey=`${fiscalYear}-FQ${q}`; const mKey=`${d.getFullYear()}-${m}`;
                 const isQuarterStart = d.getDate()===1 && [3,6,9,0].includes(m);
                 const isFirstQuarter = !shownQuarter.has(qKey) && (i===0 || isQuarterStart);
                 if(isFirstQuarter){
-                    const l=document.createElement('div');
-                    l.className='g-quarter-sep';
-                    l.style.left=`${i*px}px`;
-                    gb.appendChild(l);
+                    const l=document.createElement('div'); l.className='g-quarter-sep'; l.style.left=`${i*px}px`; gb.appendChild(l);
                     shownQuarter.add(qKey);
-                }
-                else if(!shownMonth.has(mKey) && d.getDate()===1){
-                    const l=document.createElement('div');
-                    l.className='g-month-light';
-                    l.style.left=`${i*px}px`;
-                    gb.appendChild(l);
+                } else if(!shownMonth.has(mKey) && d.getDate()===1){
+                    const l=document.createElement('div'); l.className='g-month-light'; l.style.left=`${i*px}px`; gb.appendChild(l);
                     shownMonth.add(mKey);
                 }
             }
@@ -864,16 +782,11 @@
         items.forEach(it=>{
             const t=ts[it.n.id];
             if(it.d!==ld){
-                const gr=document.createElement('div'); 
-                gr.className='g-grp'+(it.d==='全体'?' all':'');
+                const gr=document.createElement('div'); gr.className='g-grp'+(it.d==='全体'?' all':'');
                 if(it.d !== '全体') {
-                    gr.draggable = true;
-                    gr.ondragstart = e => onDragStartDept(e, 'g', it.d);
-                    gr.ondragover = onDragOverDept;
-                    gr.ondragenter = e => onDragEnterDept(e, it.d);
-                    gr.ondragleave = onDragLeaveDept;
-                    gr.ondrop = e => onDropDept(e, 'g', it.d);
-                    gr.ondragend = onDragEndDept;
+                    gr.draggable = true; gr.ondragstart = e => onDragStartDept(e, 'g', it.d);
+                    gr.ondragover = onDragOverDept; gr.ondragenter = e => onDragEnterDept(e, it.d);
+                    gr.ondragleave = onDragLeaveDept; gr.ondrop = e => onDropDept(e, 'g', it.d); gr.ondragend = onDragEndDept;
                     const arr=`<span class="g-arr-btn" onclick="mvD('g','${it.d}',-1)">▲</span><span class="g-arr-btn" onclick="mvD('g','${it.d}',1)">▼</span>`;
                     gr.innerHTML=`<div style="width:200px;padding-left:10px;">${arr}<span style="opacity:0.4;margin-right:6px;cursor:grab;">⣿</span> 📂 ${it.d}</div>`;
                 } else {
@@ -886,7 +799,6 @@
             row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}">${it.n.title}</div>`;
             const area=document.createElement('div'); area.className='g-area';
             const off=Math.max(0,diffDays(mn,t.s)-1); const mil=t.dur===0;
-            
             const minBarWidth = gSc===1?px:gSc===30?px*2:px*7;
             
             const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p';
@@ -923,51 +835,15 @@
                         const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
                         pt.setAttribute('d',d); 
                         let cls = 'chart-arrow';
-                        const cr=an.crt.has(`${pid}-${it.n.id}`);
-                        const er=an.err.has(it.n.id) && an.err.has(pid);
+                        const cr=an.crt.has(`${pid}-${it.n.id}`); const er=an.err.has(it.n.id) && an.err.has(pid);
                         if (er) cls += ' err'; else if (cr) cls += ' crit';
-                        pt.setAttribute('class', cls);
-                        pt.setAttribute('marker-end','url(#ga)'); 
+                        pt.setAttribute('class', cls); pt.setAttribute('marker-end','url(#ga)'); 
                         svg.appendChild(pt);
                     }
                 });
             });
         }
-        wp.appendChild(svg); 
-        c.appendChild(wp);
-        
-        applyGanttZoom();
-    }
-
-    function ganttZoomIn(){ gZoom = Math.min(3, gZoom * 1.2); applyGanttZoom(); }
-    function ganttZoomOut(){ gZoom = Math.max(0.5, gZoom * 0.8); applyGanttZoom(); }
-    function ganttFitToScreen(){
-        const vb = document.getElementById('g-cnt');
-        const wrap = vb.querySelector('.g-wrap');
-        if(!wrap) return;
-        wrap.style.zoom = 1;
-        const contentWidth = wrap.scrollWidth;
-        const contentHeight = wrap.scrollHeight;
-        const viewWidth = vb.clientWidth;
-        const viewHeight = vb.clientHeight;
-        const scaleX = (viewWidth / contentWidth) * 0.95;
-        const scaleY = (viewHeight / contentHeight) * 0.95;
-        gZoom = Math.min(scaleX, scaleY, 1);
-        applyGanttZoom();
-        vb.scrollLeft = 0;
-        vb.scrollTop = 0;
-    }
-    function applyGanttZoom(){
-        const wrap = document.querySelector('.g-wrap');
-        if(!wrap) return;
-        if (CSS.supports("zoom", "1")) {
-            wrap.style.zoom = gZoom;
-        } else {
-            wrap.style.transform = `scale(${gZoom})`;
-            wrap.style.transformOrigin = "top left";
-            wrap.style.marginBottom = `${wrap.scrollHeight * (gZoom - 1)}px`;
-            wrap.style.marginRight = `${wrap.scrollWidth * (gZoom - 1)}px`;
-        }
+        wp.appendChild(svg); c.appendChild(wp); applyGanttZoom();
     }
     
     function renderSwimlane(){
@@ -983,8 +859,7 @@
                 if(n.pIds.length > 0){
                     const maxParentLevel = Math.max(...n.pIds.map(pid => levels[pid] || 0));
                     if(levels[n.id] !== maxParentLevel + 1){
-                        levels[n.id] = maxParentLevel + 1;
-                        changed = true;
+                        levels[n.id] = maxParentLevel + 1; changed = true;
                     }
                 }
             });
@@ -995,8 +870,14 @@
         const nodeSpan = {};
         sortedNodes.forEach(n => {
             const raw = getDept(n); 
-            const mds = raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d);
-            const deptIndices = mds.map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);
+            let deptIndices = [];
+            // 💡 スイムレーンで「全体」の時は全レーンにまたがるように処理
+            if (raw === "全体") {
+                deptIndices = ord.map((_, i) => i);
+            } else {
+                const mds = raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d);
+                deptIndices = mds.map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);
+            }
             if(deptIndices.length === 0) deptIndices.push(0);
             nodeSpan[n.id] = { minI: deptIndices[0], mx: deptIndices[deptIndices.length - 1], deptIndices };
         });
@@ -1005,19 +886,13 @@
         for(let i=0; i<=maxLv; i++) placed[i] = [];
         
         sortedNodes.forEach(n => {
-            const lv = levels[n.id];
-            const span = nodeSpan[n.id];
-            let yOff = 0;
-            let collision = true;
+            const lv = levels[n.id]; const span = nodeSpan[n.id]; let yOff = 0; let collision = true;
             while(collision){
-                collision = false;
-                const proposedY = lv * 300 + 80 + yOff * 160; 
+                collision = false; const proposedY = lv * 300 + 80 + yOff * 160; 
                 for(let p of placed[lv]){
                     const horizOverlap = !(span.mx < p.minI || span.minI > p.mx);
                     if(horizOverlap && Math.abs(proposedY - p.y) < 140 && p.yOff === yOff){
-                        collision = true;
-                        yOff++;
-                        break;
+                        collision = true; yOff++; break;
                     }
                 }
             }
@@ -1032,52 +907,29 @@
         }
 
         const levelStartY = { 0: 80 };
-        for(let i=1; i<=maxLv; i++) {
-            levelStartY[i] = levelStartY[i-1] + levelHeights[i-1];
-        }
+        for(let i=1; i<=maxLv; i++) levelStartY[i] = levelStartY[i-1] + levelHeights[i-1];
         
-        const cw=300, con=document.createElement('div'); 
-        con.className='s-cont'; 
-        con.style.width=`${ord.length*cw}px`;
-        
+        const cw=300, con=document.createElement('div'); con.className='s-cont'; con.style.width=`${ord.length*cw}px`;
         const cols = []; 
         ord.forEach((d,i)=>{
-            const col=document.createElement('div'); 
-            col.className='s-col'; 
-            col.style.background=dCols[i%6].bg; 
-            col.ondragover = onDragOverDept;
-            col.ondragenter = e => onDragEnterDept(e, d);
-            col.ondragleave = onDragLeaveDept;
-            col.ondrop = e => onDropDept(e, 's', d);
-            
-            const h=document.createElement('div'); 
-            h.className='s-hdr'; 
-            h.style.background=dCols[i%6].border;
+            const col=document.createElement('div'); col.className='s-col'; col.style.background=dCols[i%6].bg; 
+            col.ondragover = onDragOverDept; col.ondragenter = e => onDragEnterDept(e, d);
+            col.ondragleave = onDragLeaveDept; col.ondrop = e => onDropDept(e, 's', d);
+            const h=document.createElement('div'); h.className='s-hdr'; h.style.background=dCols[i%6].border;
             const arr=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span><span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span>`;
             h.innerHTML=`${arr} <span style="opacity:0.5; margin:0 6px; cursor:grab;">⣿</span> ${d}`;
-            h.draggable = true;
-            h.ondragstart = e => onDragStartDept(e, 's', d);
-            h.ondragend = onDragEndDept;
-            
-            col.appendChild(h);
-            con.appendChild(col);
-            cols.push(col);
+            h.draggable = true; h.ondragstart = e => onDragStartDept(e, 's', d); h.ondragend = onDragEndDept;
+            col.appendChild(h); con.appendChild(col); cols.push(col);
         });
         
         const ui={};
-        
         sortedNodes.forEach(n=>{
-            const span = nodeSpan[n.id];
-            const lv = levels[n.id];
-            const finalY = levelStartY[lv] + span.yOff * 160;
-            
+            const span = nodeSpan[n.id]; const lv = levels[n.id]; const finalY = levelStartY[lv] + span.yOff * 160;
             const el=document.createElement('div'); 
             const isDecision = (parseInt(getField(n,"期間")) || 0) === 0;
             el.className='node s-node' + (isDecision ? ' decision' : '');
             el.dataset.id = n.id;
-            el.style.width=`${(span.mx - span.minI + 1) * cw - 40}px`; 
-            el.style.left=`${span.minI * cw + 20}px`; 
-            el.style.top=`${finalY}px`;
+            el.style.width=`${(span.mx - span.minI + 1) * cw - 40}px`; el.style.left=`${span.minI * cw + 20}px`; el.style.top=`${finalY}px`;
             
             let deptIndicator = '';
             if(span.deptIndices.length > 1 && (span.mx - span.minI + 1) > span.deptIndices.length){
@@ -1088,13 +940,9 @@
                 }
                 deptIndicator += '</div>';
             }
-            
             el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${deptIndicator}<div style="padding:5px;font-size:11px;">${getField(n,"期間")} 日</div>`;
-            if (isDecision && getField(n,"ステータス") === "done") {
-                el.innerHTML += '<div class="stamp">APPROVED</div>';
-            }
-            el.onclick=()=>openEditModal(n.id); 
-            con.appendChild(el);
+            if (isDecision && getField(n,"ステータス") === "done") el.innerHTML += '<div class="stamp">APPROVED</div>';
+            el.onclick=()=>openEditModal(n.id); con.appendChild(el);
             ui[n.id]={l:span.minI*cw+20, r:(span.mx+1)*cw-20, t:finalY, b:finalY + 100, minI: span.minI, mx: span.mx};
         });
         
@@ -1113,42 +961,24 @@
         }, 0);
 
         function drawArrows(levelMaxB) {
-            const oldSvg = con.querySelector('svg');
-            if(oldSvg) oldSvg.remove();
-
+            const oldSvg = con.querySelector('svg'); if(oldSvg) oldSvg.remove();
             const maxY = Math.max(...Object.values(ui).map(u=>u.b), 500);
-            const viewH = c.clientHeight / (sZoom || 1);
-            const totalHeight = Math.max(maxY + 200, viewH + 100);
-            
-            con.style.height=`${totalHeight}px`;
-            con.style.minHeight=`${totalHeight}px`;
-            cols.forEach(col => {
-                col.style.height = `${totalHeight}px`;
-                col.style.minHeight = `${totalHeight}px`;
-            });
+            const viewH = c.clientHeight / (sZoom || 1); const totalHeight = Math.max(maxY + 200, viewH + 100);
+            con.style.height=`${totalHeight}px`; con.style.minHeight=`${totalHeight}px`;
+            cols.forEach(col => { col.style.height = `${totalHeight}px`; col.style.minHeight = `${totalHeight}px`; });
 
             const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); 
-            svg.style.position='absolute';
-            svg.style.top='0';
-            svg.style.left='0';
-            svg.style.width='100%';
-            svg.style.height='100%';
-            svg.style.zIndex=5;
+            svg.style.position='absolute'; svg.style.top='0'; svg.style.left='0'; svg.style.width='100%'; svg.style.height='100%'; svg.style.zIndex=5;
             svg.innerHTML='<defs><marker id="sa" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0, 7 2.5, 0 5" fill="#7f8c8d"/></marker></defs>';
 
-            const outCount = {}, inCount = {};
-            const edges = [];
+            const outCount = {}, inCount = {}; const edges = [];
             st.nodes.forEach(n => {
                 n.pIds.forEach(pid => {
-                    outCount[pid] = (outCount[pid] || 0) + 1;
-                    inCount[n.id] = (inCount[n.id] || 0) + 1;
-                    edges.push({p: pid, c: n.id});
+                    outCount[pid] = (outCount[pid] || 0) + 1; inCount[n.id] = (inCount[n.id] || 0) + 1; edges.push({p: pid, c: n.id});
                 });
             });
             
-            const outIndex = {}, inIndex = {};
-            const an = ana(); 
-            
+            const outIndex = {}, inIndex = {}; const an = ana(); 
             function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
                 const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
                 for (const id in ui) {
@@ -1168,36 +998,19 @@
                 return false;
             }
 
-            const hChannels = {}; 
-            const vChannels = {}; 
-
+            const hChannels = {}; const vChannels = {}; 
             edges.forEach((edge, edgeIdx) => {
-                const pid = edge.p;
-                const cid = edge.c;
-                const p = ui[pid], ch = ui[cid];
-                
+                const pid = edge.p; const cid = edge.c; const p = ui[pid], ch = ui[cid];
                 if(p && ch){
-                    outIndex[pid] = (outIndex[pid] || 0) + 1;
-                    inIndex[cid] = (inIndex[cid] || 0) + 1;
-
-                    const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20;
-                    const cOff = (inIndex[cid] - (inCount[cid] + 1) / 2) * 20;
-                    const sx = (p.l + p.r) / 2 + pOff;
-                    const sy = p.b;
-                    const ex = (ch.l + ch.r) / 2 + cOff;
-                    const ey = ch.t;
-
-                    const pLv = levels[pid];
-                    const cLv = levels[cid];
+                    outIndex[pid] = (outIndex[pid] || 0) + 1; inIndex[cid] = (inIndex[cid] || 0) + 1;
+                    const pOff = (outIndex[pid] - (outCount[pid] + 1) / 2) * 20; const cOff = (inIndex[cid] - (inCount[cid] + 1) / 2) * 20;
+                    const sx = (p.l + p.r) / 2 + pOff; const sy = p.b; const ex = (ch.l + ch.r) / 2 + cOff; const ey = ch.t;
+                    const pLv = levels[pid]; const cLv = levels[cid];
                     
-                    const trackY1 = (edgeIdx % 10) * 8;
-                    const trackY2 = (edgeIdx % 7) * 8;
-                    const trackX = ((edgeIdx % 5) - 2) * 8;
-
+                    const trackY1 = (edgeIdx % 10) * 8; const trackY2 = (edgeIdx % 7) * 8; const trackX = ((edgeIdx % 5) - 2) * 8;
                     let pts = [{x: sx, y: sy}];
                     hChannels[pLv] = (hChannels[pLv] || 0) + 1;
                     const outY = levelMaxB[pLv] + 15 + (hChannels[pLv] % 8) * 8; 
-                    
                     const targetHLv = cLv > 0 ? cLv - 1 : 0;
                     hChannels[targetHLv] = (hChannels[targetHLv] || 0) + 1;
                     let inY = levelStartY[cLv] - 15 - (hChannels[targetHLv] % 8) * 8;
@@ -1214,457 +1027,24 @@
                         vChannels[vCol] = (vChannels[vCol] || 0) + 1;
                         const vOffset = ((vChannels[vCol] % 6) - 2.5) * 6;
                         const vX = vCol * cw + vOffset;
-                        pts.push({x: vX, y: outY});
-                        pts.push({x: vX, y: inY});
+                        pts.push({x: vX, y: outY}); pts.push({x: vX, y: inY});
                     }
 
-                    pts.push({x: ex, y: inY});
-                    pts.push({x: ex, y: ey});
-                    
+                    pts.push({x: ex, y: inY}); pts.push({x: ex, y: ey});
                     const d = drawRoundedPath(pts, 12);
                     const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
-                    pt.setAttribute('d',d); 
-                    pt.setAttribute('marker-end','url(#sa)');
+                    pt.setAttribute('d',d); pt.setAttribute('marker-end','url(#sa)');
                     
-                    const cr = an.crt && an.crt.has(`${pid}-${cid}`);
-                    const er = an.err && an.err.has(cid) && an.err.has(pid);
+                    const cr = an.crt && an.crt.has(`${pid}-${cid}`); const er = an.err && an.err.has(cid) && an.err.has(pid);
                     let cls = 'chart-arrow';
                     if (er) cls += ' err'; else if (cr) cls += ' crit';
                     pt.setAttribute('class', cls);
-                    
                     svg.appendChild(pt);
                 }
             });
             con.appendChild(svg);
         }
-        c.appendChild(con);
-        applySwimZoom();
-    }
-
-    function swimZoomIn(){ sZoom = Math.min(3, sZoom * 1.2); renderSwimlane(); }
-    function swimZoomOut(){ sZoom = Math.max(0.5, sZoom * 0.8); renderSwimlane(); }
-    function fitSwimlane(){
-        const vb = document.getElementById('s-view').querySelector('.v-body');
-        const con = vb.querySelector('.s-cont');
-        if(!con) return;
-        con.style.zoom = 1;
-        const contentWidth = con.scrollWidth;
-        const contentHeight = con.scrollHeight;
-        const viewWidth = vb.clientWidth;
-        const viewHeight = vb.clientHeight;
-        const scaleX = (viewWidth / contentWidth) * 0.9;
-        const scaleY = (viewHeight / contentHeight) * 0.9;
-        sZoom = Math.min(scaleX, scaleY, 1);
-        renderSwimlane(); 
-        vb.scrollLeft = 0; vb.scrollTop = 0;
-    }
-
-    function applySwimZoom(){
-        const con = document.querySelector('.s-cont');
-        if(!con) return;
-        if (CSS.supports("zoom", "1")) {
-            con.style.zoom = sZoom;
-        } else {
-            con.style.transform = `scale(${sZoom})`;
-            con.style.transformOrigin = "top left";
-            con.style.marginBottom = `${con.scrollHeight * (sZoom - 1)}px`;
-            con.style.marginRight = `${con.scrollWidth * (sZoom - 1)}px`;
-        }
-    }
-
-    function ana(){
-        const ts={}; st.nodes.forEach(n=>ts[n.id]={s:parseDate(getField(n,"予定開始")), e:parseDate(getField(n,"予定終了"))});
-        const err=new Set(), crt=new Set();
-        st.nodes.forEach(n=>{
-            const s=ts[n.id].s;
-            n.pIds.forEach(pid=>{
-                const p=ts[pid];
-                if(p && p.e && s && p.e>s){err.add(n.id); err.add(pid);}
-                if(p && p.e && s && diffDays(p.e,s)<=1) crt.add(`${pid}-${n.id}`);
-            });
-        });
-        return {err,crt};
-    }
-    
-    function sel(id,mul){
-        if(!mul)st.sel.clear();
-        if(id) st.sel.has(id)?st.sel.delete(id):st.sel.add(id);
-        st.selectedId=id; 
-        if(lnk.act && st.sel.size===1) lnk.src=Array.from(st.sel)[0];
-        ren();
-    }
-    function addNode(type){
-        if(st.sel.size===0)return;
-        const p=st.nodes.find(n=>n.id==Array.from(st.sel)[0]); if(!p)return;
-        const id=Date.now() + Math.floor(Math.random()*1000), isC=type==='child';
-        const nx=isC?(p.x||0)+300:(p.x||0), ny=isC?(p.y||0):(p.y||0)+160;
-        let s=todayStr;
-        if(isC) {
-            const pe = parseDate(getField(p,"予定終了"));
-            s = pe ? addDays(pe, 1).toISOString().slice(0,10) : todayStr;
-        } else {
-            s = getField(p,"予定開始")||todayStr;
-        }
-        st.nodes.push({
-            id, title:"Task", 
-            f:[
-                {l:"予定開始",v:s}, {l:"期間",v:"1"}, {l:"予定終了",v:s},
-                {l:"担当部署",v:getField(p,"担当部署")||"全体"}, {l:"ステータス",v:"todo"}, {l:"進捗",v:"0"}
-            ], 
-            inputs: [], outputs: [],
-            x:nx, y:ny, pIds:isC?[p.id]:[...p.pIds]
-        });
-        sel(id,false); openEditModal(id, true);
-    }
-    
-    function autoAlign(){
-        const comp = [];
-        const visited = new Set();
-        const adj = {};
-        st.nodes.forEach(n => adj[n.id] = []);
-        st.nodes.forEach(n => {
-            n.pIds.forEach(pid => {
-                if(adj[pid]) adj[pid].push(n.id);
-                if(adj[n.id]) adj[n.id].push(pid);
-            });
-        });
-
-        st.nodes.forEach(n => {
-            if(!visited.has(n.id)){
-                const c = [];
-                const q = [n.id];
-                visited.add(n.id);
-                while(q.length > 0){
-                    const cur = q.shift();
-                    c.push(cur);
-                    adj[cur].forEach(nei => {
-                        if(!visited.has(nei)){
-                            visited.add(nei);
-                            q.push(nei);
-                        }
-                    });
-                }
-                comp.push(c);
-            }
-        });
-
-        let currentYOffset = 0;
-
-        comp.forEach(cIds => {
-            const cNodes = st.nodes.filter(n => cIds.includes(n.id));
-            const levels = {};
-            cNodes.forEach(n => levels[n.id] = 0);
-            
-            let changed = true;
-            for(let iter=0; iter<50 && changed; iter++){
-                changed = false;
-                cNodes.forEach(n => {
-                    if(n.pIds.length > 0){
-                        const pLv = n.pIds.map(pid => levels[pid]).filter(l => l !== undefined);
-                        if(pLv.length > 0) {
-                            const maxParentLevel = Math.max(...pLv);
-                            if(levels[n.id] !== maxParentLevel + 1){
-                                levels[n.id] = maxParentLevel + 1;
-                                changed = true;
-                            }
-                        }
-                    }
-                });
-            }
-
-            const groups = {};
-            cNodes.forEach(n => {
-                const lv = levels[n.id];
-                if(!groups[lv]) groups[lv] = [];
-                groups[lv].push(n);
-            });
-
-            let maxNodesInLevel = 0;
-            Object.values(groups).forEach(g => { if(g.length > maxNodesInLevel) maxNodesInLevel = g.length; });
-            const compHeight = maxNodesInLevel * 200;
-
-            Object.keys(groups).forEach(lv => {
-                const nodes = groups[lv];
-                const spacing = 200;
-                const startY = currentYOffset - (nodes.length - 1) * spacing / 2;
-                
-                nodes.forEach((n, i) => {
-                    n.x = parseInt(lv) * 350;
-                    n.y = startY + i * spacing;
-                });
-            });
-
-            currentYOffset += compHeight + 100; 
-        });
-
-        const c = document.getElementById('canvas');
-        c.classList.add('smooth');
-        ren();
-        setTimeout(() => {
-            c.classList.remove('smooth');
-            fitToScreen();
-        }, 400);
-    }
-    
-    function addFreeNode(){
-        const id=Date.now() + Math.floor(Math.random()*1000);
-        phy.act = false;
-        const cx = -(st.x||0) / (st.sc||1) - 120 + (Math.random() - 0.5) * 40;
-        const cy = -(st.y||0) / (st.sc||1) - 80 + (Math.random() - 0.5) * 40;
-        st.nodes.push({
-            id, title:"Task", 
-            f:[
-                {l:"予定開始",v:todayStr}, {l:"期間",v:"1"}, {l:"予定終了",v:todayStr},
-                {l:"担当部署",v:"全体"}, {l:"ステータス",v:"todo"}, {l:"進捗",v:"0"}
-            ], 
-            inputs: [], outputs: [],
-            x:cx, y:cy, pIds:[]
-        });
-        sel(id,false); ren();
-        setTimeout(() => { phy.act = true; runPhy(); }, 100);
-        setTimeout(()=>openEditModal(id, true),200);
-    }
-
-    function deleteSelected(){
-        if(st.sel.size===0||!confirm("削除しますか？"))return;
-        st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));
-        st.nodes.forEach(n=>n.pIds=n.pIds.filter(pid=>!st.sel.has(pid)));
-        st.sel.clear(); ren();
-    }
-    function toggleLinkMode(){
-        if(st.sel.size!==1 && !lnk.act){alert("親ノードを1つ選択してください");return;}
-        lnk.act=!lnk.act; 
-        lnk.src=lnk.act ? Array.from(st.sel)[0] : null;
-        document.getElementById('b-lnk').className=lnk.act?'lnk':'';
-        ren();
-    }
-    function toggleConnection(tid, isAlt){
-        let src = lnk.src;
-        if(isAlt){
-            if(st.sel.size!==1)return;
-            src=Array.from(st.sel)[0];
-        }
-        if(!src || src===tid) return;
-        const t=st.nodes.find(n=>n.id===tid);
-        const idx=t.pIds.indexOf(src);
-        if(idx>=0) t.pIds.splice(idx,1); else {
-            t.pIds.push(src);
-            const p=st.nodes.find(n=>n.id===src);
-            const pe=parseDate(getField(p,"予定終了"));
-            if(pe) {
-                const ns = addDays(pe, 1).toISOString().slice(0,10);
-                setField(t,"予定開始", ns);
-                const dur = parseInt(getField(t,"期間"))||1;
-                setField(t,"予定終了", addDays(parseDate(ns), dur-1).toISOString().slice(0,10));
-            }
-        }
-        ren();
-    }
-    
-    function toggleModalUI() {
-        const d = parseInt(document.getElementById('m-d').value) || 0;
-        const isDecision = (d === 0);
-        document.getElementById('m-decision-fields').style.display = isDecision ? 'block' : 'none';
-        document.getElementById('m-prog-wrap').style.display = isDecision ? 'none' : 'block';
-        document.getElementById('m-dep-wrap').style.display = isDecision ? 'none' : 'block';
-        document.getElementById('m-agree-dep-wrap').style.display = isDecision ? 'block' : 'none';
-    }
-
-    function syncAgreeDept() {
-        const agreeDep = document.getElementById('m-agree-dep');
-        if (agreeDep.dataset.autoSync !== "false") {
-            agreeDep.value = document.getElementById('m-dep').value;
-        }
-    }
-
-    function addLog() {
-        const input = document.getElementById('m-log-in');
-        const val = input.value.trim();
-        if(!val) return;
-        const n = st.nodes.find(x => x.id == curEd);
-        if(n) {
-            if(!n.logs) n.logs = [];
-            const now = new Date().toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
-            n.logs.push({date: now, comment: val});
-            const logList = document.getElementById('m-log-list');
-            logList.innerHTML += `<div style="border-bottom:1px solid #eee; padding:2px 0;"><span style="color:#888;">[${now}]</span> ${val}</div>`;
-            input.value = '';
-            ren();
-            if(mode==='doc') {
-                renderDocPalette();
-                if(excelWb) renderExcelTable();
-            }
-        }
-    }
-    
-    function openEditModal(id, isNewNode = false){
-        if(isNewNode) newNodeId = id;
-        curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
-        document.getElementById('m-tit').value=n.title;
-        
-        document.getElementById('m-dep').value=getField(n,"担当部署")||"";
-        document.getElementById('m-agree-dep').value=getField(n,"合意部署")||getField(n,"担当部署")||"";
-        document.getElementById('m-agree-dep').dataset.autoSync = getField(n,"合意部署") ? "false" : "true";
-
-        document.getElementById('m-s').value=getField(n,"予定開始");
-        document.getElementById('m-e').value=getField(n,"予定終了");
-        document.getElementById('m-d').value=parseInt(getField(n,"期間"))||1;
-        document.getElementById('m-st').value=getField(n,"ステータス")||"todo";
-        document.getElementById('m-p').value=parseInt(getField(n,"進捗"))||0; 
-        document.getElementById('m-pv').innerText=document.getElementById('m-p').value+'%';
-        document.getElementById('m-as').value=getField(n,"実績開始")||'';
-        document.getElementById('m-ae').value=getField(n,"実績終了")||'';
-        
-        // 💡 複数IOの復元
-        document.getElementById('m-inputs-container').innerHTML = '';
-        if (n.inputs && n.inputs.length > 0) {
-            n.inputs.forEach(i => addInputRow(i.name, i.path));
-        } else {
-            let legacyName = getField(n, "Input"); let legacyPath = getField(n, "InputPath");
-            if(legacyName || legacyPath) addInputRow(legacyName||'', legacyPath||''); else addInputRow('','');
-        }
-
-        document.getElementById('m-outputs-container').innerHTML = '';
-        if (n.outputs && n.outputs.length > 0) {
-            n.outputs.forEach(o => addOutputRow(o.name, o.path));
-        } else {
-            let legacyName = getField(n, "Output"); let legacyPath = getField(n, "OutputPath");
-            if(legacyName || legacyPath) addOutputRow(legacyName||'', legacyPath||''); else addOutputRow('','');
-        }
-
-        document.getElementById('m-ctrl').value = getField(n, "Control") || "";
-
-        const logList = document.getElementById('m-log-list');
-        logList.innerHTML = '';
-        if(n.logs) {
-            n.logs.forEach(lg => {
-                logList.innerHTML += `<div style="border-bottom:1px solid #eee; padding:2px 0;"><span style="color:#888;">[${lg.date}]</span> ${lg.comment}</div>`;
-            });
-        }
-        
-        const dl=document.getElementById('m-dep-list');
-        dl.innerHTML='<option value="">-- 既存の部署から選択 --</option>';
-        const ds=new Set(); 
-        st.nodes.forEach(no=>{
-            (getField(no,"担当部署")||"").split(/[,、]/).forEach(d=>{ if(d.trim()) ds.add(d.trim()); });
-            (getField(no,"合意部署")||"").split(/[,、]/).forEach(d=>{ if(d.trim()) ds.add(d.trim()); });
-        });
-        ds.forEach(d=>{
-            const o=document.createElement('option'); 
-            o.value=d; o.innerText=d; dl.appendChild(o);
-        });
-        
-        toggleModalUI(); 
-        document.getElementById('modal').style.display='flex';
-        document.getElementById('m-tit').focus();
-    }
-
-    function addDeptFromList(){
-        const sel=document.getElementById('m-dep-list');
-        const val=sel.value;
-        if(!val)return;
-        
-        const isDecision = (parseInt(document.getElementById('m-d').value) || 0) === 0;
-        const targetId = isDecision ? 'm-agree-dep' : 'm-dep';
-        const inp=document.getElementById(targetId);
-        
-        const current=inp.value.trim();
-        if(current){
-            const depts=current.split(/[,、]/).map(s=>s.trim());
-            if(!depts.includes(val)){ inp.value=current+', '+val; }
-        } else { inp.value=val; }
-        
-        if (targetId === 'm-agree-dep') inp.dataset.autoSync = "false";
-        if (targetId === 'm-dep') syncAgreeDept();
-        
-        sel.value='';
-    }
-    
-    function closeModal(){
-        if(newNodeId !== null){
-            st.nodes = st.nodes.filter(n => n.id !== newNodeId);
-            st.sel.delete(newNodeId);
-            ren();
-        }
-        newNodeId = null;
-        document.getElementById('modal').style.display='none';
-    }
-    
-    function saveModal(){
-        newNodeId = null;
-        const n=st.nodes.find(x=>x.id==curEd); if(!n)return;
-        
-        const s=document.getElementById('m-s').value;
-        const d=parseInt(document.getElementById('m-d').value)||1;
-        const sd=parseDate(s);
-        if(sd && !isNaN(d)){
-            document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10);
-        }
-        
-        n.title=document.getElementById('m-tit').value;
-        setField(n,"担当部署",document.getElementById('m-dep').value);
-        setField(n,"合意部署",document.getElementById('m-agree-dep').value);
-        setField(n,"予定開始",document.getElementById('m-s').value);
-        setField(n,"予定終了",document.getElementById('m-e').value);
-        setField(n,"期間",document.getElementById('m-d').value);
-        setField(n,"ステータス",document.getElementById('m-st').value);
-        setField(n,"進捗",document.getElementById('m-p').value);
-        setField(n,"実績開始",document.getElementById('m-as').value);
-        setField(n,"実績終了",document.getElementById('m-ae').value);
-        
-        // 💡 複数IOの保存
-        n.inputs = Array.from(document.querySelectorAll('.in-name')).map((el, idx) => {
-            return { name: el.value.trim(), path: document.querySelectorAll('.in-path')[idx].value.trim() };
-        }).filter(i => i.name !== '');
-
-        n.outputs = Array.from(document.querySelectorAll('.out-name')).map((el, idx) => {
-            return { name: el.value.trim(), path: document.querySelectorAll('.out-path')[idx].value.trim() };
-        }).filter(o => o.name !== '');
-
-        setField(n, "Control", document.getElementById('m-ctrl').value);
-        
-        ren(); 
-        if(mode==='gantt')renderGantt(); 
-        if(mode==='swim')renderSwimlane();
-        if(mode==='doc') {
-            renderDocPalette();
-            if(excelWb) renderExcelTable(); 
-        }
-        closeModal();
-    }
-
-    function syncDate(k){
-        const s=document.getElementById('m-s').value, e=document.getElementById('m-e').value, d=parseInt(document.getElementById('m-d').value)||1;
-        const sd=parseDate(s), ed=parseDate(e);
-        if(k==='start'||k==='d'){ if(sd&&!isNaN(d)) document.getElementById('m-e').value=addDays(sd,d-1).toISOString().slice(0,10); }
-        else if(k==='end'){ if(sd&&ed) document.getElementById('m-d').value=Math.max(1,diffDays(sd,ed)); }
-        toggleModalUI(); 
-    }
-    
-    function switchView(m){
-        mode=m; 
-        document.getElementById('b-map').className=m==='map'?'act':'';
-        document.getElementById('b-gantt').className=m==='gantt'?'act':'';
-        document.getElementById('b-swim').className=m==='swim'?'act':'';
-        document.getElementById('b-doc').className=m==='doc'?'act':'';
-        
-        document.getElementById('map-con').style.display=m==='map'?'block':'none';
-        document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
-        document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
-        document.getElementById('d-view').style.display=m==='doc'?'flex':'none';
-        
-        document.getElementById('pres').style.display=m==='map'?'flex':'none';
-        document.getElementById('g-scale').style.display=m==='gantt'?'flex':'none';
-        document.getElementById('s-fit').style.display=m==='swim'?'flex':'none';
-        
-        if(m==='map')ren(); 
-        else if(m==='gantt') changeGanttScale(gSc);
-        else if(m==='swim') renderSwimlane();
-        else if(m==='doc') {
-            renderDocPalette();
-            if(excelWb) renderExcelTable();
-        }
-        if(pre.act && m!=='map')stopPresentation();
+        c.appendChild(con); applySwimZoom();
     }
 
     function renderDocPalette() {
@@ -1686,7 +1066,6 @@
                 </div>`;
             };
             
-            // 💡 複数IOのパレット出力
             if (n.inputs) {
                 n.inputs.forEach((inp, idx) => {
                     addDragItem(`In${idx+1}`, `Input_${idx}`, inp.name);
@@ -1731,14 +1110,12 @@
         const file = e.target.files[0];
         if(!file) return;
         st.docTemplateName = file.name;
-        
         const reader = new FileReader();
         reader.onload = function(evt) {
             const dataUrl = evt.target.result;
             const base64 = dataUrl.split(',')[1];
             st.docTemplate = base64;
             st.cellMappings = {}; 
-            
             loadExcelFromBase64(base64);
         };
         reader.readAsDataURL(file);
@@ -1751,42 +1128,22 @@
         sel.innerHTML = '';
         excelWb.SheetNames.forEach(name => {
             const opt = document.createElement('option');
-            opt.value = name;
-            opt.innerText = name;
-            sel.appendChild(opt);
+            opt.value = name; opt.innerText = name; sel.appendChild(opt);
         });
         currentSheetName = excelWb.SheetNames[0];
         renderExcelTable();
     }
 
-    function changeSheet() {
-        currentSheetName = document.getElementById('sheet-select').value;
-        renderExcelTable();
-    }
+    function changeSheet() { currentSheetName = document.getElementById('sheet-select').value; renderExcelTable(); }
 
     function getDynamicValue(mapping) {
         const node = st.nodes.find(n => n.id === mapping.id);
         if (!node) return "※ノード削除済";
         const f = mapping.field;
-        
-        // 💡 複数IOの動的解決
-        if (f.startsWith('Input_')) {
-            const idx = parseInt(f.split('_')[1]);
-            return node.inputs && node.inputs[idx] ? node.inputs[idx].name : "";
-        }
-        if (f.startsWith('InputPath_')) {
-            const idx = parseInt(f.split('_')[1]);
-            return node.inputs && node.inputs[idx] ? node.inputs[idx].path : "";
-        }
-        if (f.startsWith('Output_')) {
-            const idx = parseInt(f.split('_')[1]);
-            return node.outputs && node.outputs[idx] ? node.outputs[idx].name : "";
-        }
-        if (f.startsWith('OutputPath_')) {
-            const idx = parseInt(f.split('_')[1]);
-            return node.outputs && node.outputs[idx] ? node.outputs[idx].path : "";
-        }
-
+        if (f.startsWith('Input_')) { const idx = parseInt(f.split('_')[1]); return node.inputs && node.inputs[idx] ? node.inputs[idx].name : ""; }
+        if (f.startsWith('InputPath_')) { const idx = parseInt(f.split('_')[1]); return node.inputs && node.inputs[idx] ? node.inputs[idx].path : ""; }
+        if (f.startsWith('Output_')) { const idx = parseInt(f.split('_')[1]); return node.outputs && node.outputs[idx] ? node.outputs[idx].name : ""; }
+        if (f.startsWith('OutputPath_')) { const idx = parseInt(f.split('_')[1]); return node.outputs && node.outputs[idx] ? node.outputs[idx].path : ""; }
         if (f === '予定期間') return `${getField(node, '予定開始')} ~ ${getField(node, '予定終了')}`;
         if (f === 'ステータス') return getField(node, 'ステータス') === 'done' ? '承認済' : '未承認';
         if (f === '合意部署') return getField(node, '合意部署') || getField(node, '担当部署') || "";
@@ -1801,8 +1158,7 @@
         }
         if (f === '最新ログ') {
             if (node.logs && node.logs.length > 0) {
-                const lg = node.logs[node.logs.length - 1];
-                return `[${lg.date}] ${lg.comment}`;
+                const lg = node.logs[node.logs.length - 1]; return `[${lg.date}] ${lg.comment}`;
             }
             return "";
         }
@@ -1813,28 +1169,21 @@
         if(!excelWb || !currentSheetName) return;
         const sheet = excelWb.Sheets[currentSheetName];
         const json = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
-        
         let html = '<table border="1" style="border-collapse:collapse; width:100%; font-size:12px; font-family:sans-serif; text-align:left;">';
         for(let r=0; r<json.length; r++) {
             html += '<tr>';
             for(let c=0; c<json[r].length; c++) {
                 const cellRef = XLSX.utils.encode_cell({c:c, r:r});
                 const rawVal = json[r][c] || "";
-                
                 const isMapped = st.cellMappings && st.cellMappings[currentSheetName] && st.cellMappings[currentSheetName][cellRef];
                 let displayVal = rawVal;
-                if (isMapped) {
-                    displayVal = getDynamicValue(st.cellMappings[currentSheetName][cellRef]);
-                }
+                if (isMapped) displayVal = getDynamicValue(st.cellMappings[currentSheetName][cellRef]);
                 if (typeof displayVal === 'object') displayVal = JSON.stringify(displayVal);
-                
                 const bg = isMapped ? '#e8f8f5' : 'white';
                 const color = isMapped ? '#16a085' : '#333';
                 
-                html += `<td data-ref="${cellRef}" 
-                            ondragover="event.preventDefault(); this.style.backgroundColor='#d6eaf8';" 
-                            ondragleave="this.style.backgroundColor='${bg}';"
-                            ondrop="dropToCell(event, '${cellRef}')" 
+                html += `<td data-ref="${cellRef}" ondragover="event.preventDefault(); this.style.backgroundColor='#d6eaf8';" 
+                            ondragleave="this.style.backgroundColor='${bg}';" ondrop="dropToCell(event, '${cellRef}')" 
                             style="padding:8px 5px; min-width:60px; height:20px; cursor:crosshair; background-color:${bg}; color:${color}; position:relative; vertical-align:top;">
                             ${displayVal}
                             ${isMapped ? `<span onclick="clearMapping('${cellRef}')" style="position:absolute; top:2px; right:2px; font-size:10px; cursor:pointer; color:#e74c3c;">×</span>` : ''}
@@ -1847,165 +1196,42 @@
     }
 
     function dropToCell(e, cellRef) {
-        e.preventDefault();
-        const dataStr = e.dataTransfer.getData("text/plain");
-        if(!dataStr) return;
+        e.preventDefault(); const dataStr = e.dataTransfer.getData("text/plain"); if(!dataStr) return;
         try {
             const mapping = JSON.parse(dataStr);
             if (!st.cellMappings) st.cellMappings = {};
             if (!st.cellMappings[currentSheetName]) st.cellMappings[currentSheetName] = {};
             st.cellMappings[currentSheetName][cellRef] = mapping;
             renderExcelTable();
-        } catch(err) {
-            console.error("Drop Parse Error", err);
-        }
+        } catch(err) { console.error("Drop Parse Error", err); }
     }
 
     function clearMapping(cellRef) {
         if(st.cellMappings && st.cellMappings[currentSheetName]) {
-            delete st.cellMappings[currentSheetName][cellRef];
-            renderExcelTable();
+            delete st.cellMappings[currentSheetName][cellRef]; renderExcelTable();
         }
     }
 
     function exportExcel() {
         if(!excelWb) { alert('テンプレートを読み込んでください'); return; }
-        
         if(st.cellMappings) {
             Object.keys(st.cellMappings).forEach(sheetName => {
                 const sheet = excelWb.Sheets[sheetName];
                 if(sheet) {
                     Object.keys(st.cellMappings[sheetName]).forEach(cellRef => {
                         const dynamicVal = getDynamicValue(st.cellMappings[sheetName][cellRef]);
-                        if(sheet[cellRef]) {
-                            sheet[cellRef].v = dynamicVal;
-                            sheet[cellRef].t = 's'; 
-                        } else {
-                            XLSX.utils.sheet_add_aoa(sheet, [[dynamicVal]], {origin: cellRef});
-                        }
+                        if(sheet[cellRef]) { sheet[cellRef].v = dynamicVal; sheet[cellRef].t = 's'; } 
+                        else { XLSX.utils.sheet_add_aoa(sheet, [[dynamicVal]], {origin: cellRef}); }
                     });
                 }
             });
         }
-        
         const outName = st.docTemplateName ? `exported_${st.docTemplateName}` : `exported_${todayStr}.xlsx`;
         XLSX.writeFile(excelWb, outName);
-        
-        const t=document.getElementById('toast'); 
-        t.innerText = "Excelを出力しました";
-        t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
+        const t=document.getElementById('toast'); t.innerText = "Excelを出力しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
     }
 
-    async function saveOver(){
-        if(fH){
-            try{
-                const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close();
-                const t=document.getElementById('toast'); 
-                t.innerText = "保存しました（Excel設定含む）";
-                t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
-            }catch(e){console.error('Save failed:',e);}
-        } else saveAs();
-    }
-    
-    async function saveAs(){
-        if(window.showSaveFilePicker){
-            try{
-                fH=await window.showSaveFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}], suggestedName:`map_${todayStr}.json`});
-                document.getElementById('f-name').innerText=fH.name; saveOver();
-            }catch(e){console.error('SaveAs failed:',e);}
-        } else {
-            const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(st)],{type:"application/json"}));
-            a.download=`map_${todayStr}.json`; a.click();
-        }
-    }
-    
-    function loadFileFallback(i){const f=i.files[0]; if(f){const r=new FileReader(); r.onload=e=>load(e.target.result); r.readAsText(f);}}
-    
-    function load(t){
-        try{
-            const j=JSON.parse(t); 
-            if(j.nodes){
-                // 💡 互換性：古いフィールドを新しい配列形式に自動変換
-                j.nodes.forEach(n=>{
-                    if(!n.f && n.fields) n.f = n.fields;
-                    if(!n.pIds && n.parentIds) n.pIds = n.parentIds;
-                    if(!n.inputs) {
-                        n.inputs = [];
-                        const oldIn = getField(n, "Input");
-                        if(oldIn) n.inputs.push({name: oldIn, path: getField(n, "InputPath") || ""});
-                    }
-                    if(!n.outputs) {
-                        n.outputs = [];
-                        const oldOut = getField(n, "Output");
-                        if(oldOut) n.outputs.push({name: oldOut, path: getField(n, "OutputPath") || ""});
-                    }
-                });
-                
-                if (!j.cellMappings) j.cellMappings = {};
-                
-                st=j;
-                st.sel=new Set();
-                
-                if(st.docTemplate) {
-                    loadExcelFromBase64(st.docTemplate);
-                } else {
-                    excelWb = null;
-                    document.getElementById('excel-table-container').innerHTML = '<div style="color:#999; text-align:center; padding-top:50px;">上部のボタンからテンプレート(xlsx/xls)を読み込んでください</div>';
-                }
-                
-                fitToScreen();
-                ren();
-                
-                if(mode==='doc') {
-                    renderDocPalette();
-                    if(excelWb) renderExcelTable();
-                }
-            }
-        }catch(e){alert("読込エラー"); console.error(e);}
-    }
-    
-    function newFile(){
-        if(confirm("新規作成しますか？")){
-            st={
-                sc:1, x:0, y:0, sOrd:[], gOrd:[], 
-                nodes:[{
-                    id:Date.now(),
-                    title:"開始",
-                    f:[
-                        {l:"予定開始",v:todayStr},
-                        {l:"期間",v:"1"},
-                        {l:"予定終了",v:todayStr},
-                        {l:"担当部署",v:"全体"},
-                        {l:"ステータス",v:"todo"},
-                        {l:"進捗",v:"0"}
-                    ],
-                    inputs: [], outputs: [],
-                    x:0, y:0, pIds:[]
-                }],
-                sel:new Set(),
-                docTemplate: null,
-                docTemplateName: "",
-                cellMappings: {}
-            };
-            fH=null;
-            document.getElementById('f-name').innerText='(未保存)';
-            excelWb = null;
-            document.getElementById('excel-table-container').innerHTML = '<div style="color:#999; text-align:center; padding-top:50px;">上部のボタンからテンプレート(xlsx/xls)を読み込んでください</div>';
-            fitToScreen();
-            if(mode==='doc') renderDocPalette();
-        }
-    }
-
-    function startPresentation(){pre.act=true; pre.idx=0; document.getElementById('pres-ind').style.display='flex'; document.getElementById('p-nav').style.display='flex'; focusP();}
-    function stopPresentation(){pre.act=false; document.getElementById('pres-ind').style.display='none'; document.getElementById('p-nav').style.display='none'; fitToScreen();}
-    function nextSlide(){if(st.nodes.length){pre.idx=(pre.idx+1)%st.nodes.length; focusP();}}
-    function prevSlide(){if(st.nodes.length){pre.idx=(pre.idx-1+st.nodes.length)%st.nodes.length; focusP();}}
-    function focusP(){
-        const n=st.nodes[pre.idx]; sel(n.id,false);
-        document.getElementById('s-num').innerText=`${pre.idx+1}/${st.nodes.length}`;
-        st.sc=1.5; st.x=-(n.x||0)*st.sc; st.y=-(n.y||0)*st.sc; ren();
-    }
-
+    // --- 初期化実行 ---
     init();
 </script>
 </body>
