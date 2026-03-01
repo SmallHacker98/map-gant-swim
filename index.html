@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Pro Map Suite v9.9 (Stable Complete Version)</title>
+<title>Pro Map Suite v9.9.1 (Perfect Routing & Rendering)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
@@ -78,7 +78,6 @@
     .v-head{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ddd;background:#fdfdfd;flex-shrink:0;padding-top:20px;}
     .v-title{font-size:18px;font-weight:bold;color:#333;}
     .v-body{flex-grow:1;overflow:auto;position:relative;min-height:100vh;}
-    .g-month-light{position:absolute;top:0;bottom:0;border-left:1px solid #ddd;z-index:1;}
     .g-wrap{position:relative;min-height:100%;transform-origin:top left;}
     .g-hdr{display:flex;height:40px;background:#f5f5f5;border-bottom:1px solid #ccc;position:sticky;top:0;z-index:20;margin-left:200px;align-items:center;}
     .g-cell{flex-shrink:0;text-align:center;font-size:11px;line-height:40px;border-right:1px solid #eee;color:#555;font-weight:bold;}
@@ -100,6 +99,7 @@
     .g-quarter-sep{position:absolute;top:0;bottom:0;border-left:3px solid #7f8c8d;z-index:1;}
     .g-month-lbl{position:absolute;top:10px;font-size:13px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:3px 8px;border-radius:3px;}
     .g-quarter-lbl{position:absolute;top:8px;font-size:14px;color:#2c3e50;font-weight:bold;background:rgba(255,255,255,0.9);padding:4px 10px;border-radius:4px;border:1px solid #ccc;}
+    .g-month-light{position:absolute;top:0;bottom:0;border-left:1px solid #ddd;z-index:1;}
     
     .s-cont{display:flex;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
     .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
@@ -122,8 +122,6 @@
     .add-btn:hover { background:#dcdcdc; color:#333; }
     input[type="range"]{width:100%;}
     #toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);background:rgba(44,62,80,0.8);color:white;padding:8px 16px;border-radius:20px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:6000;}
-    .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
-    .sc-mode .view{margin-top:0;}.sc-mode .v-head{padding-top:10px;}
 </style>
 </head>
 <body>
@@ -138,46 +136,22 @@
         <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
         
         <div id="m-common-io" style="background:#fcfcfc; padding:10px; border:1px solid #eee; border-radius:6px; margin-bottom:12px;">
-            <div class="m-row">
-                <label>Inputs (前提条件・受領物) 📥</label>
-                <div id="m-inputs-container"></div>
-                <button type="button" class="add-btn" onclick="addInputRow('','')">＋ Inputを追加</button>
-            </div>
-            <div class="m-row">
-                <label>Outputs (成果物・合意文書) 📤</label>
-                <div id="m-outputs-container"></div>
-                <button type="button" class="add-btn" onclick="addOutputRow('','')">＋ Outputを追加</button>
-            </div>
+            <div class="m-row"><label>Inputs (前提条件・受領物) 📥</label><div id="m-inputs-container"></div><button type="button" class="add-btn" onclick="addInputRow('','')">＋ Inputを追加</button></div>
+            <div class="m-row"><label>Outputs (成果物・合意文書) 📤</label><div id="m-outputs-container"></div><button type="button" class="add-btn" onclick="addOutputRow('','')">＋ Outputを追加</button></div>
         </div>
         
         <div id="m-decision-fields" style="display:none; background:#f4f0fa; padding:10px; border:1px solid #e8dff0; border-radius:6px; margin-bottom:12px;">
-            <div class="m-row">
-                <label style="color:#8e44ad;">Control (承認条件・達成基準) 🔒</label>
-                <textarea id="m-ctrl" rows="2" placeholder="例：予算の承認"></textarea>
-            </div>
+            <div class="m-row"><label style="color:#8e44ad;">Control (承認条件・達成基準) 🔒</label><textarea id="m-ctrl" rows="2" placeholder="例：予算の承認"></textarea></div>
             <div class="m-row" style="margin-bottom:0;">
                 <label style="color:#8e44ad;">Decision Log (意思決定履歴) 📝</label>
                 <div id="m-log-list" style="max-height:100px; overflow-y:auto; background:#fff; padding:5px; border:1px solid #ddd; font-size:11px; margin-bottom:5px;"></div>
-                <div style="display:flex; gap:5px;">
-                    <input type="text" id="m-log-in" placeholder="コメント..." style="flex:1; padding:4px;">
-                    <button type="button" onclick="addLog()" style="background:#8e44ad; color:white; border:none; border-radius:4px; cursor:pointer; padding:0 10px; font-size:12px;">追記</button>
-                </div>
+                <div style="display:flex; gap:5px;"><input type="text" id="m-log-in" placeholder="コメント..." style="flex:1; padding:4px;"><button type="button" onclick="addLog()" style="background:#8e44ad; color:white; border:none; border-radius:4px; cursor:pointer; padding:0 10px; font-size:12px;">追記</button></div>
             </div>
         </div>
         
-        <div class="m-row" id="m-dep-wrap">
-            <label>担当部署 (作業者) ⚙️</label>
-            <input type="text" id="m-dep" placeholder="カンマ区切" oninput="syncAgreeDept()">
-        </div>
-        <div class="m-row" id="m-agree-dep-wrap" style="display:none;">
-            <label style="color:#8e44ad;">合意部署 (承認者) 🤝</label>
-            <input type="text" id="m-agree-dep" placeholder="カンマ区切" oninput="this.dataset.autoSync='false'">
-        </div>
-        <div class="m-row">
-            <select id="m-dep-list" onchange="addDeptFromList()">
-                <option value="">-- 既存の部署から選択 --</option>
-            </select>
-        </div>
+        <div class="m-row" id="m-dep-wrap"><label>担当部署 (作業者) ⚙️</label><input type="text" id="m-dep" placeholder="カンマ区切" oninput="syncAgreeDept()"></div>
+        <div class="m-row" id="m-agree-dep-wrap" style="display:none;"><label style="color:#8e44ad;">合意部署 (承認者) 🤝</label><input type="text" id="m-agree-dep" placeholder="カンマ区切" oninput="this.dataset.autoSync='false'"></div>
+        <div class="m-row"><select id="m-dep-list" onchange="addDeptFromList()"><option value="">-- 既存の部署から選択 --</option></select></div>
 
         <div style="display:flex;gap:10px;">
             <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncDate('start')"></div>
@@ -193,10 +167,7 @@
             <div class="m-row" style="flex:1;"><label>実績開始</label><input type="date" id="m-as"></div>
             <div class="m-row" style="flex:1;"><label>実績終了</label><input type="date" id="m-ae"></div>
         </div>
-        <div class="m-act">
-            <button class="btn-c" onclick="closeModal()">キャンセル</button>
-            <button class="btn-s" onclick="saveModal()">保存</button>
-        </div>
+        <div class="m-act"><button class="btn-c" onclick="closeModal()">キャンセル</button><button class="btn-s" onclick="saveModal()">保存</button></div>
     </div>
 </div>
 
@@ -209,18 +180,12 @@
     <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div>
     <input type="file" id="f-in" style="display: none;" accept=".json" onchange="loadFileFallback(this)">
 </div>
-
-<div id="search" class="pnl">
-    <span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索...">
-    <span id="q-cnt" style="font-size:11px;color:#888;"></span>
-    <button onclick="jumpToNextMatch()" title="次へ">▼</button>
-</div>
-
+<div id="search" class="pnl"><span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索..."><span id="q-cnt" style="font-size:11px;color:#888;"></span><button onclick="jumpToNextMatch()" title="次へ">▼</button></div>
 <div id="views" class="pnl">
     <button id="b-map" onclick="switchView('map')" class="act">🗺</button><div class="sep"></div>
     <button id="b-gantt" onclick="switchView('gantt')">📊</button><div class="sep"></div>
     <button id="b-swim" onclick="switchView('swim')">🏊</button><div class="sep"></div>
-    <button id="b-doc" onclick="switchView('doc')" title="Doc">📄</button>
+    <button id="b-doc" onclick="switchView('doc')" title="Doc Binding">📄</button>
 </div>
 
 <div id="map-con" style="display:block;">
@@ -312,7 +277,7 @@
     let gZoom = 1, sZoom = 1, dragDept = null, dragType = null, excelWb = null, currentSheetName = null;
 
     // ==========================================
-    // 2. Helpers
+    // 2. Core Helpers
     // ==========================================
     function getField(n,l) { const f=n.f.find(x=>x.l===l); return f?f.v:null; }
     function setField(n,l,v) { let f=n.f.find(x=>x.l===l); if(f) f.v=v; else n.f.push({l:l,v:v}); }
@@ -349,7 +314,7 @@
     }
 
     // ==========================================
-    // 3. Core Map Functions (Hoisted)
+    // 3. Map Analysis & Geometry (Hoisted)
     // ==========================================
     function ana(){
         const ts={}; st.nodes.forEach(n=>ts[n.id]={s:parseDate(getField(n,"予定開始")), e:parseDate(getField(n,"予定終了"))});
@@ -480,7 +445,7 @@
     }
 
     // ==========================================
-    // 4. Missing Functions Fix
+    // 4. Missing Functions Restored 
     // ==========================================
     function toggleScreenshotMode() {
         document.body.classList.toggle('sc-mode');
@@ -510,7 +475,7 @@
     }
 
     // ==========================================
-    // 5. Init & Event Listeners
+    // 5. Init & Listeners
     // ==========================================
     function init() {
         document.querySelectorAll('.pnl').forEach(p => {
@@ -585,7 +550,7 @@
     }
 
     // ==========================================
-    // 6. Node Editing & Linking
+    // 6. Node Editing
     // ==========================================
     function sel(id,mul){if(!mul)st.sel.clear();if(id)st.sel.has(id)?st.sel.delete(id):st.sel.add(id);st.selectedId=id;if(lnk.act&&st.sel.size===1)lnk.src=Array.from(st.sel)[0];ren();}
     
@@ -811,12 +776,18 @@
         const isSwim=(t==='s'||t==='swim'); const act=new Set(); 
         st.nodes.forEach(n=>{
             const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);
-            if(!isSwim){if(ds.length===0)act.add("全体");else if(ds.length<=1)act.add(ds[0]||"全体");}
-            else{if(ds.length===0)act.add("未配属");else ds.forEach(d=>{if(d!=="全体")act.add(d);});}
+            if(!isSwim){
+                if(ds.length<=1) act.add(ds[0]||"全体");
+                else act.add("全体");
+            }
+            else{
+                if(ds.length===0) act.add("未配属");
+                else ds.forEach(d=>{if(d!=="全体")act.add(d);});
+            }
         });
         let l=isSwim?st.sOrd:st.gOrd; if(!l)l=[];
         act.forEach(d=>{if(!l.includes(d))l.push(d);}); l=l.filter(d=>act.has(d));
-        if(isSwim&&l.length===0)l.push("未配属");
+        if(l.length===0) l.push("未配属");
         if(isSwim)st.sOrd=l;else st.gOrd=l; return l;
     }
     
@@ -906,7 +877,12 @@
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg';
         svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
         
-        let items=[]; st.nodes.forEach(n=>{const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);items.push({n,d:ds.length>1?"全体":(ds[0]||"未配属")});});
+        let items=[]; 
+        st.nodes.forEach(n=>{
+            const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);
+            let d; if(ds.length<=1) d=ds[0]||"全体"; else d="全体";
+            items.push({n,d});
+        });
         items.sort((a,b)=>{if(a.d==="全体")return -1;if(b.d==="全体")return 1;const ia=ord.indexOf(a.d),ib=ord.indexOf(b.d);if(ia!==ib)return (ia<0?999:ia)-(ib<0?999:ib);return ts[a.n.id].s-ts[b.n.id].s;});
         
         let y=40, ld=null; 
@@ -1041,7 +1017,8 @@
         const outC={},inC={},edges=[]; 
         st.nodes.forEach(n=>{n.pIds.forEach(pid=>{outC[pid]=(outC[pid]||0)+1;inC[n.id]=(inC[n.id]||0)+1;edges.push({p:pid,c:n.id});});});
         
-        const outI={},inI={},an=ana(),hC={},vC={};
+        const outI={},inI={},an=ana();
+        const hC={},vC={};
         edges.forEach((ed,idx)=>{
             const pid=ed.p,cid=ed.c,p=ui[pid],ch=ui[cid];
             if(p&&ch){
@@ -1049,13 +1026,20 @@
                 const sx=(p.l+p.r)/2+(outI[pid]-(outC[pid]+1)/2)*20, sy=p.b, ex=(ch.l+ch.r)/2+(inI[cid]-(inC[cid]+1)/2)*20, ey=ch.t;
                 const pLv=levels[pid],cLv=levels[cid];
                 let pts=[{x:sx,y:sy}];
+                
                 hC[pLv]=(hC[pLv]||0)+1; const oy=lMB[pLv]+15+(hC[pLv]%8)*8;
                 const tHLv=cLv>0?cLv-1:0; hC[tHLv]=(hC[tHLv]||0)+1; let iy=lS[cLv]-15-(hC[tHLv]%8)*8;
                 if(pLv===cLv)iy=oy; pts.push({x:sx,y:oy});
                 
                 if(p.minI!==ch.minI||p.mx!==ch.mx||pLv!==cLv){
-                    let vCol; if(Math.abs(ex-sx)<10)vCol=p.mx+1;else if(ex>sx)vCol=Math.max(p.mx+1,ch.minI);else vCol=Math.min(p.minI,ch.mx+1);
-                    vC[vCol]=(vC[vCol]||0)+1; const vx=vCol*cw+((vC[vCol]%6)-2.5)*6; pts.push({x:vx,y:oy}); pts.push({x:vx,y:iy});
+                    let vCol; 
+                    // 💡 左へ戻るルートでX=0にはみ出さないよう、Math.max(1, ...) で保護
+                    if(ex > sx + 10) vCol = Math.max(p.mx+1, ch.minI);
+                    else if(ex < sx - 10) vCol = Math.max(1, Math.min(p.minI, ch.mx+1));
+                    else vCol = p.mx+1;
+
+                    vC[vCol]=(vC[vCol]||0)+1; const vx=vCol*cw+((vC[vCol]%6)-2.5)*6; 
+                    pts.push({x:vx,y:oy}); pts.push({x:vx,y:iy});
                 }
                 pts.push({x:ex,y:iy}); pts.push({x:ex,y:ey});
                 
@@ -1180,7 +1164,7 @@
     // ==========================================
     // 12. Saving, Loading & Presentation
     // ==========================================
-    async function saveOver(){ if(fH){ try{ const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close(); const t=document.getElementById('toast'); t.innerText = "保存しました（Excel設定含む）"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000); }catch(e){console.error('Save failed:',e);} } else saveAs(); }
+    async function saveOver(){ if(fH){ try{ const w=await fH.createWritable(); await w.write(JSON.stringify(st)); await w.close(); const t=document.getElementById('toast'); t.innerText = "保存しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000); }catch(e){console.error('Save failed:',e);} } else saveAs(); }
     async function saveAs(){ if(window.showSaveFilePicker){ try{ fH=await window.showSaveFilePicker({types:[{description:'Map',accept:{'application/json':['.json']}}], suggestedName:`map_${todayStr}.json`}); document.getElementById('f-name').innerText=fH.name; saveOver(); }catch(e){console.error('SaveAs failed:',e);} } else { const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([JSON.stringify(st)],{type:"application/json"})); a.download=`map_${todayStr}.json`; a.click(); } }
     function loadFileFallback(i){const f=i.files[0]; if(f){const r=new FileReader(); r.onload=e=>load(e.target.result); r.readAsText(f);}}
     
