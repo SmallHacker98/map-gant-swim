@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="icon" href="data:,">
-<title>Pro Map Suite v8.3 (IDEF & Bug Fix)</title>
+<title>Pro Map Suite v9.0 (Doc Binding)</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <style>
     :root { --bg:#f4f7f6; --line:#95a5a6; --primary:#2c3e50; --accent:#3498db; --high:#e67e22; --crit:#e74c3c; --grid:rgba(0,0,0,0.05); }
     :root { --st-todo:#95a5a6; --st-doing:#3498db; --st-done:#27ae60; --st-wait:#f39c12; }
@@ -32,13 +33,11 @@
     .node.err{border:3px solid var(--crit);}
     .node.phy{transition:left 0.1s linear, top 0.1s linear;}
     
-    /* 💡 合意形成ノード（期間0日）の特別なデザイン */
     .node.decision { border-radius: 24px; border: 2px solid #8e44ad; }
     .node.decision .nh { background: linear-gradient(to bottom, #9b59b6, #8e44ad); }
     .node.decision .nh::after { color: rgba(255,255,255,0.7); content:"⬢"; }
     .node.decision .nt { background: #2c3e50; text-align: center; }
 
-    /* 💡 承認スタンプのデザイン */
     .stamp {
         position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg);
         color: rgba(231, 76, 60, 0.85); border: 4px solid rgba(231, 76, 60, 0.85);
@@ -63,7 +62,6 @@
 
     svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:0;}
     
-    /* 💡 矢印のホバーエフェクト（マウスを乗せると光って見やすくなる） */
     .chart-arrow { stroke:#7f8c8d; stroke-width:2.5px; fill:none; stroke-linejoin:round; stroke-linecap:round; transition: stroke 0.2s, stroke-width 0.2s; pointer-events: visibleStroke; cursor: pointer; }
     .chart-arrow:hover { stroke: var(--accent); stroke-width: 4.5px; z-index: 100; }
     .chart-arrow.crit { stroke:var(--high); stroke-width:3px; stroke-dasharray:5,3; }
@@ -79,7 +77,6 @@
     @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
     .sep{width:1px;height:20px;background:#ddd;margin:0 2px;} .sep-h{width:20px;height:1px;background:#ddd;margin:2px 0;}
 
-    /* 💡 部署並び替えボタン */
     .dept-arr{cursor:pointer;opacity:0.8;padding:0 8px;font-size:12px;user-select:none;color:white;border-radius:4px;transition:0.2s;}
     .dept-arr:hover{background:rgba(0,0,0,0.2);}
     .g-arr-btn{cursor:pointer;opacity:0.8;padding:0 4px;font-size:10px;user-select:none;color:#555;border:1px solid #999;border-radius:3px;margin-right:4px;background:#fff;transition:0.2s;}
@@ -227,7 +224,8 @@
     <div id="views" class="pnl">
         <button id="b-map" onclick="switchView('map')" class="act">🗺</button><div class="sep"></div>
         <button id="b-gantt" onclick="switchView('gantt')">📊</button><div class="sep"></div>
-        <button id="b-swim" onclick="switchView('swim')">🏊</button>
+        <button id="b-swim" onclick="switchView('swim')">🏊</button><div class="sep"></div>
+        <button id="b-doc" onclick="switchView('doc')" title="帳票バインディング (Doc)">📄</button>
     </div>
 
     <div id="map-con" style="display:block;">
@@ -283,6 +281,27 @@
         <div id="s-cnt" class="v-body"></div>
     </div>
 
+    <div id="d-view" class="view" style="background:#f9f9f9;">
+        <div class="v-head" style="background:#fff;">
+            <div class="v-title">帳票バインディング (Doc)</div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <input type="file" id="excel-file" accept=".xlsx, .xls" style="display:none;" onchange="handleExcelUpload(event)">
+                <button class="btn-c" onclick="document.getElementById('excel-file').click()">📂 テンプレート読込</button>
+                <select id="sheet-select" onchange="changeSheet()" style="padding:6px; border-radius:4px; border:1px solid #ccc;"></select>
+                <button class="btn-s" onclick="exportExcel()">📥 Excel出力</button>
+            </div>
+        </div>
+        <div class="v-body" style="display:flex; overflow:hidden;">
+            <div id="doc-palette" style="width:280px; background:white; border-right:1px solid #ddd; overflow-y:auto; padding:15px; box-sizing:border-box; flex-shrink:0;">
+                </div>
+            <div id="doc-preview" style="flex-grow:1; overflow:auto; padding:20px;">
+                <div id="excel-table-container" style="background:white; box-shadow:0 4px 15px rgba(0,0,0,0.1); padding:20px; overflow:auto; min-height:500px;">
+                    <div style="color:#999; text-align:center; padding-top:50px;">上部のボタンからテンプレート(xlsx/xls)を読み込んでください</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="pres" class="pnl"><button onclick="startPresentation()">▶</button><div id="p-nav" style="display:none;align-items:center;"><button onclick="prevSlide()">◀</button><span id="s-num" style="font-size:12px;margin:0 5px;"></span><button onclick="nextSlide()">▶</button><button onclick="stopPresentation()">■</button></div></div>
 
 <script>
@@ -293,8 +312,12 @@
     let qRes = [], qIdx = -1, panD = { act: false, el: null, ox: 0, oy: 0 }, fH = null, mapD = null, gSc = 1, newNodeId = null;
     let gZoom = 1, sZoom = 1;
     let dragDept = null, dragType = null; 
+    
+    // 💡 Doc機能用グローバル変数
+    let excelWb = null;
+    let currentSheetName = null;
+    let cellMappings = {};
 
-    // 角丸付きパス描画
     function drawRoundedPath(points, r) {
         let d = `M ${points[0].x} ${points[0].y}`;
         for (let i = 1; i < points.length - 1; i++) {
@@ -439,7 +462,6 @@
         return l;
     }
 
-    // 💡 部署の並び替え機能（矢印ボタン）
     function mvD(t,d,dir){
         const isSwim = (t === 's' || t === 'swim');
         const l = isSwim ? st.sOrd : st.gOrd; 
@@ -1085,25 +1107,6 @@
             const outIndex = {}, inIndex = {};
             const an = ana(); 
             
-            function isIntersecting(x, y1, y2, excludeId1, excludeId2) {
-                const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-                for (const id in ui) {
-                    if (id == excludeId1 || id == excludeId2) continue;
-                    const n = ui[id];
-                    if (x > n.l - 10 && x < n.r + 10 && maxY > n.t - 10 && minY < n.b + 10) return true;
-                }
-                return false;
-            }
-            function horizIntersecting(y, x1, x2, excludeId1, excludeId2) {
-                const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
-                for (const id in ui) {
-                    if (id == excludeId1 || id == excludeId2) continue;
-                    const n = ui[id];
-                    if (y > n.t - 10 && y < n.b + 10 && maxX > n.l - 10 && minX < n.r + 10) return true;
-                }
-                return false;
-            }
-
             const hChannels = {}; 
             const vChannels = {}; 
 
@@ -1140,16 +1143,15 @@
                     hChannels[targetHLv] = (hChannels[targetHLv] || 0) + 1;
                     let inY = levelStartY[cLv] - 15 - (hChannels[targetHLv] % 8) * 8;
 
-                    if (pLv === cLv) inY = outY;
+                    if (pLv === cLv) {
+                        inY = outY;
+                    }
                     
                     pts.push({x: sx, y: outY});
 
                     if (p.minI !== ch.minI || p.mx !== ch.mx || pLv !== cLv) {
                         let vCol;
-                        // 💡 同じ列内なら右側の境界を使うことで、左にはみ出さない
-                        if (Math.abs(ex - sx) < 10) {
-                            vCol = p.mx + 1;
-                        } else if (ex > sx) {
+                        if (ex > sx) {
                             vCol = Math.max(p.mx + 1, ch.minI);
                         } else {
                             vCol = Math.min(p.minI, ch.mx + 1);
@@ -1484,6 +1486,7 @@
         ren(); 
         if(mode==='gantt')renderGantt(); 
         if(mode==='swim')renderSwimlane();
+        if(mode==='doc')renderDocPalette();
         closeModal();
     }
 
@@ -1496,26 +1499,172 @@
         toggleModalUI(); 
     }
     
+    // 💡 画面切り替えの制御
     function switchView(m){
         mode=m; 
         document.getElementById('b-map').className=m==='map'?'act':'';
         document.getElementById('b-gantt').className=m==='gantt'?'act':'';
         document.getElementById('b-swim').className=m==='swim'?'act':'';
+        document.getElementById('b-doc').className=m==='doc'?'act':'';
+        
         document.getElementById('map-con').style.display=m==='map'?'block':'none';
         document.getElementById('g-view').style.display=m==='gantt'?'flex':'none';
         document.getElementById('s-view').style.display=m==='swim'?'flex':'none';
+        document.getElementById('d-view').style.display=m==='doc'?'flex':'none';
+        
         document.getElementById('pres').style.display=m==='map'?'flex':'none';
         document.getElementById('g-scale').style.display=m==='gantt'?'flex':'none';
         document.getElementById('s-fit').style.display=m==='swim'?'flex':'none';
+        
         if(m==='map')ren(); 
-        else if(m==='gantt'){
-            changeGanttScale(gSc);
-        } 
-        else renderSwimlane();
+        else if(m==='gantt') changeGanttScale(gSc);
+        else if(m==='swim') renderSwimlane();
+        else if(m==='doc') {
+            renderDocPalette();
+            if(excelWb) renderExcelTable();
+        }
+        
         if(pre.act && m!=='map')stopPresentation();
     }
 
-    // 💡 独立したグラフを正しく認識・配置するための自動整列アルゴリズム
+    // 💡 Docビュー用の関数群
+    function handleExcelUpload(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            const data = new Uint8Array(evt.target.result);
+            excelWb = XLSX.read(data, {type: 'array'});
+            const sel = document.getElementById('sheet-select');
+            sel.innerHTML = '';
+            excelWb.SheetNames.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.innerText = name;
+                sel.appendChild(opt);
+            });
+            cellMappings = {}; 
+            currentSheetName = excelWb.SheetNames[0];
+            renderExcelTable();
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function changeSheet() {
+        currentSheetName = document.getElementById('sheet-select').value;
+        renderExcelTable();
+    }
+
+    function renderExcelTable() {
+        if(!excelWb || !currentSheetName) return;
+        const sheet = excelWb.Sheets[currentSheetName];
+        const json = XLSX.utils.sheet_to_json(sheet, {header:1, defval:""});
+        
+        let html = '<table border="1" style="border-collapse:collapse; width:100%; font-size:12px; font-family:sans-serif; text-align:left;">';
+        for(let r=0; r<json.length; r++) {
+            html += '<tr>';
+            for(let c=0; c<json[r].length; c++) {
+                const cellRef = XLSX.utils.encode_cell({c:c, r:r});
+                const rawVal = json[r][c] || "";
+                const mappedVal = cellMappings[currentSheetName] && cellMappings[currentSheetName][cellRef] ? cellMappings[currentSheetName][cellRef] : rawVal;
+                
+                const isMapped = cellMappings[currentSheetName] && cellMappings[currentSheetName][cellRef];
+                const bg = isMapped ? '#e8f8f5' : 'white';
+                const color = isMapped ? '#16a085' : '#333';
+                
+                html += `<td data-ref="${cellRef}" 
+                            ondragover="event.preventDefault(); this.style.backgroundColor='#d6eaf8';" 
+                            ondragleave="this.style.backgroundColor='${bg}';"
+                            ondrop="dropToCell(event, '${cellRef}')" 
+                            style="padding:8px 5px; min-width:60px; height:20px; cursor:crosshair; background-color:${bg}; color:${color}; position:relative; vertical-align:top;">
+                            ${mappedVal}
+                            ${isMapped ? `<span onclick="clearMapping('${cellRef}')" style="position:absolute; top:2px; right:2px; font-size:10px; cursor:pointer; color:#e74c3c;">×</span>` : ''}
+                         </td>`;
+            }
+            html += '</tr>';
+        }
+        html += '</table>';
+        document.getElementById('excel-table-container').innerHTML = html;
+    }
+
+    function dropToCell(e, cellRef) {
+        e.preventDefault();
+        const data = e.dataTransfer.getData("text/plain");
+        if(!data) return;
+        if(!cellMappings[currentSheetName]) cellMappings[currentSheetName] = {};
+        cellMappings[currentSheetName][cellRef] = data;
+        renderExcelTable();
+    }
+
+    function clearMapping(cellRef) {
+        if(cellMappings[currentSheetName]) {
+            delete cellMappings[currentSheetName][cellRef];
+            renderExcelTable();
+        }
+    }
+
+    function renderDocPalette() {
+        const pal = document.getElementById('doc-palette');
+        let html = '<h4 style="margin-top:0; color:#2c3e50;">データパレット</h4><p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">項目をセルにドラッグ＆ドロップして紐付けます。</p>';
+        
+        st.nodes.forEach(n => {
+            const isDecision = (parseInt(getField(n,"期間")) || 0) === 0;
+            const typeColor = isDecision ? '#8e44ad' : '#3498db';
+            html += `<div style="margin-bottom:12px; background:white; padding:8px; border-radius:6px; border:1px solid #ddd; box-shadow:0 2px 4px rgba(0,0,0,0.05);">`;
+            html += `<div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:${typeColor}; border-bottom:1px solid #eee; padding-bottom:4px;">${n.title} ${isDecision?'(合意)':'(作業)'}</div>`;
+            
+            const addDragItem = (label, val) => {
+                if(!val) return;
+                html += `<div draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '${val}')" style="font-size:11px; padding:4px 6px; margin:3px 0; background:#f4f7f6; border-radius:4px; cursor:grab; border:1px solid #e0e0e0; display:flex; justify-content:space-between;">
+                    <span style="color:#7f8c8d; font-weight:bold; flex-shrink:0;">${label}</span>
+                    <span style="color:#2c3e50; text-align:right; margin-left:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${val}</span>
+                </div>`;
+            };
+            
+            if(!isDecision) {
+                addDragItem('Output', getField(n, 'Output'));
+                addDragItem('Input', getField(n, 'Input'));
+                addDragItem('担当', getField(n, '担当部署'));
+                addDragItem('予定期間', `${getField(n, '予定開始')} ~ ${getField(n, '予定終了')}`);
+            } else {
+                addDragItem('条件(Control)', getField(n, 'Control'));
+                addDragItem('合意日(予定)', getField(n, '予定開始'));
+                addDragItem('ステータス', getField(n, 'ステータス')==='done'?'承認済':'未承認');
+                if (n.logs && n.logs.length > 0) {
+                    const latestLog = n.logs[n.logs.length - 1];
+                    addDragItem('最新ログ', `[${latestLog.date}] ${latestLog.comment}`);
+                }
+            }
+            html += `</div>`;
+        });
+        pal.innerHTML = html;
+    }
+
+    function exportExcel() {
+        if(!excelWb) { alert('テンプレートを読み込んでください'); return; }
+        
+        Object.keys(cellMappings).forEach(sheetName => {
+            const sheet = excelWb.Sheets[sheetName];
+            if(sheet) {
+                Object.keys(cellMappings[sheetName]).forEach(cellRef => {
+                    const val = cellMappings[sheetName][cellRef];
+                    if(sheet[cellRef]) {
+                        sheet[cellRef].v = val;
+                        sheet[cellRef].t = 's';
+                    } else {
+                        XLSX.utils.sheet_add_aoa(sheet, [[val]], {origin: cellRef});
+                    }
+                });
+            }
+        });
+        
+        XLSX.writeFile(excelWb, `exported_${todayStr}.xlsx`);
+        
+        const t=document.getElementById('toast'); 
+        t.innerText = "Excelを出力しました";
+        t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);
+    }
+
     function autoAlign(){
         const comp = [];
         const visited = new Set();
