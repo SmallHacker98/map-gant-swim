@@ -680,37 +680,56 @@ svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:
     function clearHl() { document.querySelectorAll('.hl-match').forEach(el => el.classList.remove('hl-match')); }
     function newFile() { if (confirm("新規作成しますか？")) location.reload(); }
 
-    // ==========================================
-    // 16. Initialization (初期化)
+// ==========================================
+    // 16. Initialization (初期化 - 修正版)
     // ==========================================
     function init() {
         const vp = $('viewport');
-        vp.onmousedown = e => {
-            if (e.target.id === 'viewport' || e.target.id === 'canvas') {
-                mapD = { t: 'pan', x: e.clientX, y: e.clientY };
-                st.sel.clear(); ren();
-            }
-        };
-        vp.onwheel = e => {
-            e.preventDefault();
-            const f = e.deltaY > 0 ? 0.9 : 1.1;
-            st.sc *= f; ren();
-        };
+        
+        // メイン表示領域（viewport）が存在する場合のみイベントを設定
+        if (vp) {
+            vp.onmousedown = e => {
+                if (e.target.id === 'viewport' || e.target.id === 'canvas') {
+                    mapD = { t: 'pan', x: e.clientX, y: e.clientY };
+                    if (st.sel) { st.sel.clear(); ren(); }
+                }
+            };
+            
+            vp.onwheel = e => {
+                e.preventDefault();
+                const f = e.deltaY > 0 ? 0.9 : 1.1;
+                st.sc *= f; 
+                ren();
+            };
+        } else {
+            console.error("Error: 'viewport' element not found. HTMLを確認してください。");
+        }
 
         // パネル移動の有効化
         document.querySelectorAll('.pnl').forEach(p => {
             p.onmousedown = e => {
-                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+                if (e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
                 const rect = p.getBoundingClientRect();
                 panD = { act: true, el: p, ox: e.clientX - rect.left, oy: e.clientY - rect.top };
+                p.style.position = 'fixed';
             };
         });
 
-        switchView('map');
-        saveState();
+        // 初期表示設定
+        if (typeof switchView === 'function') {
+            switchView('map');
+        }
+        
+        if (typeof saveState === 'function') {
+            saveState();
+        }
     }
 
-    init();
+    // 全てのHTML読み込みが完了してから初期化を実行する
+    window.addEventListener('DOMContentLoaded', () => {
+        init();
+    });
+
 </script>
 </body>
 </html>
