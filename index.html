@@ -676,7 +676,46 @@ input[type="range"]{width:100%;}
     }
     
     function addFreeNode(){ addNode('free'); }
-    
+
+    // ▼ここから追加：ダブルクリックで文脈（日付・部署）を引き継いだノードを作る機能
+    function addContextNode(dateStr, dept) {
+        const id = Date.now() + Math.floor(Math.random() * 1000);
+        const sDate = dateStr || todayStr;
+        const dpt = dept || "全体";
+        
+        // 画面中央の座標
+        const cx = -(st.x || 0) / (st.sc || 1) - 120;
+        const cy = -(st.y || 0) / (st.sc || 1) - 80;
+        
+        const newNode = {
+            id, title: "New Task",
+            f: [
+                { l: "予定開始", v: sDate },
+                { l: "期間", v: "1" },
+                { l: "予定終了", v: sDate },
+                { l: "担当部署", v: dpt },
+                { l: "承認者", v: "" }, { l: "ステータス", v: "todo" }, { l: "進捗", v: "0" }
+            ],
+            inputs: [], outputs: [], collapsed: false,
+            x: cx + (Math.random() - 0.5) * 40,
+            y: cy + (Math.random() - 0.5) * 40,
+            pIds: [] 
+        };
+
+        st.nodes.push(newNode);
+        sel(id, false);
+        
+        if (mode === 'map') { ren(); runPhy(); }
+        else if (mode === 'gantt') renderGantt();
+        else if (mode === 'swim') renderSwimlane();
+        
+        openEditModal(id, true);
+        saveState();
+    }
+    // ▲ここまで追加
+
+  
+  
     function deleteSelected(){
         if(st.sel.size===0||!confirm("削除しますか？"))return;
         st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));
@@ -962,7 +1001,17 @@ input[type="range"]{width:100%;}
         if(gSc===1){for(let i=0;i<=days;i++){const l=document.createElement('div');l.className='g-grid';l.style.left=`${i*px}px`;gb.appendChild(l);}}
         else if(gSc===30){let cM=-1,cY=-1;for(let i=0;i<=days;i++){const d=addDays(mn,i),m=d.getMonth(),y=d.getFullYear();if(m!==cM||y!==cY){const l=document.createElement('div');l.className='g-month-sep';l.style.left=`${i*px}px`;gb.appendChild(l);cM=m;cY=y;}}}
         else{const getQ=(d)=>{const m=d.getMonth();if(m>=3&&m<=5)return 1;if(m>=6&&m<=8)return 2;if(m>=9&&m<=11)return 3;return 4;};let sQ=new Set(),sM=new Set();for(let i=0;i<=days;i++){const d=addDays(mn,i),m=d.getMonth(),q=getQ(d),fY=m<3?d.getFullYear():d.getFullYear()+1,qK=`${fY}-FQ${q}`,mK=`${d.getFullYear()}-${m}`,isS=d.getDate()===1&&[3,6,9,0].includes(m);if(!sQ.has(qK)&&(i===0||isS)){const l=document.createElement('div');l.className='g-quarter-sep';l.style.left=`${i*px}px`;gb.appendChild(l);sQ.add(qK);}else if(!sM.has(mK)&&d.getDate()===1){const l=document.createElement('div');l.className='g-month-light';l.style.left=`${i*px}px`;gb.appendChild(l);sM.add(mK);}}}
-        wp.appendChild(gb);
+        wp.appendChild(gb.ondblclick = (e) => {
+            // 背景やグリッド線をクリックした場合のみ反応させる
+            if(e.target !== gb && !e.target.className.includes('g-grid') && !e.target.className.includes('g-month-sep') && !e.target.className.includes('g-quarter-sep')) return;
+            
+            // クリックしたX座標から「何日目か」を逆算して日付を割り出す
+            const x = e.target === gb ? e.offsetX : e.target.offsetLeft;
+            const dayOffset = Math.floor(x / px);
+            const clickedDate = addDays(mn, dayOffset).toISOString().slice(0, 10);
+            
+            addContextNode(clickedDate, null);
+        };);
 
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg'; svg.style.position='absolute';svg.style.top='0';svg.style.left='0';svg.style.width='100%';svg.style.height='100%';svg.style.zIndex='5';svg.style.pointerEvents='none';
         svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
@@ -1113,7 +1162,7 @@ input[type="range"]{width:100%;}
         const lS={0:80}; for(let i=1;i<=maxLv;i++)lS[i]=lS[i-1]+lH[i-1];
         
         const cw=300,con=document.createElement('div');con.className='s-cont';con.style.width=`${ord.length*cw}px`;
-        const cols=[]; 
+const cols=[]; 
         ord.forEach((d,i)=>{
             const col=document.createElement('div');col.className='s-col';col.style.background=dCols[i%6].bg;
             col.ondragover=onDragOverDept;col.ondragenter=e=>onDragEnterDept(e,d);col.ondragleave=onDragLeaveDept;col.ondrop=e=>onDropDept(e,'s',d);
@@ -1121,6 +1170,17 @@ input[type="range"]{width:100%;}
             h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span><span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span> <span style="opacity:0.5;margin:0 6px;cursor:grab;">⣿</span> ${d}`;
             h.draggable=true;h.ondragstart=e=>onDragStartDept(e,'s',d);h.ondragend=onDragEndDept;
             col.appendChild(h);con.appendChild(col);cols.push(col);
+            
+            // ▼ここから追加：スイムレーン背景のダブルクリックで、該当部署・概算時期のタスク作成
+            col.ondblclick = (e) => {
+                if (e.target === col) {
+                    // クリックしたY座標（縦位置）から、該当する週の概算日付を算出
+                    const level = Math.max(0, Math.floor((e.offsetY - 80) / 120));
+                    const approxDate = addDays(minDate, level * 7).toISOString().slice(0, 10);
+                    addContextNode(approxDate, d);
+                }
+            };
+            // ▲ここまで追加
         });
         
         const ui={}; 
