@@ -82,7 +82,7 @@ svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:
 .g-lbl.err{color:var(--crit);}
 .g-area{flex-grow:1;position:relative;height:100%;}
 .g-grid{position:absolute;top:0;bottom:0;border-left:1px dashed #eee;z-index:0;}
-.g-bar-p{position:absolute;top:6px;height:10px;background:#bdc3c7;border-radius:2px;opacity:0.9;z-index:1;pointer-events:none;}
+.g-bar-p{position:absolute;top:6px;height:10px;background:transparent;border:2px dashed #bdc3c7;border-radius:2px;box-sizing:border-box;z-index:1;pointer-events:none;}
 .g-mil-p{position:absolute;top:6px;width:14px;height:14px;background:#bdc3c7;transform:rotate(45deg);z-index:1;border:1px solid #999;}
 .g-bar-a{position:absolute;top:18px;height:14px;border-radius:3px;color:white;font-size:10px;line-height:14px;padding:0 2px;white-space:nowrap;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.2);z-index:2;cursor:pointer;transition:transform 0.1s;}
 .g-bar-a:hover{transform:scale(1.02);z-index:3;}
@@ -118,9 +118,7 @@ input[type="range"]{width:100%;}
 /* --- 新機能用CSS --- */
 /* 1. クリティカルパス */
 .node.cp { border: 3px solid #e74c3c; box-shadow: 0 0 15px rgba(231,76,60,0.4); }
-.chart-arrow.cp { stroke: #e74c3c; stroke-width: 4px; z-index: 50; }
-/* 2. ベースライン（予実差ゴースト） */
-.g-bar-p.ghost { background: transparent; border: 2px dashed #95a5a6; opacity: 0.6; box-sizing: border-box; }
+.chart-arrow.cp { stroke: #e74c3c; z-index: 50; }
 /* 3. マイルストーン垂直線 */
 .g-mil-line { position: absolute; width: 1px; border-left: 2px dashed #e74c3c; top: 0; bottom: 0; z-index: 0; pointer-events: none; opacity: 0.5; }
 </style>
@@ -693,8 +691,13 @@ function getCriticalPath() {
                     const isCpPath = cpSet.has(n.id) && cpSet.has(pid);
                     
                     const sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
-                    // クラス付与に cp を追加
-                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="chart-arrow ${er?'err':(cr?'crit':(isCpPath?'cp':''))}" marker-end="url(#ah)"/>`;
+                    // クリティカルパス専用の赤いマーカーを動的に追加
+                    if (!$('ah-cp')) {
+                        const defs = $('svg-lay').querySelector('defs');
+                        if (defs) defs.insertAdjacentHTML('beforeend', '<marker id="ah-cp" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#e74c3c"/></marker>');
+                    }
+                    const markerId = isCpPath ? 'ah-cp' : 'ah';
+                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="chart-arrow ${er?'err':(cr?'crit':(isCpPath?'cp':''))}" marker-end="url(#${markerId})"/>`;
                 }
             });
         });
@@ -810,14 +813,15 @@ if (mil) {
     gb.appendChild(mlLine); // gb (g-area) に追加して全体を貫く線にする
 }
 const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p'; 
-if(hasActual && !mil) p.classList.add('ghost'); // 実績があれば予定をゴースト化
+// ghost付与ロジックは削除（CSSで最初から点線になっているため）
 p.style.left=`${off*px-(mil?7:0)}px`; 
 if(!mil)p.style.width=`${Math.max(minBW,t.dur*px)}px`; 
-area.appendChild(p);            t.ui={sx:220+off*px, ex:220+(off+Math.max(t.dur,minBW/px))*px, y:y+20};
+area.appendChild(p);
+t.ui={sx:220+off*px, ex:220+(off+Math.max(t.dur,minBW/px))*px, y:y+20};
             if(t.as){
                 const ao=Math.max(0,diffDays(mn,t.as)-1), a=document.createElement('div'); a.className=mil?'g-mil-a':'g-bar-a'; a.style.left=`${ao*px-(mil?8:0)}px`;
                 if(!mil)a.style.width=`${Math.max(minBW,(t.ae?diffDays(t.as,t.ae):Math.max(1,diffDays(t.as,new Date(todayStr))))*px)}px`;
-                a.style.background=mil?`var(--st-${t.st})`:`linear-gradient(to right, var(--st-${t.st}) ${t.pg}%, #bdc3c7 ${t.pg}%)`;
+                a.style.background=mil?`var(--st-${t.st})`:`linear-gradient(to right, var(--st-${t.st}) ${t.pg}%, rgba(0,0,0,0.08) ${t.pg}%)`;
                 if(bad)a.classList.add('g-crit'); a.onclick=e=>{e.stopPropagation();openEditModal(it.n.id);}; area.appendChild(a);
             }
             row.appendChild(area); row.onclick=()=>openEditModal(it.n.id); wp.appendChild(row); y+=40;
