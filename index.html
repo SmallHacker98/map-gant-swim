@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Pro Map Suite v10.6 (Advanced)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
 :root{--bg:#f4f7f6;--line:#95a5a6;--primary:#2c3e50;--accent:#3498db;--high:#e67e22;--crit:#e74c3c;--grid:rgba(0,0,0,0.05);--st-todo:#95a5a6;--st-doing:#3498db;--st-done:#27ae60;--st-wait:#f39c12;}
 body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:sans-serif;user-select:none;}
@@ -206,6 +208,8 @@ input[type="range"]{width:100%;}
     <button id="b-swim" onclick="switchView('swim')">🏊</button>
     <div class="sep"></div>
     <button id="b-doc" onclick="switchView('doc')" title="Doc Binding">📄</button>
+    <div class="sep"></div>
+    <button id="b-ppt" onclick="switchView('ppt')" title="Slide Binding">🛝</button>
 </div>
 
 <div id="edit" class="pnl">
@@ -231,25 +235,26 @@ input[type="range"]{width:100%;}
 <div id="s-fit" class="pnl" style="display:none;"><button onclick="swimZoomIn()">＋</button><button onclick="swimZoomOut()">－</button><button onclick="fitSwimlane()">◎</button></div>
 <div id="s-view" class="view"><div class="v-head"><div class="v-title">Swimlane</div></div><div id="s-cnt" class="v-body"></div></div>
 
-<div id="d-view" class="view" style="background:#f9f9f9;">
+<div id="p-view" class="view" style="background:#f0f0f0;">
     <div class="v-head" style="background:#fff;">
-        <div class="v-title">Doc Binding</div>
+        <div class="v-title">Slide Binding</div>
         <div style="display:flex;gap:10px;align-items:center;">
-            <input type="file" id="excel-file" accept=".xlsx, .xls" style="display:none;" onchange="handleExcelUpload(event)">
-            <button class="btn-c" onclick="document.getElementById('excel-file').click()">📂 テンプレート読込</button>
-            <select id="sheet-select" onchange="changeSheet()" style="padding:6px;border-radius:4px;border:1px solid #ccc;"></select>
+            <input type="file" id="ppt-in" accept=".pptx" style="display:none" onchange="handlePptUpload(event)">
+            <button class="btn-c" onclick="$('ppt-in').click()">📂 PPTXテンプレート読込</button>
+            <span id="ppt-f-name" style="font-size:11px;color:#666;"></span>
+            <button class="btn-s" style="background:#d35400" onclick="exportPptx()">📥 PPTX出力</button>
         </div>
     </div>
     <div class="v-body" style="display:flex;overflow:hidden;">
-        <div id="doc-palette" style="width:280px;background:white;border-right:1px solid #ddd;overflow-y:auto;padding:15px;flex-shrink:0;"></div>
-        <div id="doc-preview" style="flex-grow:1;overflow:auto;padding:20px;">
-            <div id="excel-table-container" style="background:white;box-shadow:0 4px 15px rgba(0,0,0,0.1);padding:20px;min-height:500px; display:inline-block; min-width:100%;">
-                <div style="color:#999;text-align:center;padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>
+        <div id="ppt-palette" style="width:280px;background:white;border-right:1px solid #ddd;overflow-y:auto;padding:15px;flex-shrink:0;"></div>
+        <div id="ppt-preview" style="flex-grow:1;overflow:auto;padding:40px;background:#666;display:flex;justify-content:center;align-items:flex-start;">
+            <div id="ppt-slide-surface" style="width:960px; height:540px; background:white; position:relative; box-shadow:0 10px 30px rgba(0,0,0,0.5); transform-origin:top center;">
+                <div style="color:#999; text-align:center; padding-top:250px;">PPTXファイルを読み込んでください</div>
             </div>
         </div>
     </div>
 </div>
-
+  
 <div id="pres" class="pnl">
     <button onclick="startPresentation()">▶</button>
     <div id="p-nav" style="display:none;align-items:center;">
@@ -284,6 +289,12 @@ input[type="range"]{width:100%;}
     let hist = [];
     let histIdx = -1;
     let isUndoRedo = false;
+
+  // PPT関連の管理用
+    let pptZip = null;       // 読み込んだPPTXのZipデータ
+    let pptShapes = [];      // スライド1から抽出したテキストボックス情報
+    // stの中に pptMappings がない場合は追加してください
+    if (!st.pptMappings) st.pptMappings = {};
 
     function saveState() {
         if (isUndoRedo) return;
@@ -1271,16 +1282,27 @@ input[type="range"]{width:100%;}
         if(pItem) { pItem.classList.add('hl-match'); pItem.scrollIntoView({behavior: 'smooth', block: 'center'}); }
     }
 
-    function switchView(m){
+function switchView(m){
         mode=m; 
         const setCls = (id, c) => { const el = $(id); if(el) el.className = c; };
         const setDisp = (id, d) => { const el = $(id); if(el) el.style.display = d; };
         
-        setCls('b-map', m==='map'?'act':''); setCls('b-gantt', m==='gantt'?'act':''); setCls('b-swim', m==='swim'?'act':''); setCls('b-doc', m==='doc'?'act':'');
-        setDisp('map-con', m==='map'?'block':'none'); setDisp('g-view', m==='gantt'?'flex':'none'); setDisp('s-view', m==='swim'?'flex':'none'); setDisp('d-view', m==='doc'?'flex':'none');
-        setDisp('pres', m==='map'?'flex':'none'); setDisp('g-scale', m==='gantt'?'flex':'none'); setDisp('s-fit', m==='swim'?'flex':'none');
+        setCls('b-map', m==='map'?'act':''); setCls('b-gantt', m==='gantt'?'act':''); 
+        setCls('b-swim', m==='swim'?'act':''); setCls('b-doc', m==='doc'?'act':'');
+        setCls('b-ppt', m==='ppt'?'act':''); // PPTボタン
         
-        if(m==='map') ren(); else if(m==='gantt') changeGanttScale(gSc); else if(m==='swim') renderSwimlane(); else if(m==='doc'){ renderDocPalette(); if(excelWb)renderExcelTable(); }
+        setDisp('map-con', m==='map'?'block':'none'); setDisp('g-view', m==='gantt'?'flex':'none'); 
+        setDisp('s-view', m==='swim'?'flex':'none'); setDisp('d-view', m==='doc'?'flex':'none');
+        setDisp('p-view', m==='ppt'?'flex':'none'); // PPT画面
+        
+        setDisp('pres', m==='map'?'flex':'none'); setDisp('g-scale', m==='gantt'?'flex':'none'); 
+        setDisp('s-fit', m==='swim'?'flex':'none');
+        
+        if(m==='map') ren(); 
+        else if(m==='gantt') changeGanttScale(gSc); 
+        else if(m==='swim') renderSwimlane(); 
+        else if(m==='doc'){ renderDocPalette(); if(excelWb)renderExcelTable(); }
+        else if(m==='ppt'){ renderDocPalette('ppt-palette'); if(pptZip) renderPptPreview(); }
         if(pre.act && m!=='map') stopPresentation();
     }
 
@@ -1457,6 +1479,105 @@ input[type="range"]{width:100%;}
 
     function newFile(){ if(confirm("新規作成しますか？")){ st={sc:1,x:-120,y:-80,sOrd:[],gOrd:[],nodes:[{id:Date.now(),title:"開始",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l: "承認者", v: ""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],collapsed:false,x:0,y:0,pIds:[]}],sel:new Set(),docTemplate:null,docTemplateName:"",cellMappings:{}}; fH=null; $('f-name').innerText='(未保存)'; excelWb=null; $('excel-table-container').innerHTML='<div style="color:#999;text-align:center;padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>'; fitToScreen(); if(mode==='doc')renderDocPalette(); saveState();} }
 
+async function handlePptUpload(e) {
+        const f = e.target.files[0]; if(!f) return;
+        $('ppt-f-name').innerText = f.name;
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            const arrayBuffer = evt.target.result;
+            pptZip = await JSZip.loadAsync(arrayBuffer);
+            // スライド1のXMLを取得
+            const slideXmlText = await pptZip.file("ppt/slides/slide1.xml").async("string");
+            parsePptSlide(slideXmlText);
+            renderPptPreview();
+        };
+        reader.readAsArrayBuffer(f);
+    }
+
+    function parsePptSlide(xmlString) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+        const shapes = xmlDoc.getElementsByTagName("p:sp");
+        pptShapes = [];
+
+        for (let sp of shapes) {
+            // テキストボックスのIDと名前を取得
+            const nvSpPr = sp.getElementsByTagName("p:nvSpPr")[0];
+            const cNvPr = nvSpPr.getElementsByTagName("p:cNvPr")[0];
+            const id = cNvPr.getAttribute("id");
+            const name = cNvPr.getAttribute("name");
+
+            // 位置情報を取得 (EMU単位をpixelに変換 1 pixel = 9525 EMU)
+            const xfrm = sp.getElementsByTagName("a:xfrm")[0];
+            if (!xfrm) continue;
+            const off = xfrm.getElementsByTagName("a:off")[0];
+            const ext = xfrm.getElementsByTagName("a:ext")[0];
+            
+            // スライドサイズに対する相対位置を計算（PPT標準は960x540想定で一旦計算）
+            const x = parseInt(off.getAttribute("x")) / 12700; 
+            const y = parseInt(off.getAttribute("y")) / 12700;
+            const w = parseInt(ext.getAttribute("cx")) / 12700;
+            const h = parseInt(ext.getAttribute("cy")) / 12700;
+
+            // テキスト内容を取得
+            const tEls = sp.getElementsByTagName("a:t");
+            let text = "";
+            for (let t of tEls) { text += t.textContent; }
+
+            pptShapes.push({ id, name, x, y, w, h, originalText: text });
+        }
+    }
+
+  function renderPptPreview() {
+        const surface = $('ppt-slide-surface');
+        surface.innerHTML = '';
+        
+        pptShapes.forEach(sh => {
+            const el = document.createElement('div');
+            el.style.position = 'absolute';
+            el.style.left = sh.x + 'px';
+            el.style.top = sh.y + 'px';
+            el.style.width = sh.w + 'px';
+            el.style.height = sh.h + 'px';
+            el.style.border = '1px dashed #ccc';
+            el.style.fontSize = '12px';
+            el.style.overflow = 'hidden';
+            el.style.padding = '4px';
+            el.style.background = 'rgba(255,255,255,0.7)';
+            el.style.cursor = 'crosshair';
+
+            // 紐付けがある場合は表示を更新
+            const mapping = st.pptMappings[sh.id];
+            if (mapping) {
+                el.style.background = '#e8f8f5';
+                el.style.border = '2px solid #16a085';
+                el.innerText = getDynamicValue(mapping);
+                el.innerHTML += `<span onclick="event.stopPropagation(); clearPptMapping('${sh.id}')" style="position:absolute; top:0; right:0; background:red; color:white; cursor:pointer; padding:0 4px; font-size:10px;">×</span>`;
+            } else {
+                el.innerText = sh.originalText || `(空のテキストボックス: ${sh.name})`;
+            }
+
+            // ドラッグ＆ドロップ設定
+            el.ondragover = e => { e.preventDefault(); el.style.background = '#d6eaf8'; };
+            el.ondragleave = e => { el.style.background = mapping ? '#e8f8f5' : 'rgba(255,255,255,0.7)'; };
+            el.ondrop = e => {
+                e.preventDefault();
+                const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+                st.pptMappings[sh.id] = data;
+                renderPptPreview();
+                saveState();
+            };
+
+            surface.appendChild(el);
+        });
+    }
+
+    function clearPptMapping(shapeId) {
+        delete st.pptMappings[shapeId];
+        renderPptPreview();
+        saveState();
+    }
+  
     function startPresentation(){pre.act=true;pre.idx=0;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='flex'; if(n)n.style.display='flex'; focusP();}
     function stopPresentation(){pre.act=false;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='none'; if(n)n.style.display='none'; fitToScreen();}
     function nextSlide(){const visNodes = getVisibleNodes(); if(visNodes.length){pre.idx=(pre.idx+1)%visNodes.length;focusP(visNodes);}}
