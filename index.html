@@ -115,6 +115,14 @@ input[type="range"]{width:100%;}
 .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
 .sc-mode .view{margin-top:0;}.sc-mode .v-head{padding-top:10px;}
 .hl-match{outline:3px solid #e67e22!important;background-color:#fef9e7!important;transform:scale(1.02);z-index:10;position:relative;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);box-shadow:0 4px 15px rgba(230,126,34,0.3)!important;}
+/* --- 新機能用CSS --- */
+/* 1. クリティカルパス */
+.node.cp { border: 3px solid #e74c3c; box-shadow: 0 0 15px rgba(231,76,60,0.4); }
+.chart-arrow.cp { stroke: #e74c3c; stroke-width: 4px; z-index: 50; }
+/* 2. ベースライン（予実差ゴースト） */
+.g-bar-p.ghost { background: transparent; border: 2px dashed #95a5a6; opacity: 0.6; box-sizing: border-box; }
+/* 3. マイルストーン垂直線 */
+.g-mil-line { position: absolute; width: 1px; border-left: 2px dashed #e74c3c; top: 0; bottom: 0; z-index: 0; pointer-events: none; opacity: 0.5; }
 </style>
 </head>
 <body onclick="clearHl()">
@@ -359,6 +367,32 @@ input[type="range"]{width:100%;}
         tick();
     }
 
+// プロジェクトの制約（クリティカルパス）を算出
+function getCriticalPath() {
+    const dist = {}, prev = {}, isEnd = {};
+    st.nodes.forEach(n => { dist[n.id] = parseInt(getField(n,"期間"))||1; isEnd[n.id] = true; });
+    st.nodes.forEach(n => { n.pIds.forEach(p => isEnd[p] = false); });
+    
+    let changed = true;
+    while(changed) {
+        changed = false;
+        st.nodes.forEach(n => {
+            n.pIds.forEach(p => {
+                const dur = parseInt(getField(n,"期間"))||1;
+                if((dist[p] || 0) + dur > (dist[n.id] || 0)) {
+                    dist[n.id] = (dist[p] || 0) + dur; prev[n.id] = p; changed = true;
+                }
+            });
+        });
+    }
+    let maxD = -1, endNode = null;
+    Object.keys(isEnd).forEach(id => { if(isEnd[id] && dist[id] > maxD) { maxD = dist[id]; endNode = id; } });
+    
+    const cp = new Set(); let curr = endNode;
+    while(curr) { cp.add(curr); curr = prev[curr]; }
+    return cp;
+}
+    
     // ==========================================
     // 4. System Functions
     // ==========================================
@@ -613,7 +647,7 @@ input[type="range"]{width:100%;}
     // ==========================================
     function ren(){
         if(mode!=='map')return;
-        const an=ana(), c=$('canvas'), vp=$('viewport'); if(!c)return;
+        const an=ana(), cpSet = getCriticalPath(), c=$('canvas'), vp=$('viewport'); if(!c)return;
         c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
         vp.style.backgroundSize=`${20*st.sc}px ${20*st.sc}px`; vp.style.backgroundPosition=`${st.x+innerWidth/2}px ${st.y+innerHeight/2}px`;
         c.querySelectorAll('.node').forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
@@ -630,8 +664,7 @@ input[type="range"]{width:100%;}
                 c.appendChild(el);
             }
             const isDec=(parseInt(getField(d,"期間"))||0)===0;
-            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'')+(isDec?' decision':'')+(mapD&&mapD.t==='node'?'':' phy');
-            const stt=getField(d,"ステータス")||"todo"; el.querySelector('.nt').className=`nt h-${stt}`; el.querySelector('.nt').innerText=d.title;
+            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'')+(isDec?' decision':'')+(cpSet.has(d.id)?' cp':'')+(mapD&&mapD.t==='node'?'':' phy');            const stt=getField(d,"ステータス")||"todo"; el.querySelector('.nt').className=`nt h-${stt}`; el.querySelector('.nt').innerText=d.title;
             if(isDec&&stt==="done"){if(!el.querySelector('.stamp'))el.insertAdjacentHTML('beforeend','<div class="stamp">APPROVED</div>');}else{const s=el.querySelector('.stamp');if(s)s.remove();}
             el.querySelector('.np-bar').style.width=(getField(d,"進捗")||0)+'%';
             const nf=el.querySelector('.nf'); nf.innerHTML='';
@@ -649,15 +682,19 @@ input[type="range"]{width:100%;}
             });
             el.style.left=(d.x||0)+'px'; el.style.top=(d.y||0)+'px';
         });
-        
+
         const pg=$('p-grp'); pg.innerHTML=''; let h='';
         st.nodes.forEach(n=>{
             n.pIds.forEach(pid=>{
                 const p=st.nodes.find(x=>x.id==pid);
                 if(p){
                     const cr=an.crt.has(`${pid}-${n.id}`), er=an.err.has(n.id)&&an.err.has(pid);
+                    // ここに移動して、cpクラスの判定を追加
+                    const isCpPath = cpSet.has(n.id) && cpSet.has(pid);
+                    
                     const sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
-                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="chart-arrow ${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
+                    // クラス付与に cp を追加
+                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="chart-arrow ${er?'err':(cr?'crit':(isCpPath?'cp':''))}" marker-end="url(#ah)"/>`;
                 }
             });
         });
@@ -765,8 +802,18 @@ input[type="range"]{width:100%;}
             row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}">${it.n.title}</div>`;
             const area=document.createElement('div'); area.className='g-area';
             const off=Math.max(0,diffDays(mn,t.s)-1), mil=t.dur===0, minBW=gSc===1?px:gSc===30?px*2:px*7;
-            const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p'; p.style.left=`${off*px-(mil?7:0)}px`; if(!mil)p.style.width=`${Math.max(minBW,t.dur*px)}px`; area.appendChild(p); 
-            t.ui={sx:220+off*px, ex:220+(off+Math.max(t.dur,minBW/px))*px, y:y+20};
+const hasActual = !!t.as;
+if (mil) {
+    // マイルストーンの垂直線を背景エリアに追加
+    const mlLine = document.createElement('div'); mlLine.className = 'g-mil-line';
+    mlLine.style.left = `${off*px}px`;
+    gb.appendChild(mlLine); // gb (g-area) に追加して全体を貫く線にする
+}
+const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p'; 
+if(hasActual && !mil) p.classList.add('ghost'); // 実績があれば予定をゴースト化
+p.style.left=`${off*px-(mil?7:0)}px`; 
+if(!mil)p.style.width=`${Math.max(minBW,t.dur*px)}px`; 
+area.appendChild(p);            t.ui={sx:220+off*px, ex:220+(off+Math.max(t.dur,minBW/px))*px, y:y+20};
             if(t.as){
                 const ao=Math.max(0,diffDays(mn,t.as)-1), a=document.createElement('div'); a.className=mil?'g-mil-a':'g-bar-a'; a.style.left=`${ao*px-(mil?8:0)}px`;
                 if(!mil)a.style.width=`${Math.max(minBW,(t.ae?diffDays(t.as,t.ae):Math.max(1,diffDays(t.as,new Date(todayStr))))*px)}px`;
