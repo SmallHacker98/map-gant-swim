@@ -843,22 +843,22 @@ vp.onmousedown = e => {
 
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg'; svg.style.position='absolute';svg.style.top='0';svg.style.left='0';svg.style.width='100%';svg.style.height='100%';svg.style.zIndex='5';svg.style.pointerEvents='none';
         svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
-        let items=[]; st.nodes.forEach(n=>{const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);items.push({n,d:ds.length>1?"全体":(ds[0]||"未配属")});});
-        items.sort((a,b)=>{if(a.d==="全体")return -1;if(b.d==="全体")return 1;const ia=ord.indexOf(a.d),ib=ord.indexOf(b.d);if(ia!==ib)return (ia<0?999:ia)-(ib<0?999:ib);return ts[a.n.id].s-ts[b.n.id].s;});
+        let items=[]; st.nodes.forEach(n=>{const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);items.push({n,d:ds.length>1?"複数":(ds[0]||"未配属")});});
+        // 部署関係なく、純粋に開始日順（同じなら親ノードを上に）ソートする
+        items.sort((a,b)=>{
+            const diff = ts[a.n.id].s - ts[b.n.id].s;
+            if(diff !== 0) return diff;
+            if(b.n.pIds.includes(a.n.id)) return -1;
+            if(a.n.pIds.includes(b.n.id)) return 1;
+            return ts[a.n.id].e - ts[b.n.id].e;
+        });
         
-        let y=40, ld=null; 
+        let y=40; // グループヘッダーを廃止したため y は 40 からスタート
         items.forEach(it=>{
             const t=ts[it.n.id];
-            if(it.d!==ld){
-                const gr=document.createElement('div'); gr.className='g-grp'+(it.d==='全体'?' all':'');
-                if(it.d!=='全体'){
-                    gr.draggable=true; gr.ondragstart=e=>onDragStartDept(e,'g',it.d); gr.ondragover=onDragOverDept; gr.ondragenter=e=>onDragEnterDept(e,it.d); gr.ondragleave=onDragLeaveDept; gr.ondrop=e=>onDropDept(e,'g',it.d); gr.ondragend=onDragEndDept;
-                    gr.innerHTML=`<div style="width:200px;padding-left:10px;"><span class="g-arr-btn" onclick="mvD('g','${it.d}',-1)">▲</span><span class="g-arr-btn" onclick="mvD('g','${it.d}',1)">▼</span><span style="opacity:0.4;margin-right:6px;cursor:grab;">⣿</span> 📂 ${it.d}</div>`;
-                }else gr.innerHTML=`<div style="width:200px;padding-left:10px;">📂 ${it.d}</div>`;
-                wp.appendChild(gr); y+=30; ld=it.d;
-            }
             const row=document.createElement('div'); row.className='g-row'; const bad=it.n.pIds.some(pid=>ts[pid]&&ts[pid].e>t.s);
-            row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}">${it.n.title}</div>`;
+            // 部署見出し（📂）の代わりに、タスク名の横に小さなバッジで部署名を表示する
+            row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}"><span style="font-size:9px;color:#fff;background:#95a5a6;padding:2px 4px;border-radius:3px;margin-right:6px;flex-shrink:0;">${it.d}</span><span style="overflow:hidden;text-overflow:ellipsis;">${it.n.title}</span></div>`;
             const area=document.createElement('div'); area.className='g-area';
             const off=Math.max(0,diffDays(mn,t.s)-1), mil=t.dur===0, minBW=gSc===1?px:gSc===30?px*2:px*7;
 const hasActual = !!t.as;
