@@ -134,7 +134,7 @@ input[type="range"]{width:100%;}
 .g-mil-p .connector.out, .g-mil-a .connector.out { top: -6px; right: -6px; margin: 0; }
 .g-mil-p .connector.in, .g-mil-a .connector.in { bottom: -6px; left: -6px; top: auto; margin: 0; }
 
-/* ★ 折りたたみボタン用CSS ★ */
+/* 折りたたみボタン用CSS */
 .n-col { position:absolute; top:4px; right:6px; font-size:10px; cursor:pointer; color:#7f8c8d; background:#eee; border-radius:4px; padding:2px 6px; z-index:30; transition:0.2s; box-shadow:0 1px 2px rgba(0,0,0,0.2); }
 .n-col:hover { background:#dcdcdc; color:#333; }
 </style>
@@ -260,7 +260,7 @@ input[type="range"]{width:100%;}
     </div>
 </div>
 <script>
-// ==========================================
+    // ==========================================
     // 1. State & Globals
     // ==========================================
     const $ = id => document.getElementById(id);
@@ -277,7 +277,6 @@ input[type="range"]{width:100%;}
     let pre={act:false,idx:0}, lnk={act:false,src:null}, phy={act:false}, clip=null, curEd=null, mode='map';
     let qRes=[], qIdx=-1, panD={act:false,el:null,ox:0,oy:0}, fH=null, mapD=null, gSc=1, newNodeId=null, gZoom=1, sZoom=1, dragDept=null, dragType=null, excelWb=null, currentSheetName=null;
     
-    // 追加機能用グローバル変数
     let showCP = false;
     let linkDrag = { act: false, from: null, x: 0, y: 0 };
     
@@ -326,7 +325,6 @@ input[type="range"]{width:100%;}
         }
     }
 
-    // 「折りたたまれて隠れているノード」を除外した、表示すべきノード一覧を取得する
     function getVisibleNodes() {
         const hidden = new Set();
         const childrenMap = {};
@@ -335,7 +333,6 @@ input[type="range"]{width:100%;}
             n.pIds.forEach(pid => { if(childrenMap[pid]) childrenMap[pid].push(n.id); });
         });
 
-        // 隠すべきノードを再帰的に見つけてリストアップ
         function hideDescendants(id) {
             childrenMap[id].forEach(cid => {
                 hidden.add(cid);
@@ -360,7 +357,6 @@ input[type="range"]{width:100%;}
     function handleLinkDrop(e, toId) {
         e.stopPropagation();
         if(linkDrag.act && linkDrag.from && linkDrag.from !== toId) toggleConnection(toId, false, linkDrag.from);
-        // ドラッグ状態を確実にリセットして線を消す
         linkDrag.act = false; linkDrag.from = null;
         const svg = $('drag-line-svg'); if(svg) svg.style.display = 'none';
     }
@@ -635,11 +631,9 @@ input[type="range"]{width:100%;}
     function sel(id,mul){if(!mul)st.sel.clear();if(id)st.sel.has(id)?st.sel.delete(id):st.sel.add(id);st.selectedId=id;if(lnk.act&&st.sel.size===1)lnk.src=Array.from(st.sel)[0];ren();}
     
     function addNode(type){
-        // 'free' の場合は既存の選択を無視して、完全に独立したノードを作る
         const selId = (type !== 'free' && st.sel.size > 0) ? Array.from(st.sel)[0] : null;
         const p = selId ? st.nodes.find(n => n.id == selId) : null;
         
-        // 子や兄を作る時に親がいない場合は何もしない
         if (!p && type !== 'free') { alert("親となるノードを選択してください"); return; }
         
         const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -677,13 +671,11 @@ input[type="range"]{width:100%;}
     
     function addFreeNode(){ addNode('free'); }
 
-    // ▼ここから追加：ダブルクリックで文脈（日付・部署）を引き継いだノードを作る機能
     function addContextNode(dateStr, dept) {
         const id = Date.now() + Math.floor(Math.random() * 1000);
         const sDate = dateStr || todayStr;
         const dpt = dept || "全体";
         
-        // 画面中央の座標
         const cx = -(st.x || 0) / (st.sc || 1) - 120;
         const cy = -(st.y || 0) / (st.sc || 1) - 80;
         
@@ -712,10 +704,7 @@ input[type="range"]{width:100%;}
         openEditModal(id, true);
         saveState();
     }
-    // ▲ここまで追加
 
-  
-  
     function deleteSelected(){
         if(st.sel.size===0||!confirm("削除しますか？"))return;
         st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));
@@ -868,14 +857,14 @@ input[type="range"]{width:100%;}
         } 
         toggleModalUI(); 
     }
-// ==========================================
+  // ==========================================
     // 8. Render View: Map
     // ==========================================
     function ren(){
         if(mode!=='map')return;
         const an=ana(), cpSet = showCP ? getCriticalPath() : new Set(), c=$('canvas'), vp=$('viewport'); if(!c)return;
         
-        // ★ 変更: 折りたたまれていない「可視ノード」だけを描画対象にする
+        // ★ 折りたたまれていない「可視ノード」だけを描画対象にする
         const visNodes = getVisibleNodes();
         
         c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
@@ -1001,15 +990,16 @@ input[type="range"]{width:100%;}
         if(gSc===1){for(let i=0;i<=days;i++){const l=document.createElement('div');l.className='g-grid';l.style.left=`${i*px}px`;gb.appendChild(l);}}
         else if(gSc===30){let cM=-1,cY=-1;for(let i=0;i<=days;i++){const d=addDays(mn,i),m=d.getMonth(),y=d.getFullYear();if(m!==cM||y!==cY){const l=document.createElement('div');l.className='g-month-sep';l.style.left=`${i*px}px`;gb.appendChild(l);cM=m;cY=y;}}}
         else{const getQ=(d)=>{const m=d.getMonth();if(m>=3&&m<=5)return 1;if(m>=6&&m<=8)return 2;if(m>=9&&m<=11)return 3;return 4;};let sQ=new Set(),sM=new Set();for(let i=0;i<=days;i++){const d=addDays(mn,i),m=d.getMonth(),q=getQ(d),fY=m<3?d.getFullYear():d.getFullYear()+1,qK=`${fY}-FQ${q}`,mK=`${d.getFullYear()}-${m}`,isS=d.getDate()===1&&[3,6,9,0].includes(m);if(!sQ.has(qK)&&(i===0||isS)){const l=document.createElement('div');l.className='g-quarter-sep';l.style.left=`${i*px}px`;gb.appendChild(l);sQ.add(qK);}else if(!sM.has(mK)&&d.getDate()===1){const l=document.createElement('div');l.className='g-month-light';l.style.left=`${i*px}px`;gb.appendChild(l);sM.add(mK);}}}
-        wp.appendChild(gb.ondblclick = (e) => {
-            // 背景やグリッド線をクリックした場合のみ反応させる
+        
+        // ★ 今度こそ絶対に正しい書き方です
+        wp.appendChild(gb);
+
+        // ガントチャートのダブルクリックで新規タスク作成
+        gb.ondblclick = (e) => {
             if(e.target !== gb && !e.target.className.includes('g-grid') && !e.target.className.includes('g-month-sep') && !e.target.className.includes('g-quarter-sep')) return;
-            
-            // クリックしたX座標から「何日目か」を逆算して日付を割り出す
             const x = e.target === gb ? e.offsetX : e.target.offsetLeft;
             const dayOffset = Math.floor(x / px);
             const clickedDate = addDays(mn, dayOffset).toISOString().slice(0, 10);
-            
             addContextNode(clickedDate, null);
         };
 
@@ -1090,7 +1080,7 @@ input[type="range"]{width:100%;}
     }
 
     // ==========================================
-    // 10. Render View: Swimlane 
+    // 10. Render View: Swimlane
     // ==========================================
     function swimZoomIn(){sZoom=Math.min(3,sZoom*1.2);renderSwimlane();}
     function swimZoomOut(){sZoom=Math.max(0.5,sZoom*0.8);renderSwimlane();}
@@ -1121,7 +1111,7 @@ input[type="range"]{width:100%;}
     function renderSwimlane(){
         const c=$('s-cnt'); c.innerHTML=''; const ord=getOrd('s');
         const levels={}; 
-        const visNodes = getVisibleNodes(); // ★
+        const visNodes = getVisibleNodes(); 
         
         let minDate = new Date("2100-01-01");
         st.nodes.forEach(n => { const d = parseDate(getField(n, "予定開始")); if (d && d < minDate) minDate = d; });
@@ -1162,7 +1152,7 @@ input[type="range"]{width:100%;}
         const lS={0:80}; for(let i=1;i<=maxLv;i++)lS[i]=lS[i-1]+lH[i-1];
         
         const cw=300,con=document.createElement('div');con.className='s-cont';con.style.width=`${ord.length*cw}px`;
-const cols=[]; 
+        const cols=[]; 
         ord.forEach((d,i)=>{
             const col=document.createElement('div');col.className='s-col';col.style.background=dCols[i%6].bg;
             col.ondragover=onDragOverDept;col.ondragenter=e=>onDragEnterDept(e,d);col.ondragleave=onDragLeaveDept;col.ondrop=e=>onDropDept(e,'s',d);
@@ -1171,16 +1161,14 @@ const cols=[];
             h.draggable=true;h.ondragstart=e=>onDragStartDept(e,'s',d);h.ondragend=onDragEndDept;
             col.appendChild(h);con.appendChild(col);cols.push(col);
             
-            // ▼ここから追加：スイムレーン背景のダブルクリックで、該当部署・概算時期のタスク作成
+            // スイムレーン背景のダブルクリックで、該当部署・概算時期のタスク作成
             col.ondblclick = (e) => {
                 if (e.target === col) {
-                    // クリックしたY座標（縦位置）から、該当する週の概算日付を算出
                     const level = Math.max(0, Math.floor((e.offsetY - 80) / 120));
                     const approxDate = addDays(minDate, level * 7).toISOString().slice(0, 10);
                     addContextNode(approxDate, d);
                 }
             };
-            // ▲ここまで追加
         });
         
         const ui={}; 
@@ -1233,7 +1221,7 @@ const cols=[];
         const an=ana(),hC={},vC={};
         rawEdges.forEach((ed,idx)=>{
             const pid=ed.p,cid=ed.c,p=ui[pid],ch=ui[cid];
-            if(p&&ch){ // 両方表示されている場合のみ線を描画
+            if(p&&ch){ 
                 const sx=(p.l+p.r)/2+(ed.outI-(outC[pid]+1)/2)*20, sy=p.b, ex=(ch.l+ch.r)/2+(ed.inI-(inC[cid]+1)/2)*20, ey=ch.t;
                 const pLv=levels[pid],cLv=levels[cid]; let pts=[{x:sx,y:sy}];
                 
@@ -1475,7 +1463,6 @@ const cols=[];
     function prevSlide(){const visNodes = getVisibleNodes(); if(visNodes.length){pre.idx=(pre.idx-1+visNodes.length)%visNodes.length;focusP(visNodes);}}
     function focusP(visNodes = getVisibleNodes()){const n=visNodes[pre.idx];sel(n.id,false);const s=$('s-num'); if(s)s.innerText=`${pre.idx+1}/${visNodes.length}`;st.sc=1.5;st.x=-(n.x||0)*st.sc;st.y=-(n.y||0)*st.sc;ren();}
 
-    // 初期化実行
     init();
 </script>
 </body>
