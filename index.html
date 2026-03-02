@@ -596,13 +596,23 @@ input[type="range"]{width:100%;}
     function sel(id,mul){if(!mul)st.sel.clear();if(id)st.sel.has(id)?st.sel.delete(id):st.sel.add(id);st.selectedId=id;if(lnk.act&&st.sel.size===1)lnk.src=Array.from(st.sel)[0];ren();}
     
     function addNode(type){
-        // 選択がない場合でもエラーにならないよう修正
-        const selId = st.sel.size > 0 ? Array.from(st.sel)[0] : null;
-        const p = st.nodes.find(n => n.id == selId);
+        // 'free' の場合は既存の選択を無視して、完全に独立したノードを作る
+        const selId = (type !== 'free' && st.sel.size > 0) ? Array.from(st.sel)[0] : null;
+        const p = selId ? st.nodes.find(n => n.id == selId) : null;
+        
+        // 子や兄を作る時に親がいない場合は何もしない
+        if (!p && type !== 'free') {
+            alert("親となるノードを選択してください");
+            return;
+        }
         
         const id = Date.now() + Math.floor(Math.random() * 1000);
         const isC = type === 'child' && p;
         const pe = p ? parseDate(getField(p, "予定終了")) : null;
+        
+        // 画面の「ちょうどど真ん中」の座標を計算
+        const cx = -(st.x || 0) / (st.sc || 1) - 120;
+        const cy = -(st.y || 0) / (st.sc || 1) - 80;
         
         const newNode = {
             id, title: "Task",
@@ -614,8 +624,9 @@ input[type="range"]{width:100%;}
                 { l: "承認者", v: "" }, { l: "ステータス", v: "todo" }, { l: "進捗", v: "0" }
             ],
             inputs: [], outputs: [],
-            x: p ? (isC ? (p.x || 0) + 300 : (p.x || 0)) : (-(st.x)/st.sc + 100 || 100),
-            y: p ? (isC ? (p.y || 0) : (p.y || 0) + 160) : (-(st.y)/st.sc + 100 || 100),
+            // 'free' の場合は画面中央（cx, cy）に、少しだけランダムに散らして配置
+            x: p ? (isC ? (p.x || 0) + 300 : (p.x || 0)) : cx + (Math.random() - 0.5) * 40,
+            y: p ? (isC ? (p.y || 0) : (p.y || 0) + 160) : cy + (Math.random() - 0.5) * 40,
             pIds: isC ? [p.id] : (type === 'sibling' && p ? [...p.pIds] : [])
         };
 
