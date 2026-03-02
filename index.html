@@ -82,11 +82,56 @@ svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:
 .g-lbl.err{color:var(--crit);}
 .g-area{flex-grow:1;position:relative;height:100%;}
 .g-grid{position:absolute;top:0;bottom:0;border-left:1px dashed #eee;z-index:0;}
-.g-bar-p{position:absolute;top:6px;height:10px;background:transparent;border:2px dashed #bdc3c7;border-radius:2px;box-sizing:border-box;z-index:1;pointer-events:none;}
-.g-mil-p{position:absolute;top:6px;width:14px;height:14px;background:#bdc3c7;transform:rotate(45deg);z-index:1;border:1px solid #999;}
-.g-bar-a{position:absolute;top:18px;height:14px;border-radius:3px;color:white;font-size:10px;line-height:14px;padding:0 2px;white-space:nowrap;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.2);z-index:2;cursor:pointer;transition:transform 0.1s;}
+.g-bar-p {
+    position: absolute;
+    top: 10px;
+    height: 20px;
+    background: repeating-linear-gradient(-45deg, rgba(149,165,166,0.1), rgba(149,165,166,0.1) 4px, transparent 4px, transparent 8px);
+    border: 1px dashed #95a5a6;
+    border-radius: 4px;
+    box-sizing: border-box;
+    z-index: 1;
+    pointer-events: none;
+}
+.g-mil-p {
+    position: absolute;
+    top: 13px;
+    width: 14px;
+    height: 14px;
+    background: transparent;
+    border: 2px dashed #95a5a6;
+    transform: rotate(45deg);
+    z-index: 1;
+    box-sizing: border-box;
+}
+.g-bar-a {
+    position: absolute;
+    top: 14px;
+    height: 12px;
+    border-radius: 3px;
+    color: white;
+    font-size: 10px;
+    line-height: 12px;
+    padding: 0 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    z-index: 2;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
 .g-bar-a:hover{transform:scale(1.02);z-index:3;}
-.g-mil-a{position:absolute;top:18px;width:16px;height:16px;transform:rotate(45deg);box-shadow:0 2px 4px rgba(0,0,0,0.2);z-index:2;cursor:pointer;border:2px solid #fff;}
+.g-mil-a {
+    position: absolute;
+    top: 13px;
+    width: 14px;
+    height: 14px;
+    transform: rotate(45deg);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    z-index: 2;
+    cursor: pointer;
+    border: 2px solid #fff;
+}
 .g-crit{border:2px solid var(--crit);}
 .g-month-sep{position:absolute;top:0;bottom:0;border-left:2px solid #bbb;z-index:1;}
 .g-quarter-sep{position:absolute;top:0;bottom:0;border-left:3px solid #7f8c8d;z-index:1;}
@@ -188,7 +233,7 @@ input[type="range"]{width:100%;}
 <div id="map-con" style="display:block;">
     <div id="viewport"><div id="canvas"><svg id="svg-lay"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs><g id="p-grp"></g></svg></div></div>
     <div id="zoom" class="pnl"><button onclick="autoAlign()">✨</button><div class="sep-h"></div><button onclick="fitToScreen()">◎</button><div class="sep-h"></div><button onclick="zoomIn()">＋</button><button onclick="zoomOut()">－</button></div>
-    <div id="edit" class="pnl"><button onclick="addNode('child')">＋子</button><button onclick="addNode('sibling')">＋兄</button><button onclick="addFreeNode()">＋独</button><div class="sep"></div><button id="b-lnk" onclick="toggleLinkMode()">🔗</button><div class="sep"></div><button onclick="deleteSelected()" style="color:var(--crit)">🗑</button></div>
+    <div id="edit" class="pnl"><button onclick="addNode('child')">＋子</button><button onclick="addNode('sibling')">＋兄</button><button onclick="addFreeNode()">＋独</button><div class="sep"></div><button id="b-lnk" onclick="toggleLinkMode()">🔗</button><div class="sep"></div><button id="b-cp" onclick="toggleCP()" title="クリティカルパス表示">🔥</button><div class="sep"></div><button onclick="deleteSelected()" style="color:var(--crit)">🗑</button></div>
 </div>
 
 <div id="g-view" class="view"><div class="v-head"><div class="v-title">Gantt</div></div><div id="g-cnt" class="v-body"></div></div>
@@ -241,7 +286,8 @@ input[type="range"]{width:100%;}
     
     let pre={act:false,idx:0}, lnk={act:false,src:null}, phy={act:false}, clip=null, curEd=null, mode='map';
     let qRes=[], qIdx=-1, panD={act:false,el:null,ox:0,oy:0}, fH=null, mapD=null, gSc=1, newNodeId=null, gZoom=1, sZoom=1, dragDept=null, dragType=null, excelWb=null, currentSheetName=null;
-
+    let showCP = false; // ← これを追加
+    
     // ==========================================
     // 2. Core Helpers
     // ==========================================
@@ -645,7 +691,7 @@ function getCriticalPath() {
     // ==========================================
     function ren(){
         if(mode!=='map')return;
-        const an=ana(), cpSet = getCriticalPath(), c=$('canvas'), vp=$('viewport'); if(!c)return;
+        const an=ana(), cpSet = showCP ? getCriticalPath() : new Set(), c=$('canvas'), vp=$('viewport'); if(!c)return;
         c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
         vp.style.backgroundSize=`${20*st.sc}px ${20*st.sc}px`; vp.style.backgroundPosition=`${st.x+innerWidth/2}px ${st.y+innerHeight/2}px`;
         c.querySelectorAll('.node').forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
@@ -1164,6 +1210,13 @@ t.ui={sx:220+off*px, ex:220+(off+Math.max(t.dur,minBW/px))*px, y:y+20};
     function prevSlide(){if(st.nodes.length){pre.idx=(pre.idx-1+st.nodes.length)%st.nodes.length;focusP();}}
     function focusP(){const n=st.nodes[pre.idx];sel(n.id,false);const s=$('s-num'); if(s)s.innerText=`${pre.idx+1}/${st.nodes.length}`;st.sc=1.5;st.x=-(n.x||0)*st.sc;st.y=-(n.y||0)*st.sc;ren();}
 
+    function toggleCP() {
+    showCP = !showCP;
+    const btn = $('b-cp');
+    if(btn) btn.className = showCP ? 'act' : '';
+    if(mode === 'map') ren();
+}
+    
     // --- Boot ---
     init();
 </script>
