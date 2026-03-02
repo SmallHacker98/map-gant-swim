@@ -98,7 +98,7 @@ svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:
 .s-cont{display:flex;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
 .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
 .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
-.node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;border:1px solid #ccc;}
+.node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;border:1px solid #ccc;min-height:60px;transition:all 0.3s ease;}
 .node.s-node .nt { border-radius: 3px 3px 0 0; }
 .s-col.drag-over{background-color:rgba(52,152,219,0.15)!important;box-shadow:inset 0 0 0 3px var(--accent);}
 .g-grp.drag-over{background-color:#d6eaf8!important;box-shadow:inset 0 0 0 2px var(--accent);}
@@ -133,6 +133,10 @@ input[type="range"]{width:100%;}
 .connector.in { left: -6px; top: 50%; margin-top: -6px; }
 .g-mil-p .connector.out, .g-mil-a .connector.out { top: -6px; right: -6px; margin: 0; }
 .g-mil-p .connector.in, .g-mil-a .connector.in { bottom: -6px; left: -6px; top: auto; margin: 0; }
+
+/* ★ 折りたたみボタン用CSS ★ */
+.n-col { position:absolute; top:4px; right:6px; font-size:10px; cursor:pointer; color:#7f8c8d; background:#eee; border-radius:4px; padding:2px 6px; z-index:30; transition:0.2s; box-shadow:0 1px 2px rgba(0,0,0,0.2); }
+.n-col:hover { background:#dcdcdc; color:#333; }
 </style>
 </head>
 <body onclick="clearHl()">
@@ -255,17 +259,17 @@ input[type="range"]{width:100%;}
         <button onclick="stopPresentation()">■</button>
     </div>
 </div>
-<script>
-    // ==========================================
+// ==========================================
     // 1. State & Globals
     // ==========================================
     const $ = id => document.getElementById(id);
     const todayStr = new Date().toISOString().slice(0, 10);
     const dCols = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
     
+    // 初期状態の x, y を画面中央になるよう -120, -80 に調整しています
     let st = { 
-        sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], 
-        nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l: "承認者", v: ""}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], inputs: [], outputs: [], x: 0, y: 0, pIds: [] }], 
+        sc: 1, x: -120, y: -80, sOrd: [], gOrd: [], 
+        nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l: "承認者", v: ""}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], inputs: [], outputs: [], x: 0, y: 0, pIds: [], collapsed: false }], 
         sel: new Set([1]), docTemplate: null, docTemplateName: "", cellMappings: {} 
     };
     
@@ -307,6 +311,40 @@ input[type="range"]{width:100%;}
 
     function undo() { if (histIdx > 0) restoreState(histIdx - 1); }
     function redo() { if (histIdx < hist.length - 1) restoreState(histIdx + 1); }
+
+    // ==========================================
+    // ★新機能：折りたたみ（クラスタリング）ロジック
+    // ==========================================
+    function toggleCollapse(e, id) {
+        e.stopPropagation();
+        const n = st.nodes.find(x => x.id === id);
+        if(n) {
+            n.collapsed = !n.collapsed;
+            ren(); if(mode==='gantt') renderGantt(); if(mode==='swim') renderSwimlane();
+            saveState();
+        }
+    }
+
+    // 「折りたたまれて隠れているノード」を除外した、表示すべきノード一覧を取得する
+    function getVisibleNodes() {
+        const hidden = new Set();
+        const childrenMap = {};
+        st.nodes.forEach(n => childrenMap[n.id] = []);
+        st.nodes.forEach(n => {
+            n.pIds.forEach(pid => { if(childrenMap[pid]) childrenMap[pid].push(n.id); });
+        });
+
+        // 隠すべきノードを再帰的に見つけてリストアップ
+        function hideDescendants(id) {
+            childrenMap[id].forEach(cid => {
+                hidden.add(cid);
+                hideDescendants(cid);
+            });
+        }
+
+        st.nodes.forEach(n => { if (n.collapsed) hideDescendants(n.id); });
+        return st.nodes.filter(n => !hidden.has(n.id));
+    }
 
     // ==========================================
     // ドラッグ＆ドロップ リンク用関数
@@ -380,9 +418,10 @@ input[type="range"]{width:100%;}
     // 3. Map Analysis & Geometry
     // ==========================================
     function fitToScreen(){
-        if(!st.nodes.length)return;
+        const visNodes = getVisibleNodes();
+        if(!visNodes.length)return;
         let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
-        st.nodes.forEach(n=>{
+        visNodes.forEach(n=>{
             const nx=n.x||0, ny=n.y||0;
             if(nx<Mx)Mx=nx; if(ny<My)My=ny; if(nx+240>mx)mx=nx+240; if(ny+160>my)my=ny+160;
         });
@@ -398,10 +437,11 @@ input[type="range"]{width:100%;}
     function zoomOut(){ const c = $('canvas'); if(c) c.classList.add('smooth'); st.sc = Math.max(0.1, st.sc * 0.8); ren(); setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400); }
 
     function autoAlign(){
+        const visNodes = getVisibleNodes();
         const comp = []; const visited = new Set(); const adj = {};
-        st.nodes.forEach(n => adj[n.id] = []);
-        st.nodes.forEach(n => { n.pIds.forEach(pid => { if(adj[pid]) adj[pid].push(n.id); if(adj[n.id]) adj[n.id].push(pid); }); });
-        st.nodes.forEach(n => {
+        visNodes.forEach(n => adj[n.id] = []);
+        visNodes.forEach(n => { n.pIds.forEach(pid => { if(adj[pid]) adj[pid].push(n.id); if(adj[n.id]) adj[n.id].push(pid); }); });
+        visNodes.forEach(n => {
             if(!visited.has(n.id)){
                 const c = []; const q = [n.id]; visited.add(n.id);
                 while(q.length > 0){ const cur = q.shift(); c.push(cur); adj[cur].forEach(nei => { if(!visited.has(nei)){ visited.add(nei); q.push(nei); } }); }
@@ -410,7 +450,7 @@ input[type="range"]{width:100%;}
         });
         let currentYOffset = 0;
         comp.forEach(cIds => {
-            const cNodes = st.nodes.filter(n => cIds.includes(n.id));
+            const cNodes = visNodes.filter(n => cIds.includes(n.id));
             const levels = {}; cNodes.forEach(n => levels[n.id] = 0);
             let changed = true;
             for(let iter=0; iter<50 && changed; iter++){
@@ -440,11 +480,12 @@ input[type="range"]{width:100%;}
 
     function runPhy(){
         let i=0; 
+        const visNodes = getVisibleNodes();
         const tick=()=>{
             if(!phy.act || i>100){ phy.act=false; ren(); return; }
             let mv=false;
-            for(let a of st.nodes){
-                for(let b of st.nodes){
+            for(let a of visNodes){
+                for(let b of visNodes){
                     if(a===b)continue;
                     const dx=(a.x||0)-(b.x||0), dy=(a.y||0)-(b.y||0), d=Math.sqrt(dx*dx+dy*dy);
                     if(d<280 && d>0.1){ const f=(280-d)*0.15; const ang=Math.atan2(dy,dx); a.x=(a.x||0)+Math.cos(ang)*f; a.y=(a.y||0)+Math.sin(ang)*f; mv=true; }
@@ -512,7 +553,6 @@ input[type="range"]{width:100%;}
         });
         
         window.onmousemove = e => {
-            // ドラッグ中のライン描画
             if(linkDrag.act) {
                 const path = $('drag-line');
                 if(path) {
@@ -540,7 +580,6 @@ input[type="range"]{width:100%;}
         };
         
         window.onmouseup = () => { 
-            // リンクドラッグの終了処理
             if(linkDrag.act) {
                 linkDrag.act = false; linkDrag.from = null;
                 const svg = $('drag-line-svg'); if (svg) svg.style.display = 'none';
@@ -570,7 +609,6 @@ input[type="range"]{width:100%;}
             if(['INPUT','SELECT','TEXTAREA'].includes(act.tagName))return;
             
             if(e.ctrlKey||e.metaKey){
-                // ▼ Undo / Redo のショートカット追加
                 if(e.key==='z' || e.key==='Z') { e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
                 if(e.key==='y' || e.key==='Y') { e.preventDefault(); redo(); return; }
 
@@ -601,16 +639,12 @@ input[type="range"]{width:100%;}
         const p = selId ? st.nodes.find(n => n.id == selId) : null;
         
         // 子や兄を作る時に親がいない場合は何もしない
-        if (!p && type !== 'free') {
-            alert("親となるノードを選択してください");
-            return;
-        }
+        if (!p && type !== 'free') { alert("親となるノードを選択してください"); return; }
         
         const id = Date.now() + Math.floor(Math.random() * 1000);
         const isC = type === 'child' && p;
         const pe = p ? parseDate(getField(p, "予定終了")) : null;
         
-        // 画面の「ちょうどど真ん中」の座標を計算
         const cx = -(st.x || 0) / (st.sc || 1) - 120;
         const cy = -(st.y || 0) / (st.sc || 1) - 80;
         
@@ -623,8 +657,7 @@ input[type="range"]{width:100%;}
                 { l: "担当部署", v: p ? getField(p, "担当部署") : "全体" },
                 { l: "承認者", v: "" }, { l: "ステータス", v: "todo" }, { l: "進捗", v: "0" }
             ],
-            inputs: [], outputs: [],
-            // 'free' の場合は画面中央（cx, cy）に、少しだけランダムに散らして配置
+            inputs: [], outputs: [], collapsed: false,
             x: p ? (isC ? (p.x || 0) + 300 : (p.x || 0)) : cx + (Math.random() - 0.5) * 40,
             y: p ? (isC ? (p.y || 0) : (p.y || 0) + 160) : cy + (Math.random() - 0.5) * 40,
             pIds: isC ? [p.id] : (type === 'sibling' && p ? [...p.pIds] : [])
@@ -633,7 +666,6 @@ input[type="range"]{width:100%;}
         st.nodes.push(newNode);
         sel(id, false);
         
-        // 現在のビューに合わせて再描画
         if (mode === 'map') { ren(); runPhy(); }
         else if (mode === 'gantt') renderGantt();
         else if (mode === 'swim') renderSwimlane();
@@ -661,11 +693,9 @@ input[type="range"]{width:100%;}
         if(!src||src===tid)return;
         const t=st.nodes.find(n=>n.id===tid),idx=t.pIds.indexOf(src);
         
-        // 結線・切断（自動で日付はずらさない）
         if(idx>=0) t.pIds.splice(idx,1); 
         else t.pIds.push(src); 
         
-        // リンクモード（🔗）由来なら、1回結んだらモードを終了する
         if (!explicitSrc && lnk.act) {
             lnk.act = false;
             lnk.src = null;
@@ -674,7 +704,7 @@ input[type="range"]{width:100%;}
         }
 
         ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane();
-        saveState(); // 操作を履歴に保存
+        saveState();
     }
 
     // ==========================================
@@ -781,7 +811,7 @@ input[type="range"]{width:100%;}
         
         ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane(); if(mode==='doc'){renderDocPalette();if(excelWb)renderExcelTable();}
         closeModal();
-        saveState(); // 追加
+        saveState(); 
     }
 
     function syncDate(k){
@@ -798,17 +828,23 @@ input[type="range"]{width:100%;}
         } 
         toggleModalUI(); 
     }
-  // ==========================================
+// ==========================================
     // 8. Render View: Map
     // ==========================================
     function ren(){
         if(mode!=='map')return;
         const an=ana(), cpSet = showCP ? getCriticalPath() : new Set(), c=$('canvas'), vp=$('viewport'); if(!c)return;
+        
+        // ★ 変更: 折りたたまれていない「可視ノード」だけを描画対象にする
+        const visNodes = getVisibleNodes();
+        
         c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
         vp.style.backgroundSize=`${20*st.sc}px ${20*st.sc}px`; vp.style.backgroundPosition=`${st.x+innerWidth/2}px ${st.y+innerHeight/2}px`;
-        c.querySelectorAll('.node').forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
         
-        st.nodes.forEach(d=>{
+        // 見えなくなったノードのDOMを削除
+        c.querySelectorAll('.node').forEach(e=>{if(!visNodes.find(n=>n.id==e.dataset.id))e.remove();});
+        
+        visNodes.forEach(d=>{
             let el=c.querySelector(`.node[data-id="${CSS.escape(d.id)}"]`);
             if(!el){
                 el=document.createElement('div'); el.dataset.id=d.id;
@@ -819,6 +855,16 @@ input[type="range"]{width:100%;}
                 el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();saveState();};
                 c.appendChild(el);
             }
+            
+            // ★ 折りたたみ（▼）ボタンの追加
+            const hasChildren = st.nodes.some(n => n.pIds.includes(d.id));
+            let colBtn = el.querySelector('.n-col');
+            if (hasChildren) {
+                if (!colBtn) { colBtn = document.createElement('div'); colBtn.className = 'n-col'; el.appendChild(colBtn); }
+                colBtn.innerText = d.collapsed ? '▶' : '▼';
+                colBtn.onclick = e => toggleCollapse(e, d.id);
+            } else if (colBtn) { colBtn.remove(); }
+
             const isDec=(parseInt(getField(d,"期間"))||0)===0;
             el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'')+(isDec?' decision':'')+(cpSet.has(d.id)?' cp':'')+(mapD&&mapD.t==='node'?'':' phy');            
             const stt=getField(d,"ステータス")||"todo"; el.querySelector('.nt').className=`nt h-${stt}`; el.querySelector('.nt').innerText=d.title;
@@ -841,9 +887,9 @@ input[type="range"]{width:100%;}
         });
 
         const pg=$('p-grp'); pg.innerHTML=''; let h='';
-        st.nodes.forEach(n=>{
+        visNodes.forEach(n=>{
             n.pIds.forEach(pid=>{
-                const p=st.nodes.find(x=>x.id==pid);
+                const p=visNodes.find(x=>x.id==pid); // 隠れているノードへの線は引かない
                 if(p){
                     const cr=an.crt.has(`${pid}-${n.id}`), er=an.err.has(n.id)&&an.err.has(pid);
                     const isCpPath = cpSet.has(n.id) && cpSet.has(pid);
@@ -872,6 +918,8 @@ input[type="range"]{width:100%;}
 
     function renderGantt(){
         const c=$('g-cnt'); c.innerHTML=''; const ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
+        const visNodes = getVisibleNodes(); // ★ 可視ノードのみ抽出
+        
         st.nodes.forEach(n=>{
             const s=parseDate(getField(n,"予定開始"))||new Date(todayStr), dur=parseInt(getField(n,"期間")||1), e=dur===0?s:addDays(s,dur-1), as=parseDate(getField(n,"実績開始")), ae=parseDate(getField(n,"実績終了"));
             ts[n.id]={n,s,e,as,ae,dur,st:getField(n,"ステータス")||"todo",pg:parseInt(getField(n,"進捗")||0)}; if(s<mn)mn=s; if(e>mx)mx=e; if(as&&as<mn)mn=as; if(ae&&ae>mx)mx=ae;
@@ -918,9 +966,8 @@ input[type="range"]{width:100%;}
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg'; svg.style.position='absolute';svg.style.top='0';svg.style.left='0';svg.style.width='100%';svg.style.height='100%';svg.style.zIndex='5';svg.style.pointerEvents='none';
         svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
         
-        let items=[]; st.nodes.forEach(n=>{const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);items.push({n,d:ds.length>1?"複数":(ds[0]||"未配属")});});
+        let items=[]; visNodes.forEach(n=>{const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);items.push({n,d:ds.length>1?"複数":(ds[0]||"未配属")});});
         
-        // 部署関係なく、純粋に開始日順（同じなら親ノードを上に）ソートする
         items.sort((a,b)=>{
             const diff = ts[a.n.id].s - ts[b.n.id].s;
             if(diff !== 0) return diff;
@@ -933,13 +980,11 @@ input[type="range"]{width:100%;}
         items.forEach(it=>{
             const t=ts[it.n.id];
             const row=document.createElement('div'); row.className='g-row'; const bad=it.n.pIds.some(pid=>ts[pid]&&ts[pid].e>t.s);
-            // 部署見出しの代わりに、タスク名の横に小さなバッジで部署名を表示する
             row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}"><span style="font-size:9px;color:#fff;background:#95a5a6;padding:2px 4px;border-radius:3px;margin-right:6px;flex-shrink:0;">${it.d}</span><span style="overflow:hidden;text-overflow:ellipsis;">${it.n.title}</span></div>`;
             const area=document.createElement('div'); area.className='g-area';
             const off=Math.max(0,diffDays(mn,t.s)-1), mil=t.dur===0, minBW=gSc===1?px:gSc===30?px*2:px*7;
             
             if (mil) {
-                // マイルストーンの垂直線を背景エリアに追加
                 const mlLine = document.createElement('div'); mlLine.className = 'g-mil-line';
                 mlLine.style.left = `${off*px}px`;
                 gb.appendChild(mlLine); 
@@ -949,7 +994,6 @@ input[type="range"]{width:100%;}
             p.style.left=`${off*px-(mil?7:0)}px`; 
             if(!mil)p.style.width=`${Math.max(minBW,t.dur*px)}px`; 
             
-            // ドラッグ用コネクタを追加する関数
             const addConn = (bar) => {
                 const cOut = document.createElement('div'); cOut.className='connector out'; 
                 cOut.onmousedown = e => startLinkDrag(e, it.n.id); cOut.onclick = e => e.stopPropagation();
@@ -973,7 +1017,6 @@ input[type="range"]{width:100%;}
             row.appendChild(area); 
             row.onclick=()=>{sel(it.n.id, false);};
             row.ondblclick=()=>openEditModal(it.n.id);
-            // 行のどこでドロップしても受け付ける
             row.onmouseup=e=>{ if(linkDrag.act) handleLinkDrop(e, it.n.id); }; 
             wp.appendChild(row); y+=40;
         });
@@ -982,6 +1025,7 @@ input[type="range"]{width:100%;}
             const an=ana();
             items.forEach(it=>{
                 it.n.pIds.forEach(pid=>{
+                    if(!visNodes.find(v=>v.id==pid)) return; // ★ 見えないノードへの矢印は描かない
                     const p=ts[pid], ch=ts[it.n.id];
                     if(p&&ch&&p.ui&&ch.ui){
                         const sx=p.ui.ex, sy=p.ui.y, ex=ch.ui.sx, ey=ch.ui.y, d=(sx+15<ex-5)?`M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}`:`M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
@@ -996,7 +1040,7 @@ input[type="range"]{width:100%;}
     }
 
     // ==========================================
-    // 10. Render View: Swimlane (独立グラフの時間軸対応版)
+    // 10. Render View: Swimlane 
     // ==========================================
     function swimZoomIn(){sZoom=Math.min(3,sZoom*1.2);renderSwimlane();}
     function swimZoomOut(){sZoom=Math.max(0.5,sZoom*0.8);renderSwimlane();}
@@ -1007,14 +1051,8 @@ input[type="range"]{width:100%;}
         const isSwim=(t==='s'||t==='swim'), act=new Set(); 
         st.nodes.forEach(n=>{
             const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);
-            if(!isSwim){
-                if(ds.length<=1) act.add(ds[0]||"全体");
-                else act.add("全体");
-            }
-            else{
-                if(ds.length===0) act.add("未配属");
-                else ds.forEach(d=>{if(d!=="全体")act.add(d);});
-            }
+            if(!isSwim){ if(ds.length<=1) act.add(ds[0]||"全体"); else act.add("全体"); }
+            else{ if(ds.length===0) act.add("未配属"); else ds.forEach(d=>{if(d!=="全体")act.add(d);}); }
         });
         let l=isSwim?st.sOrd:st.gOrd; if(!l)l=[];
         act.forEach(d=>{if(!l.includes(d))l.push(d);}); l=l.filter(d=>act.has(d));
@@ -1033,24 +1071,18 @@ input[type="range"]{width:100%;}
     function renderSwimlane(){
         const c=$('s-cnt'); c.innerHTML=''; const ord=getOrd('s');
         const levels={}; 
+        const visNodes = getVisibleNodes(); // ★
         
-        // ▼ 独立したグラフを時間軸で整列させるための処理
         let minDate = new Date("2100-01-01");
-        st.nodes.forEach(n => {
-            const d = parseDate(getField(n, "予定開始"));
-            if (d && d < minDate) minDate = d;
-        });
+        st.nodes.forEach(n => { const d = parseDate(getField(n, "予定開始")); if (d && d < minDate) minDate = d; });
         if(minDate.getFullYear() === 2100) minDate = new Date();
 
         st.nodes.forEach(n=>{
             if (n.pIds.length === 0) {
-                // 親がいない（グラフの始点）場合、開始日に応じて初期レベル（横位置）をずらす
                 const sDate = parseDate(getField(n, "予定開始")) || minDate;
                 const weekDiff = Math.max(0, Math.floor((sDate - minDate) / (86400000 * 7))); 
                 levels[n.id] = weekDiff; 
-            } else {
-                levels[n.id] = 0;
-            }
+            } else { levels[n.id] = 0; }
         });
 
         let changed=true; 
@@ -1059,16 +1091,12 @@ input[type="range"]{width:100%;}
             st.nodes.forEach(n=>{
                 if(n.pIds.length>0){
                     const ml=Math.max(...n.pIds.map(p=>levels[p]||0));
-                    if(levels[n.id]!==ml+1){
-                        levels[n.id]=ml+1;
-                        changed=true;
-                    }
+                    if(levels[n.id]!==ml+1){ levels[n.id]=ml+1; changed=true; }
                 }
             });
         }
-        // ▲ ここまで変更
 
-        const maxLv=Math.max(...Object.values(levels),0), sN=[...st.nodes].sort((a,b)=>levels[a.id]-levels[b.id]), nS={}; 
+        const maxLv=Math.max(...Object.values(levels),0), sN=[...visNodes].sort((a,b)=>levels[a.id]-levels[b.id]), nS={}; 
         sN.forEach(n=>{
             const raw=getDept(n); let dI=[];
             if (raw==="全体") {dI=ord.map((_,i)=>i);} else {dI=raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d).map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);}
@@ -1102,7 +1130,6 @@ input[type="range"]{width:100%;}
             el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${dInd}<div style="padding:5px;font-size:11px;">${getField(n,"期間")} 日</div>`;
             if(isDec&&getField(n,"ステータス")==="done")el.innerHTML+='<div class="stamp">APPROVED</div>';
             
-            // ドラッグ用コネクタを追加 (Swimlane)
             const cOut = document.createElement('div'); cOut.className='connector out'; 
             cOut.onmousedown = e => startLinkDrag(e, n.id); cOut.onclick = e => e.stopPropagation();
             const cIn = document.createElement('div'); cIn.className='connector in'; 
@@ -1111,7 +1138,6 @@ input[type="range"]{width:100%;}
 
             el.onclick=()=>{sel(n.id, false);};
             el.ondblclick=()=>openEditModal(n.id);
-            // カードのどこでドロップしても受け付ける
             el.onmouseup=e=>{ if(linkDrag.act) handleLinkDrop(e, n.id); };
             con.appendChild(el); ui[n.id]={l:span.minI*cw+20,r:(span.mx+1)*cw-20,t:fy,b:fy+100,minI:span.minI,mx:span.mx};
         });
@@ -1146,7 +1172,7 @@ input[type="range"]{width:100%;}
         const an=ana(),hC={},vC={};
         rawEdges.forEach((ed,idx)=>{
             const pid=ed.p,cid=ed.c,p=ui[pid],ch=ui[cid];
-            if(p&&ch){
+            if(p&&ch){ // 両方表示されている場合のみ線を描画
                 const sx=(p.l+p.r)/2+(ed.outI-(outC[pid]+1)/2)*20, sy=p.b, ex=(ch.l+ch.r)/2+(ed.inI-(inC[cid]+1)/2)*20, ey=ch.t;
                 const pLv=levels[pid],cLv=levels[cid]; let pts=[{x:sx,y:sy}];
                 
@@ -1380,14 +1406,16 @@ input[type="range"]{width:100%;}
         }
     }
 
-    function newFile(){ if(confirm("新規作成しますか？")){ st={sc:1,x:0,y:0,sOrd:[],gOrd:[],nodes:[{id:Date.now(),title:"開始",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l: "承認者", v: ""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],x:0,y:0,pIds:[]}],sel:new Set(),docTemplate:null,docTemplateName:"",cellMappings:{}}; fH=null; $('f-name').innerText='(未保存)'; excelWb=null; $('excel-table-container').innerHTML='<div style="color:#999;text-align:center;padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>'; fitToScreen(); if(mode==='doc')renderDocPalette(); saveState();} }
+    function newFile(){ if(confirm("新規作成しますか？")){ st={sc:1,x:-120,y:-80,sOrd:[],gOrd:[],nodes:[{id:Date.now(),title:"開始",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l: "承認者", v: ""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],collapsed:false,x:0,y:0,pIds:[]}],sel:new Set(),docTemplate:null,docTemplateName:"",cellMappings:{}}; fH=null; $('f-name').innerText='(未保存)'; excelWb=null; $('excel-table-container').innerHTML='<div style="color:#999;text-align:center;padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>'; fitToScreen(); if(mode==='doc')renderDocPalette(); saveState();} }
 
     function startPresentation(){pre.act=true;pre.idx=0;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='flex'; if(n)n.style.display='flex'; focusP();}
     function stopPresentation(){pre.act=false;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='none'; if(n)n.style.display='none'; fitToScreen();}
-    function nextSlide(){if(st.nodes.length){pre.idx=(pre.idx+1)%st.nodes.length;focusP();}}
-    function prevSlide(){if(st.nodes.length){pre.idx=(pre.idx-1+st.nodes.length)%st.nodes.length;focusP();}}
-    function focusP(){const n=st.nodes[pre.idx];sel(n.id,false);const s=$('s-num'); if(s)s.innerText=`${pre.idx+1}/${st.nodes.length}`;st.sc=1.5;st.x=-(n.x||0)*st.sc;st.y=-(n.y||0)*st.sc;ren();}
+    function nextSlide(){const visNodes = getVisibleNodes(); if(visNodes.length){pre.idx=(pre.idx+1)%visNodes.length;focusP(visNodes);}}
+    function prevSlide(){const visNodes = getVisibleNodes(); if(visNodes.length){pre.idx=(pre.idx-1+visNodes.length)%visNodes.length;focusP(visNodes);}}
+    function focusP(visNodes = getVisibleNodes()){const n=visNodes[pre.idx];sel(n.id,false);const s=$('s-num'); if(s)s.innerText=`${pre.idx+1}/${visNodes.length}`;st.sc=1.5;st.x=-(n.x||0)*st.sc;st.y=-(n.y||0)*st.sc;ren();}
 
+    // 初期化実行
+    init();
 </script>
 </body>
 </html>
