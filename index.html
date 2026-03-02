@@ -267,6 +267,9 @@ input[type="range"]{width:100%;}
     function handleLinkDrop(e, toId) {
         e.stopPropagation();
         if(linkDrag.act && linkDrag.from && linkDrag.from !== toId) toggleConnection(toId, false, linkDrag.from);
+        // ドラッグ状態を確実にリセットして線を消す
+        linkDrag.act = false; linkDrag.from = null;
+        const svg = $('drag-line-svg'); if(svg) svg.style.display = 'none';
     }
     function toggleCP() {
         showCP = !showCP;
@@ -868,7 +871,11 @@ input[type="range"]{width:100%;}
                 addConn(a);
                 area.appendChild(a);
             }
-            row.appendChild(area); row.onclick=()=>openEditModal(it.n.id); wp.appendChild(row); y+=40;
+row.appendChild(area); 
+            row.onclick=()=>openEditModal(it.n.id); 
+            // ▼追加：行のどこでドロップしても受け付ける
+            row.onmouseup=e=>{ if(linkDrag.act) handleLinkDrop(e, it.n.id); }; 
+            wp.appendChild(row); y+=40;
         });
         
         if(gSc===1){
@@ -967,8 +974,10 @@ input[type="range"]{width:100%;}
             cIn.onmouseup = e => handleLinkDrop(e, n.id); cIn.onclick = e => e.stopPropagation();
             el.appendChild(cIn); el.appendChild(cOut);
 
-            el.onclick=()=>openEditModal(n.id);con.appendChild(el); ui[n.id]={l:span.minI*cw+20,r:(span.mx+1)*cw-20,t:fy,b:fy+100,minI:span.minI,mx:span.mx};
-        });
+el.onclick=()=>openEditModal(n.id);
+            // ▼追加：カードのどこでドロップしても受け付ける
+            el.onmouseup=e=>{ if(linkDrag.act) handleLinkDrop(e, n.id); };
+            con.appendChild(el); ui[n.id]={l:span.minI*cw+20,r:(span.mx+1)*cw-20,t:fy,b:fy+100,minI:span.minI,mx:span.mx};        });
         
         setTimeout(()=>{
             sN.forEach(n=>{const el=Array.from(con.querySelectorAll('.node.s-node')).find(x=>x.dataset.id==n.id);if(el)ui[n.id].b=ui[n.id].t+el.offsetHeight;});
