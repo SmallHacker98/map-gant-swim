@@ -255,6 +255,36 @@ input[type="range"]{width:100%;}
     let showCP = false;
     let linkDrag = { act: false, from: null, x: 0, y: 0 };
     
+    // ▼ 今回追加する Undo / Redo 用のロジック
+    let hist = [];
+    let histIdx = -1;
+    let isUndoRedo = false;
+
+    function saveState() {
+        if (isUndoRedo) return;
+        const s = JSON.stringify(st, (k,v) => (v instanceof Set ? Array.from(v) : v));
+        hist = hist.slice(0, histIdx + 1);
+        hist.push(s);
+        if(hist.length > 50) hist.shift(); // 履歴の上限は50回
+        else histIdx++;
+    }
+
+    function restoreState(idx) {
+        if (idx < 0 || idx >= hist.length) return;
+        histIdx = idx;
+        const p = JSON.parse(hist[idx]);
+        st = p;
+        st.sel = new Set(p.sel || []);
+        isUndoRedo = true; // 復元中の無限保存を防止
+        ren();
+        if(mode==='gantt') renderGantt();
+        if(mode==='swim') renderSwimlane();
+        if(mode==='doc') { renderDocPalette(); if(excelWb) renderExcelTable(); }
+        setTimeout(() => { isUndoRedo = false; }, 10);
+    }
+
+    function undo() { if (histIdx > 0) restoreState(histIdx - 1); }
+    function redo() { if (histIdx < hist.length - 1) restoreState(histIdx + 1); }    
     // ==========================================
     // ドラッグ＆ドロップ リンク用関数
     // ==========================================
@@ -490,7 +520,7 @@ input[type="range"]{width:100%;}
                 linkDrag.act = false; linkDrag.from = null;
                 const svg = $('drag-line-svg'); if (svg) svg.style.display = 'none';
             }
-            panD.act=false; const vp=$('viewport'); if(vp)vp.style.willChange='auto'; if(mapD&&mapD.t==='node'){phy.act=true;runPhy();} mapD=null; 
+            panD.act=false; const vp=$('viewport'); if(vp)vp.style.willChange='auto'; if(mapD&&mapD.t==='node'){phy.act=true;runPhy();saveState();} mapD=null; 
         };
         
         const vp = $('viewport');
@@ -511,8 +541,14 @@ input[type="range"]{width:100%;}
             const md = $('modal');
             if(md && md.style.display!=='none'){ if(e.key==='Enter'&&act.tagName!=='TEXTAREA'&&act.tagName!=='BUTTON'){e.preventDefault();saveModal();return;} if(e.key==='Escape'){e.preventDefault();closeModal();return;} }
             if(['INPUT','SELECT','TEXTAREA'].includes(act.tagName))return;
+            
             if(e.ctrlKey||e.metaKey){
+                // ▼ 追加：Undo / Redo のショートカット
+                if(e.key==='z' || e.key==='Z') { e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
+                if(e.key==='y' || e.key==='Y') { e.preventDefault(); redo(); return; }
+
                 if(e.key==='c'){e.preventDefault();clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));}
+                // ...以降はそのまま                if(e.key==='c'){e.preventDefault();clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));}
                 if(e.key==='v'&&clip){st.sel.clear();clip.forEach(n=>{n.id=Date.now()+Math.floor(Math.random()*1000);n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);});ren();runPhy();}
                 if(e.key==='s'){e.preventDefault();saveOver();} if(e.key==='o'){e.preventDefault();openFile();}
             }
@@ -525,6 +561,7 @@ input[type="range"]{width:100%;}
             qIn.onkeydown = e => { if(e.key==='Enter') jumpToNextMatch(); };
         }
         ren(); setTimeout(fitToScreen,100);
+      saveState(); // 初期状態を保存（これを追加）
     }
 
     // ==========================================
@@ -547,6 +584,7 @@ input[type="range"]{width:100%;}
             inputs:[], outputs:[], x:isC?(p.x||0)+300:(p.x||0), y:isC?(p.y||0):(p.y||0)+160, pIds:isC?[p.id]:[...p.pIds]
         });
         sel(st.nodes[st.nodes.length-1].id,false); openEditModal(st.nodes[st.nodes.length-1].id,true);
+      saveState(); // 追加
     }
     
     function addFreeNode(){
@@ -557,10 +595,10 @@ input[type="range"]{width:100%;}
             inputs:[], outputs:[], x:-(st.x||0)/(st.sc||1)-120+(Math.random()-0.5)*40, y:-(st.y||0)/(st.sc||1)-80+(Math.random()-0.5)*40, pIds:[]
         });
         sel(id,false); ren(); setTimeout(()=>{phy.act=true;runPhy();},100); setTimeout(()=>openEditModal(id,true),200);
+      saveState(); // 追加
     }
     
-    function deleteSelected(){if(st.sel.size===0||!confirm("削除しますか？"))return;st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));st.nodes.forEach(n=>n.pIds=n.pIds.filter(pid=>!st.sel.has(pid)));st.sel.clear();ren();if(mode==='gantt')renderGantt();if(mode==='swim')renderSwimlane();}
-    function toggleLinkMode(){if(st.sel.size!==1&&!lnk.act){alert("親ノードを1つ選択してください");return;}lnk.act=!lnk.act;lnk.src=lnk.act?Array.from(st.sel)[0]:null;$('b-lnk').className=lnk.act?'lnk':'';ren();}
+function deleteSelected(){if(st.sel.size===0||!confirm("削除しますか？"))return;st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));st.nodes.forEach(n=>n.pIds=n.pIds.filter(pid=>!st.sel.has(pid)));st.sel.clear();ren();if(mode==='gantt')renderGantt();if(mode==='swim')renderSwimlane(); saveState(); } // 末尾に追加    function toggleLinkMode(){if(st.sel.size!==1&&!lnk.act){alert("親ノードを1つ選択してください");return;}lnk.act=!lnk.act;lnk.src=lnk.act?Array.from(st.sel)[0]:null;$('b-lnk').className=lnk.act?'lnk':'';ren();}
     
     function toggleConnection(tid, isAlt, explicitSrc) {
         let src = explicitSrc || lnk.src; 
@@ -569,14 +607,20 @@ input[type="range"]{width:100%;}
         const t=st.nodes.find(n=>n.id===tid),idx=t.pIds.indexOf(src);
         if(idx>=0) t.pIds.splice(idx,1); 
         else {
-            t.pIds.push(src); const p=st.nodes.find(n=>n.id===src),pe=parseDate(getField(p,"予定終了"));
-            if(pe){
-                const ns=addDays(pe,1).toISOString().slice(0,10); setField(t,"予定開始",ns);
-                let dur=parseInt(getField(t,"期間")); if(isNaN(dur))dur=1;
-                setField(t,"予定終了",addDays(parseDate(ns),dur>0?dur-1:0).toISOString().slice(0,10));
-            }
+            t.pIds.push(src); 
+            // ※ここに以前あった「開始日を自動でズラす」処理を削除しました
         }
+        
+        // リンクモード（🔗）由来なら、1回結んだらモードを終了する
+        if (!explicitSrc && lnk.act) {
+            lnk.act = false;
+            lnk.src = null;
+            const btn = $('b-lnk');
+            if(btn) btn.className = '';
+        }
+
         ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane();
+        saveState(); // 操作を履歴に保存
     }
 
     // ==========================================
@@ -683,6 +727,7 @@ input[type="range"]{width:100%;}
         
         ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane(); if(mode==='doc'){renderDocPalette();if(excelWb)renderExcelTable();}
         closeModal();
+      saveState(); // 追加
     }
 
     function syncDate(k){
