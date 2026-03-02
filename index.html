@@ -430,7 +430,8 @@ function getCriticalPath() {
         });
     }
     let maxD = -1, endNode = null;
-    Object.keys(isEnd).forEach(id => { if(isEnd[id] && dist[id] > maxD) { maxD = dist[id]; endNode = id; } });
+    // Number(id) を使って文字列から数値に戻す
+    Object.keys(isEnd).forEach(id => { if(isEnd[id] && dist[id] > maxD) { maxD = dist[id]; endNode = Number(id); } });    
     
     const cp = new Set(); let curr = endNode;
     while(curr) { cp.add(curr); curr = prev[curr]; }
@@ -489,7 +490,16 @@ function getCriticalPath() {
         
         const vp = $('viewport');
         if(vp) {
-            vp.onmousedown = e => { if(e.target.id==='viewport'||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; vp.style.willChange='background-position'; if(pre.act)stopPresentation(); }};
+vp.onmousedown = e => { 
+            if(e.target.id==='viewport'||e.target.id==='canvas'){ 
+                mapD={t:'pan',x:e.clientX,y:e.clientY}; 
+                vp.style.willChange='background-position'; 
+                if(pre.act)stopPresentation(); 
+                
+                // ▼ 追加：ノード選択を解除して再描画
+                if(st.sel.size > 0 && !lnk.act) { st.sel.clear(); ren(); }
+            }
+        };
             vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/f; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/f; ren(); };
         }
         
