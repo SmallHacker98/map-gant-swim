@@ -918,44 +918,49 @@ input[type="range"]{width:100%;}
         const inEdges=[...rawEdges].sort((a,b)=>a.sx-b.sx), inI_map=new Map();
         inEdges.forEach(ed=>{if(!inI_map.has(ed.c))inI_map.set(ed.c,1);ed.inI=inI_map.get(ed.c);inI_map.set(ed.c,ed.inI+1);});
 
-        const an=ana(), cpSet = showCP ? getCriticalPath() : new Set(), hC={}, vC={};
-        
+        const an=ana(), cpSet = showCP ? getCriticalPath() : new Set();
+        let edgeCountInCol = {}; // ★ 縦通路の重なり防止用カウンター
+
         rawEdges.forEach((ed,idx)=>{
             const pid=ed.p,cid=ed.c,p=ui[pid],ch=ui[cid];
             if(p&&ch){ 
-                const sx=(p.l+p.r)/2+(ed.outI-(outC[pid]+1)/2)*25, sy=p.b, ex=(ch.l+ch.r)/2+(ed.inI-(inC[cid]+1)/2)*25, ey=ch.t;
+                // 出発・到着位置をズラして重なりを防止
+                const sx=(p.l+p.r)/2+(ed.outI-(outC[pid]+1)/2)*15, sy=p.b, ex=(ch.l+ch.r)/2+(ed.inI-(inC[cid]+1)/2)*15, ey=ch.t;
                 const pLv=levels[pid],cLv=levels[cid]; let pts=[{x:sx,y:sy}];
                 
-                hC[pLv]=(hC[pLv]||0)+1; 
-                // ★ スイムレーン矢印のルーティング改善（重なり防止と迂回処理）
-                let oy=lMB[pLv] + 20 + (hC[pLv]%10)*10; 
-                let tHLv = cLv>0 ? cLv-1 : 0; 
-                hC[tHLv]=(hC[tHLv]||0)+1; 
-                let iy=lS[cLv] - 20 - (hC[tHLv]%10)*10;
+                // oy: 親レベルの下にある「絶対にノードがない安全な水平通路」
+                let oy = lMB[pLv] + 15 + (ed.outI % 6)*8; 
+                // iy: 子レベルの上にある「絶対にノードがない安全な水平通路」
+                let iy = lS[cLv] - 15 - (ed.inI % 6)*8;
                 
-                if(pLv === cLv) { // 同じレベル（横移動）の場合
-                    iy = oy; pts.push({x:sx,y:oy});
-                    // ノードを貫通しないように、縦のレーン境界線を通る
-                    let vCol = (ex > sx) ? p.mx + 1 : p.minI;
-                    vC[vCol]=(vC[vCol]||0)+1; const vx=vCol*cw + ((vC[vCol]%8)-4)*8;
-                    pts.push({x:vx,y:oy}); pts.push({x:vx,y:iy - 40}); pts.push({x:ex,y:iy - 40});
-                } else if(cLv < pLv) { // 後戻り（上へ向かう）の場合
+                if(pLv === cLv) { 
+                    // ■ 同レベル内での移動（横移動のみ）
+                    let midCol = (sx < ex) ? p.mx + 1 : p.minI; 
+                    edgeCountInCol[midCol] = (edgeCountInCol[midCol]||0)+1;
+                    // ノードを避けるため、部署の境界線を通る
+                    let vx = midCol * cw + ((edgeCountInCol[midCol]%6)-3)*8; 
+                    pts.push({x:sx,y:oy}); pts.push({x:vx,y:oy}); pts.push({x:vx,y:iy}); pts.push({x:ex,y:iy}); pts.push({x:ex,y:ey});
+                } else if(pLv === cLv - 1) { 
+                    // ■ 1つ下のレベルへの移動（通常）
+                    let my = (oy + iy) / 2; // レベル間の隙間のど真ん中
+                    pts.push({x:sx,y:my}); pts.push({x:ex,y:my}); pts.push({x:ex,y:ey});
+                } else { 
+                    // ■ レベルをまたぐ（下への大ジャンプ、または上方向への後戻り）
                     pts.push({x:sx,y:oy});
-                    let vCol = (ex > sx) ? Math.max(p.mx+1, ch.minI) : Math.max(1, Math.min(p.minI, ch.mx+1));
-                    vC[vCol]=(vC[vCol]||0)+1; const vx=vCol*cw + ((vC[vCol]%8)-4)*8; 
-                    pts.push({x:vx,y:oy}); pts.push({x:vx,y:iy});
-                } else { // 正常な下方向への遷移
-                    pts.push({x:sx,y:oy});
-                    if(Math.abs(sx-ex)>5){const my=(oy+iy)/2;pts.push({x:sx,y:my});pts.push({x:ex,y:my});}
+                    let midCol = Math.round(ex / cw); // 子ノードに近い列境界線を探す
+                    edgeCountInCol[midCol] = (edgeCountInCol[midCol]||0)+1;
+                    let vx = midCol * cw + ((edgeCountInCol[midCol]%6)-3)*8; 
+                    pts.push({x:vx,y:oy}); pts.push({x:vx,y:iy}); pts.push({x:ex,y:iy}); pts.push({x:ex,y:ey});
                 }
-                
-                pts.push({x:ex,y:iy}); pts.push({x:ex,y:ey});
                 
                 const cr=an.crt.has(`${pid}-${cid}`), er=an.err.has(cid)&&an.err.has(pid), isCpPath = cpSet.has(cid) && cpSet.has(pid);
                 const markerId = isCpPath ? 'sa-cp' : 'sa';
                 
-                const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); pt.setAttribute('d',drawRoundedPath(pts,12)); pt.setAttribute('marker-end',`url(#${markerId})`);
-                pt.setAttribute('class', `chart-arrow ${er?'err':(cr?'crit':(isCpPath?'cp':''))}`); svg.appendChild(pt);
+                const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); 
+                pt.setAttribute('d',drawRoundedPath(pts,12)); 
+                pt.setAttribute('marker-end',`url(#${markerId})`);
+                pt.setAttribute('class', `chart-arrow ${er?'err':(cr?'crit':(isCpPath?'cp':''))}`); 
+                svg.appendChild(pt);
             }
         });
         con.appendChild(svg);
