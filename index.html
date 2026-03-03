@@ -3,8 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Pro Map Suite v10.6 (Excel Save Integration)</title>
+<title>Pro Map Suite v10.6 (Advanced)</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
 :root{--bg:#f4f7f6;--line:#95a5a6;--primary:#2c3e50;--accent:#3498db;--high:#e67e22;--crit:#e74c3c;--grid:rgba(0,0,0,0.05);--st-todo:#95a5a6;--st-doing:#3498db;--st-done:#27ae60;--st-wait:#f39c12;}
 body,html{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:sans-serif;user-select:none;}
@@ -82,11 +84,14 @@ svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:
 .g-lbl.err{color:var(--crit);}
 .g-area{flex-grow:1;position:relative;height:100%;}
 .g-grid{position:absolute;top:0;bottom:0;border-left:1px dashed #eee;z-index:0;}
-.g-bar-p{position:absolute;top:6px;height:10px;background:#bdc3c7;border-radius:2px;opacity:0.9;z-index:1;pointer-events:none;}
-.g-mil-p{position:absolute;top:6px;width:14px;height:14px;background:#bdc3c7;transform:rotate(45deg);z-index:1;border:1px solid #999;}
-.g-bar-a{position:absolute;top:18px;height:14px;border-radius:3px;color:white;font-size:10px;line-height:14px;padding:0 2px;white-space:nowrap;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.2);z-index:2;cursor:pointer;transition:transform 0.1s;}
+
+/* --- ガントのバーデザイン（予定と実績） --- */
+.g-bar-p { position: absolute; top: 10px; height: 20px; background: repeating-linear-gradient(-45deg, rgba(149,165,166,0.1), rgba(149,165,166,0.1) 4px, transparent 4px, transparent 8px); border: 1px dashed #95a5a6; border-radius: 4px; box-sizing: border-box; z-index: 1; pointer-events: auto; }
+.g-mil-p { position: absolute; top: 13px; width: 14px; height: 14px; background: transparent; border: 2px dashed #95a5a6; transform: rotate(45deg); z-index: 1; box-sizing: border-box; pointer-events: auto;}
+.g-bar-a { position: absolute; top: 14px; height: 12px; border-radius: 3px; color: white; font-size: 10px; line-height: 12px; padding: 0 4px; white-space: nowrap; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 2; cursor: pointer; transition: transform 0.1s; }
 .g-bar-a:hover{transform:scale(1.02);z-index:3;}
-.g-mil-a{position:absolute;top:18px;width:16px;height:16px;transform:rotate(45deg);box-shadow:0 2px 4px rgba(0,0,0,0.2);z-index:2;cursor:pointer;border:2px solid #fff;}
+.g-mil-a { position: absolute; top: 13px; width: 14px; height: 14px; transform: rotate(45deg); box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 2; cursor: pointer; border: 2px solid #fff; }
+
 .g-crit{border:2px solid var(--crit);}
 .g-month-sep{position:absolute;top:0;bottom:0;border-left:2px solid #bbb;z-index:1;}
 .g-quarter-sep{position:absolute;top:0;bottom:0;border-left:3px solid #7f8c8d;z-index:1;}
@@ -95,7 +100,8 @@ svg{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:
 .s-cont{display:flex;padding-top:40px;transform-origin:top left;position:relative;overflow:visible;}
 .s-col{border-right:1px solid #ccc;width:300px;min-width:300px;flex-shrink:0;position:relative;transition:background-color 0.2s;}
 .s-hdr{position:sticky;top:0;width:100%;height:40px;color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;z-index:20;border-right:1px solid rgba(255,255,255,0.3);margin-top:-40px;}
-.node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;overflow:hidden;border:1px solid #ccc;}
+.node.s-node{position:absolute;z-index:2;box-shadow:0 2px 5px rgba(0,0,0,0.2);background:white;border-radius:4px;border:1px solid #ccc;min-height:60px;transition:all 0.3s ease;}
+.node.s-node .nt { border-radius: 3px 3px 0 0; }
 .s-col.drag-over{background-color:rgba(52,152,219,0.15)!important;box-shadow:inset 0 0 0 3px var(--accent);}
 .g-grp.drag-over{background-color:#d6eaf8!important;box-shadow:inset 0 0 0 2px var(--accent);}
 body.is-dragging .s-col *{pointer-events:none!important;}
@@ -115,9 +121,32 @@ input[type="range"]{width:100%;}
 .sc-mode .pnl,.sc-mode #pres-ind{display:none!important;}
 .sc-mode .view{margin-top:0;}.sc-mode .v-head{padding-top:10px;}
 .hl-match{outline:3px solid #e67e22!important;background-color:#fef9e7!important;transform:scale(1.02);z-index:10;position:relative;transition:all 0.3s cubic-bezier(0.4,0,0.2,1);box-shadow:0 4px 15px rgba(230,126,34,0.3)!important;}
+
+/* --- 追加機能用CSS --- */
+.node.cp { border: 3px solid #e74c3c; box-shadow: 0 0 15px rgba(231,76,60,0.4); }
+.chart-arrow.cp { stroke: #e74c3c; z-index: 50; }
+.g-mil-line { position: absolute; width: 1px; border-left: 2px dashed #e74c3c; top: 0; bottom: 0; z-index: 0; pointer-events: none; opacity: 0.5; }
+
+/* ドラッグ＆ドロップ用コネクタ */
+.connector { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #3498db; border: 2px solid white; cursor: crosshair; opacity: 0; transition: opacity 0.2s, transform 0.1s; z-index: 20; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+.connector:hover { transform: scale(1.3); }
+.g-bar-p:hover .connector, .g-bar-a:hover .connector, .g-mil-p:hover .connector, .g-mil-a:hover .connector, .s-node:hover .connector { opacity: 1; pointer-events: auto; }
+.connector.out { right: -6px; top: 50%; margin-top: -6px; }
+.connector.in { left: -6px; top: 50%; margin-top: -6px; }
+.g-mil-p .connector.out, .g-mil-a .connector.out { top: -6px; right: -6px; margin: 0; }
+.g-mil-p .connector.in, .g-mil-a .connector.in { bottom: -6px; left: -6px; top: auto; margin: 0; }
+
+/* 折りたたみボタン用CSS */
+.n-col { position:absolute; top:4px; right:6px; font-size:10px; cursor:pointer; color:#7f8c8d; background:#eee; border-radius:4px; padding:2px 6px; z-index:30; transition:0.2s; box-shadow:0 1px 2px rgba(0,0,0,0.2); }
+.n-col:hover { background:#dcdcdc; color:#333; }
 </style>
 </head>
 <body onclick="clearHl()">
+
+<svg id="drag-line-svg" style="position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;display:none;">
+  <defs><marker id="drag-ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#3498db"/></marker></defs>
+  <path id="drag-line" d="" stroke="#3498db" stroke-width="3" stroke-dasharray="5,5" fill="none" marker-end="url(#drag-ah)"/>
+</svg>
 
 <div id="pres-ind">🔴 PRESENTATION MODE</div>
 <div id="toast">Excelとして保存しました</div>
@@ -127,7 +156,6 @@ input[type="range"]{width:100%;}
     <div class="m-cnt">
         <h3 style="margin-top:0; color:#2c3e50;">プロパティ詳細</h3>
         <div class="m-row"><label>タイトル</label><input type="text" id="m-tit"></div>
-        
         <div style="display:flex;gap:10px;">
             <div class="m-row" style="flex:1;"><label>担当部署 (作業/起案) ⚙️</label><input type="text" id="m-dep" placeholder="カンマ区切" oninput="syncAgreeDept()">
                 <select id="m-dep-list" style="margin-top:4px; padding:4px; font-size:11px;" onchange="addDeptFromList('m-dep','m-dep-list')"><option value="">-- 履歴から担当へ追加 --</option></select>
@@ -136,34 +164,28 @@ input[type="range"]{width:100%;}
                 <select id="m-app-list" style="margin-top:4px; padding:4px; font-size:11px;" onchange="addDeptFromList('m-app','m-app-list')"><option value="">-- 履歴から承認者へ追加 --</option></select>
             </div>
         </div>
-
         <div style="display:flex;gap:10px;">
             <div class="m-row" style="flex:1;"><label>予定開始</label><input type="date" id="m-s" onchange="syncDate('start')"></div>
             <div class="m-row" style="flex:1;"><label>期間(日) ※0で合意形成</label><input type="number" id="m-d" min="0" onchange="syncDate('d')" oninput="syncDate('d')"></div>
             <div class="m-row" style="flex:1;"><label>予定終了</label><input type="date" id="m-e" onchange="syncDate('end')"></div>
         </div>
-        
         <div style="display:flex;gap:10px; background:#f4f7f6; padding:10px; border-radius:6px; margin-bottom:12px;">
              <div class="m-row" style="flex:1; margin-bottom:0;"><label>ステータス</label><select id="m-st"><option value="todo">未着手</option><option value="doing">進行中</option><option value="done">完了 (承認済)</option><option value="wait">保留</option></select></div>
              <div class="m-row" style="flex:1; margin-bottom:0;" id="m-prog-wrap"><label>進捗率: <span id="m-pv">0%</span></label><input type="range" id="m-p" min="0" max="100" step="5" oninput="document.getElementById('m-pv').innerText=this.value+'%'"></div>
         </div>
-
         <div id="m-common-io" style="background:#fcfcfc; padding:10px; border:1px solid #eee; border-radius:6px; margin-bottom:12px;">
             <div class="m-row"><label>Inputs (前提条件・受領物) 📥</label><div id="m-inputs-container"></div><button type="button" class="add-btn" onclick="addInputRow('','')">＋ Inputを追加</button></div>
             <div class="m-row"><label>Outputs (成果物・合意文書) 📤</label><div id="m-outputs-container"></div><button type="button" class="add-btn" onclick="addOutputRow('','')">＋ Outputを追加</button></div>
         </div>
-        
         <div id="m-decision-fields" style="display:none; background:#f4f0fa; padding:10px; border:1px solid #e8dff0; border-radius:6px; margin-bottom:12px;">
             <div class="m-row"><label style="color:#8e44ad;">Control (承認条件・達成基準) 🔒</label><textarea id="m-ctrl" rows="2" placeholder="例：予算の承認"></textarea></div>
             <div class="m-row" style="margin-bottom:0;"><label style="color:#8e44ad;">Decision Log (意思決定履歴) 📝</label><div id="m-log-list" style="max-height:100px; overflow-y:auto; background:#fff; padding:5px; border:1px solid #ddd; font-size:11px; margin-bottom:5px;"></div><div style="display:flex; gap:5px;"><input type="text" id="m-log-in" placeholder="コメント..." style="flex:1; padding:4px;"><button type="button" onclick="addLog()" style="background:#8e44ad; color:white; border:none; border-radius:4px; cursor:pointer; padding:0 10px; font-size:12px;">追記</button></div></div>
         </div>
-
         <hr style="border:0; border-top:1px dashed #ddd; margin: 15px 0;">
         <div style="display:flex;gap:10px;">
             <div class="m-row" style="flex:1;"><label>実績開始</label><input type="date" id="m-as"></div>
             <div class="m-row" style="flex:1;"><label>実績終了</label><input type="date" id="m-ae"></div>
         </div>
-        
         <div class="m-act"><button class="btn-c" onclick="closeModal()">キャンセル</button><button class="btn-s" onclick="saveModal()">保存</button></div>
     </div>
 </div>
@@ -177,12 +199,34 @@ input[type="range"]{width:100%;}
     <div id="f-name" style="font-size:11px;color:#666;margin-left:5px;">(未保存)</div><input type="file" id="f-in" style="display: none;" accept=".xlsx, .xls, .json" onchange="loadFileFallback(this)">
 </div>
 <div id="search" class="pnl"><span>🔍</span><input type="text" id="q-in" style="width:120px;border:none;outline:none;" placeholder="検索..."><span id="q-cnt" style="font-size:11px;color:#888;"></span><button onclick="jumpToNextMatch()" title="次へ">▼</button></div>
-<div id="views" class="pnl"><button id="b-map" onclick="switchView('map')" class="act">🗺</button><div class="sep"></div><button id="b-gantt" onclick="switchView('gantt')">📊</button><div class="sep"></div><button id="b-swim" onclick="switchView('swim')">🏊</button><div class="sep"></div><button id="b-doc" onclick="switchView('doc')" title="Doc Binding">📄</button></div>
+
+<div id="views" class="pnl">
+    <button id="b-map" onclick="switchView('map')" class="act">🗺</button>
+    <div class="sep"></div>
+    <button id="b-gantt" onclick="switchView('gantt')">📊</button>
+    <div class="sep"></div>
+    <button id="b-swim" onclick="switchView('swim')">🏊</button>
+    <div class="sep"></div>
+    <button id="b-doc" onclick="switchView('doc')" title="Doc Binding">📄</button>
+    <div class="sep"></div>
+    <button id="b-ppt" onclick="switchView('ppt')" title="Slide Binding">🛝</button>
+</div>
+
+<div id="edit" class="pnl">
+    <button onclick="addNode('child')">＋子</button>
+    <button onclick="addNode('sibling')">＋兄</button>
+    <button onclick="addFreeNode()">＋独</button>
+    <div class="sep"></div>
+    <button id="b-lnk" onclick="toggleLinkMode()">🔗</button>
+    <div class="sep"></div>
+    <button id="b-cp" onclick="toggleCP()" title="クリティカルパス表示">🔥</button>
+    <div class="sep"></div>
+    <button onclick="deleteSelected()" style="color:var(--crit)">🗑</button>
+</div>
 
 <div id="map-con" style="display:block;">
-    <div id="viewport"><div id="canvas"><svg id="svg-lay"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker></defs><g id="p-grp"></g></svg></div></div>
+    <div id="viewport"><div id="canvas"><svg id="svg-lay"><defs><marker id="ah" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#7f8c8d"/></marker><marker id="ah-cp" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#e74c3c"/></marker></defs><g id="p-grp"></g></svg></div></div>
     <div id="zoom" class="pnl"><button onclick="autoAlign()">✨</button><div class="sep-h"></div><button onclick="fitToScreen()">◎</button><div class="sep-h"></div><button onclick="zoomIn()">＋</button><button onclick="zoomOut()">－</button></div>
-    <div id="edit" class="pnl"><button onclick="addNode('child')">＋子</button><button onclick="addNode('sibling')">＋兄</button><button onclick="addFreeNode()">＋独</button><div class="sep"></div><button id="b-lnk" onclick="toggleLinkMode()">🔗</button><div class="sep"></div><button onclick="deleteSelected()" style="color:var(--crit)">🗑</button></div>
 </div>
 
 <div id="g-view" class="view"><div class="v-head"><div class="v-title">Gantt</div></div><div id="g-cnt" class="v-body"></div></div>
@@ -191,25 +235,42 @@ input[type="range"]{width:100%;}
 <div id="s-fit" class="pnl" style="display:none;"><button onclick="swimZoomIn()">＋</button><button onclick="swimZoomOut()">－</button><button onclick="fitSwimlane()">◎</button></div>
 <div id="s-view" class="view"><div class="v-head"><div class="v-title">Swimlane</div></div><div id="s-cnt" class="v-body"></div></div>
 
-<div id="d-view" class="view" style="background:#f9f9f9;">
-    <div class="v-head" style="background:#fff;">
-        <div class="v-title">Doc Binding</div>
+<div id="d-view" class="view" style="display:none;">
+    <div class="v-head">
+        <div class="v-title">Doc Binding (Excel)</div>
         <div style="display:flex;gap:10px;align-items:center;">
-            <input type="file" id="excel-file" accept=".xlsx, .xls" style="display:none;" onchange="handleExcelUpload(event)">
-            <button class="btn-c" onclick="document.getElementById('excel-file').click()">📂 テンプレート読込</button>
-            <select id="sheet-select" onchange="changeSheet()" style="padding:6px;border-radius:4px;border:1px solid #ccc;"></select>
+            <select id="sheet-select" onchange="changeSheet()"></select>
+            <button class="btn-c" onclick="$('f-in').click()">📂 テンプレート読込</button>
         </div>
     </div>
     <div class="v-body" style="display:flex;overflow:hidden;">
-        <div id="doc-palette" style="width:280px;background:white;border-right:1px solid #ddd;overflow-y:auto;padding:15px;flex-shrink:0;"></div>
-        <div id="doc-preview" style="flex-grow:1;overflow:auto;padding:20px;">
-            <div id="excel-table-container" style="background:white;box-shadow:0 4px 15px rgba(0,0,0,0.1);padding:20px;min-height:500px; display:inline-block; min-width:100%;">
-                <div style="color:#999;text-align:center;padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>
-            </div>
+        <div id="doc-palette" style="width:280px;background:#f9f9f9;border-right:1px solid #ddd;overflow-y:auto;padding:15px;flex-shrink:0;"></div>
+        <div id="excel-table-container" style="flex-grow:1;overflow:auto;padding:20px;background:white;">
+            <div style="color:#999; text-align:center; padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>
         </div>
     </div>
 </div>
 
+<div id="p-view" class="view" style="background:#f0f0f0;">
+    <div class="v-head" style="background:#fff;">
+        <div class="v-title">Slide Binding</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <input type="file" id="ppt-in" accept=".pptx" style="display:none" onchange="handlePptUpload(event)">
+            <button class="btn-c" onclick="$('ppt-in').click()">📂 PPTXテンプレート読込</button>
+            <span id="ppt-f-name" style="font-size:11px;color:#666;"></span>
+            <button class="btn-s" style="background:#d35400" onclick="exportPptx()">📥 PPTX出力</button>
+        </div>
+    </div>
+    <div class="v-body" style="display:flex;overflow:hidden;">
+        <div id="ppt-palette" style="width:280px;background:white;border-right:1px solid #ddd;overflow-y:auto;padding:15px;flex-shrink:0;"></div>
+        <div id="ppt-preview" style="flex-grow:1;overflow:auto;padding:40px;background:#666;display:flex;justify-content:center;align-items:flex-start;">
+            <div id="ppt-slide-surface" style="width:960px; height:540px; background:white; position:relative; box-shadow:0 10px 30px rgba(0,0,0,0.5); transform-origin:top center;">
+                <div style="color:#999; text-align:center; padding-top:250px;">PPTXファイルを読み込んでください</div>
+            </div>
+        </div>
+    </div>
+</div>
+  
 <div id="pres" class="pnl">
     <button onclick="startPresentation()">▶</button>
     <div id="p-nav" style="display:none;align-items:center;">
@@ -228,16 +289,72 @@ input[type="range"]{width:100%;}
     const dCols = [{bg:'#ebf5fb',border:'#3498db'},{bg:'#fef9e7',border:'#f39c12'},{bg:'#eafaf1',border:'#2ecc71'},{bg:'#fdedec',border:'#e74c3c'},{bg:'#f4ecf7',border:'#9b59b6'},{bg:'#e8f8f5',border:'#1abc9c'}];
     
     let st = { 
-        sc: 1, x: 0, y: 0, sOrd: [], gOrd: [], 
-        nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l: "承認者", v: ""}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], inputs: [], outputs: [], x: 0, y: 0, pIds: [] }], 
-        sel: new Set([1]), docTemplate: null, docTemplateName: "", cellMappings: {} 
+        sc: 1, x: -120, y: -80, sOrd: [], gOrd: [], 
+        nodes: [{ id: 1, title: "開始", f: [{l: "予定開始", v: todayStr}, {l: "期間", v: "1"}, {l: "予定終了", v: todayStr}, {l: "担当部署", v: "全体"}, {l: "承認者", v: ""}, {l:"ステータス", v:"todo"}, {l:"進捗", v:"0"}], inputs: [], outputs: [], x: 0, y: 0, pIds: [], collapsed: false }], 
+        sel: new Set([1]), docTemplate: null, docTemplateName: "", cellMappings: {}, pptMappings: {} 
     };
     
     let pre={act:false,idx:0}, lnk={act:false,src:null}, phy={act:false}, clip=null, curEd=null, mode='map';
     let qRes=[], qIdx=-1, panD={act:false,el:null,ox:0,oy:0}, fH=null, mapD=null, gSc=1, newNodeId=null, gZoom=1, sZoom=1, dragDept=null, dragType=null, excelWb=null, currentSheetName=null;
+    
+    let showCP = false;
+    let linkDrag = { act: false, from: null, x: 0, y: 0 };
+    let pptZip = null, pptShapes = [];
+    
+    let hist = [];
+    let histIdx = -1;
+    let isUndoRedo = false;
+
+    function saveState() {
+        if (isUndoRedo) return;
+        const s = JSON.stringify(st, (k,v) => (v instanceof Set ? Array.from(v) : v));
+        if (hist[histIdx] === s) return;
+        hist = hist.slice(0, histIdx + 1);
+        hist.push(s);
+        if(hist.length > 50) hist.shift(); 
+        else histIdx++;
+    }
+
+    function restoreState(idx) {
+        if (idx < 0 || idx >= hist.length) return;
+        histIdx = idx;
+        const p = JSON.parse(hist[idx]);
+        st = p;
+        st.sel = new Set(p.sel || []);
+        isUndoRedo = true;
+        ren();
+        if(mode==='gantt') renderGantt();
+        if(mode==='swim') renderSwimlane();
+        if(mode==='doc') { renderDocPalette(); if(excelWb) renderExcelTable(); }
+        if(mode==='ppt') { renderDocPalette('ppt-palette'); if(pptZip) renderPptPreview(); }
+        setTimeout(() => { isUndoRedo = false; }, 10);
+    }
+
+    function undo() { if (histIdx > 0) restoreState(histIdx - 1); }
+    function redo() { if (histIdx < hist.length - 1) restoreState(histIdx + 1); }
+
+    function toggleCollapse(e, id) {
+        e.stopPropagation();
+        const n = st.nodes.find(x => x.id === id);
+        if(n) {
+            n.collapsed = !n.collapsed;
+            ren(); if(mode==='gantt') renderGantt(); if(mode==='swim') renderSwimlane();
+            saveState();
+        }
+    }
+
+    function getVisibleNodes() {
+        const hidden = new Set();
+        const childrenMap = {};
+        st.nodes.forEach(n => childrenMap[n.id] = []);
+        st.nodes.forEach(n => { n.pIds.forEach(pid => { if(childrenMap[pid]) childrenMap[pid].push(n.id); }); });
+        function hideDescendants(id) { childrenMap[id].forEach(cid => { hidden.add(cid); hideDescendants(cid); }); }
+        st.nodes.forEach(n => { if (n.collapsed) hideDescendants(n.id); });
+        return st.nodes.filter(n => !hidden.has(n.id));
+    }
 
     // ==========================================
-    // 2. Core Helpers
+    // 2. Core Helpers & Analysis
     // ==========================================
     function getField(n,l) { const f=n.f.find(x=>x.l===l); return f?f.v:null; }
     function setField(n,l,v) { let f=n.f.find(x=>x.l===l); if(f) f.v=v; else n.f.push({l:l,v:v}); }
@@ -279,226 +396,48 @@ input[type="range"]{width:100%;}
         return {err,crt};
     }
 
-    // ==========================================
-    // 3. Map Analysis & Geometry
-    // ==========================================
-    function fitToScreen(){
-        if(!st.nodes.length)return;
-        let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
-        st.nodes.forEach(n=>{
-            const nx=n.x||0, ny=n.y||0;
-            if(nx<Mx)Mx=nx; if(ny<My)My=ny; if(nx+240>mx)mx=nx+240; if(ny+160>my)my=ny+160;
-        });
-        const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
-        const c = $('canvas');
-        if(c) c.classList.add('smooth');
-        st.sc=Math.max(0.1,sc); st.x=-(Mx+(mx-Mx)/2)*st.sc; st.y=-(My+(my-My)/2)*st.sc; 
-        ren();
-        setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400);
-    }
-
-    function zoomIn(){ const c = $('canvas'); if(c) c.classList.add('smooth'); st.sc*=1.2; ren(); setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400); }
-    function zoomOut(){ const c = $('canvas'); if(c) c.classList.add('smooth'); st.sc = Math.max(0.1, st.sc * 0.8); ren(); setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400); }
-
-    function autoAlign(){
-        const comp = []; const visited = new Set(); const adj = {};
-        st.nodes.forEach(n => adj[n.id] = []);
-        st.nodes.forEach(n => { n.pIds.forEach(pid => { if(adj[pid]) adj[pid].push(n.id); if(adj[n.id]) adj[n.id].push(pid); }); });
-        st.nodes.forEach(n => {
-            if(!visited.has(n.id)){
-                const c = []; const q = [n.id]; visited.add(n.id);
-                while(q.length > 0){ const cur = q.shift(); c.push(cur); adj[cur].forEach(nei => { if(!visited.has(nei)){ visited.add(nei); q.push(nei); } }); }
-                comp.push(c);
-            }
-        });
-        let currentYOffset = 0;
-        comp.forEach(cIds => {
-            const cNodes = st.nodes.filter(n => cIds.includes(n.id));
-            const levels = {}; cNodes.forEach(n => levels[n.id] = 0);
-            let changed = true;
-            for(let iter=0; iter<50 && changed; iter++){
-                changed = false;
-                cNodes.forEach(n => {
-                    if(n.pIds.length > 0){
-                        const pLv = n.pIds.map(pid => levels[pid]).filter(l => l !== undefined);
-                        if(pLv.length > 0) { const maxParentLevel = Math.max(...pLv); if(levels[n.id] !== maxParentLevel + 1){ levels[n.id] = maxParentLevel + 1; changed = true; } }
-                    }
+    function getCriticalPath() {
+        const dist = {}, prev = {}, isEnd = {};
+        st.nodes.forEach(n => { dist[n.id] = parseInt(getField(n,"期間"))||1; isEnd[n.id] = true; });
+        st.nodes.forEach(n => { n.pIds.forEach(p => isEnd[p] = false); });
+        
+        let changed = true;
+        while(changed) {
+            changed = false;
+            st.nodes.forEach(n => {
+                n.pIds.forEach(p => {
+                    const dur = parseInt(getField(n,"期間"))||1;
+                    if((dist[p] || 0) + dur > (dist[n.id] || 0)) { dist[n.id] = (dist[p] || 0) + dur; prev[n.id] = p; changed = true; }
                 });
-            }
-            const groups = {};
-            cNodes.forEach(n => { const lv = levels[n.id]; if(!groups[lv]) groups[lv] = []; groups[lv].push(n); });
-            let maxNodesInLevel = 0;
-            Object.values(groups).forEach(g => { if(g.length > maxNodesInLevel) maxNodesInLevel = g.length; });
-            const compHeight = maxNodesInLevel * 200;
-            Object.keys(groups).forEach(lv => {
-                const nodes = groups[lv]; const spacing = 200;
-                const startY = currentYOffset - (nodes.length - 1) * spacing / 2;
-                nodes.forEach((n, i) => { n.x = parseInt(lv) * 350; n.y = startY + i * spacing; });
             });
-            currentYOffset += compHeight + 100; 
-        });
-        const c = $('canvas'); if(c) c.classList.add('smooth'); ren();
-        setTimeout(() => { if(c) c.classList.remove('smooth'); fitToScreen(); }, 400);
-    }
-
-    function runPhy(){
-        let i=0; 
-        const tick=()=>{
-            if(!phy.act || i>100){ phy.act=false; ren(); return; }
-            let mv=false;
-            for(let a of st.nodes){
-                for(let b of st.nodes){
-                    if(a===b)continue;
-                    const dx=(a.x||0)-(b.x||0), dy=(a.y||0)-(b.y||0), d=Math.sqrt(dx*dx+dy*dy);
-                    if(d<280 && d>0.1){ const f=(280-d)*0.15; const ang=Math.atan2(dy,dx); a.x=(a.x||0)+Math.cos(ang)*f; a.y=(a.y||0)+Math.sin(ang)*f; mv=true; }
-                }
-            }
-            if(mv)ren(); i++; if(!mv && i>15){ phy.act=false; ren(); return; }
-            requestAnimationFrame(tick);
-        }; 
-        tick();
-    }
-
-    // ==========================================
-    // 4. System Functions
-    // ==========================================
-    function toggleScreenshotMode() { document.body.classList.toggle('sc-mode'); alert("撮影モード(UI非表示)"); }
-    
-    function jumpToNextMatch(auto=true) {
-        if(!qRes.length) return;
-        if(auto) qIdx=(qIdx+1)%qRes.length; 
-        const id=qRes[qIdx];
-        if(mode!=='map') switchView('map');
-        sel(id,false); const n=st.nodes.find(x=>x.id==id);
-        if(n){ st.x=-(n.x||0)*st.sc + innerWidth/2 - 120*st.sc; st.y=-(n.y||0)*st.sc + innerHeight/2 - 80*st.sc; ren(); }
-        const cntEl = $('q-cnt'); if(cntEl) cntEl.innerText=`${qIdx+1}/${qRes.length}`;
-    }
-
-    // ==========================================
-    // 5. Init & Listeners
-    // ==========================================
-    function init() {
-        document.querySelectorAll('.pnl').forEach(p => {
-            const start = (e, cx, cy) => {
-                if(['BUTTON','INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
-                const rect = p.getBoundingClientRect();
-                panD = { act:true, el:p, ox:cx-rect.left, oy:cy-rect.top };
-                p.style.left = rect.left + 'px'; p.style.top = rect.top + 'px'; p.style.right = 'auto'; p.style.bottom = 'auto';
-            };
-            p.onmousedown = e => start(e, e.clientX, e.clientY);
-            p.ontouchstart = e => start(e, e.touches[0].clientX, e.touches[0].clientY);
-        });
-        
-        window.onmousemove = e => {
-            if(panD.act && panD.el){ panD.el.style.left=(e.clientX-panD.ox)+'px'; panD.el.style.top=(e.clientY-panD.oy)+'px'; return; }
-            if(mapD){
-                if(mapD.t==='pan'){ st.x+=e.clientX-mapD.x; st.y+=e.clientY-mapD.y; }
-                else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id==id); if(n){n.x+=(e.clientX-mapD.x)/st.sc; n.y+=(e.clientY-mapD.y)/st.sc;} }); }
-                mapD.x=e.clientX; mapD.y=e.clientY; ren(); return;
-            }
-            if(mode==='map' && e.shiftKey){
-                const lp=$('loupe'), lc=$('loupe-content');
-                if(lp){
-                    lp.style.display='block'; lp.style.left=(e.clientX-125)+'px'; lp.style.top=(e.clientY-125)+'px';
-                    const zoom=3, wX=(e.clientX-st.x-innerWidth/2)/st.sc, wY=(e.clientY-st.y-innerHeight/2)/st.sc;
-                    lc.innerHTML=$('canvas').innerHTML; lc.style.transform=`translate(${125-wX*zoom*st.sc}px, ${125-wY*zoom*st.sc}px) scale(${zoom*st.sc})`;
-                    document.body.classList.add('magnify-cursor');
-                }
-            } else { const lp=$('loupe'); if(lp)lp.style.display='none'; document.body.classList.remove('magnify-cursor'); }
-        };
-        
-        window.onmouseup = () => { panD.act=false; const vp=$('viewport'); if(vp)vp.style.willChange='auto'; if(mapD&&mapD.t==='node'){phy.act=true;runPhy();} mapD=null; };
-        
-        const vp = $('viewport');
-        if(vp) {
-            vp.onmousedown = e => { if(e.target.id==='viewport'||e.target.id==='canvas'){ mapD={t:'pan',x:e.clientX,y:e.clientY}; vp.style.willChange='background-position'; if(pre.act)stopPresentation(); }};
-            vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/f; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/f; ren(); };
         }
+        let maxD = -1, endNode = null;
+        Object.keys(isEnd).forEach(id => { if(isEnd[id] && dist[id] > maxD) { maxD = dist[id]; endNode = Number(id); } });
         
-        document.onkeydown = e => {
-            const act=document.activeElement; if(e.isComposing)return;
-            const md = $('modal');
-            if(md && md.style.display!=='none'){ if(e.key==='Enter'&&act.tagName!=='TEXTAREA'&&act.tagName!=='BUTTON'){e.preventDefault();saveModal();return;} if(e.key==='Escape'){e.preventDefault();closeModal();return;} }
-            if(['INPUT','SELECT','TEXTAREA'].includes(act.tagName))return;
-            if(e.ctrlKey||e.metaKey){
-                if(e.key==='c'){e.preventDefault();clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));}
-                if(e.key==='v'&&clip){st.sel.clear();clip.forEach(n=>{n.id=Date.now()+Math.floor(Math.random()*1000);n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);});ren();runPhy();}
-                if(e.key==='s'){e.preventDefault();saveOver();} if(e.key==='o'){e.preventDefault();openFile();}
-            }
-            if(st.sel.size>0){if(e.key==='Tab'){e.preventDefault();addNode('child');} if(e.key==='Enter'){e.preventDefault();addNode('sibling');} if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}}
-        };
-        
-        const qIn = $('q-in'); 
-        if(qIn) {
-            qIn.oninput = e => { if(e.isComposing)return; const v=e.target.value.toLowerCase(); if(!v){qRes=[];qIdx=-1;const qc=$('q-cnt');if(qc)qc.innerText="";ren();return;} qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id); qIdx=0; jumpToNextMatch(false); }; 
-            qIn.onkeydown = e => { if(e.key==='Enter') jumpToNextMatch(); };
-        }
-        ren(); setTimeout(fitToScreen,100);
+        const cp = new Set(); let curr = endNode;
+        while(curr) { cp.add(curr); curr = prev[curr]; }
+        return cp;
     }
 
     // ==========================================
-    // 6. Node Editing
+    // 3. Modal & Node Editing
     // ==========================================
-    function sel(id,mul){if(!mul)st.sel.clear();if(id)st.sel.has(id)?st.sel.delete(id):st.sel.add(id);st.selectedId=id;if(lnk.act&&st.sel.size===1)lnk.src=Array.from(st.sel)[0];ren();}
-    
-    function addNode(type){
-        if(st.sel.size===0)return; const p=st.nodes.find(n=>n.id==Array.from(st.sel)[0]); if(!p)return;
-        const isC=type==='child', pe=parseDate(getField(p,"予定終了"));
-        st.nodes.push({
-            id:Date.now()+Math.floor(Math.random()*1000), title:"Task", 
-            f:[
-                {l:"予定開始",v:isC?(pe?addDays(pe,1).toISOString().slice(0,10):todayStr):(getField(p,"予定開始")||todayStr)},
-                {l:"期間",v:"1"},
-                {l:"予定終了",v:isC?(pe?addDays(pe,1).toISOString().slice(0,10):todayStr):(getField(p,"予定開始")||todayStr)},
-                {l:"担当部署",v:getField(p,"担当部署")||"全体"}, {l:"承認者",v:""},
-                {l:"ステータス",v:"todo"},{l:"進捗",v:"0"}
-            ],
-            inputs:[], outputs:[], x:isC?(p.x||0)+300:(p.x||0), y:isC?(p.y||0):(p.y||0)+160, pIds:isC?[p.id]:[...p.pIds]
-        });
-        sel(st.nodes[st.nodes.length-1].id,false); openEditModal(st.nodes[st.nodes.length-1].id,true);
+    function startLinkDrag(e, id) {
+        e.stopPropagation(); linkDrag.act = true; linkDrag.from = id;
+        linkDrag.x = e.clientX; linkDrag.y = e.clientY;
+        const svg = $('drag-line-svg');
+        if (svg) { svg.style.display = 'block'; $('drag-line').setAttribute('d', `M ${linkDrag.x} ${linkDrag.y} L ${linkDrag.x} ${linkDrag.y}`); }
     }
     
-    function addFreeNode(){
-        const id=Date.now()+Math.floor(Math.random()*1000); phy.act = false;
-        st.nodes.push({
-            id, title:"Task", 
-            f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l:"承認者",v:""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],
-            inputs:[], outputs:[], x:-(st.x||0)/(st.sc||1)-120+(Math.random()-0.5)*40, y:-(st.y||0)/(st.sc||1)-80+(Math.random()-0.5)*40, pIds:[]
-        });
-        sel(id,false); ren(); setTimeout(()=>{phy.act=true;runPhy();},100); setTimeout(()=>openEditModal(id,true),200);
-    }
-    
-    function deleteSelected(){if(st.sel.size===0||!confirm("削除しますか？"))return;st.nodes=st.nodes.filter(n=>!st.sel.has(n.id));st.nodes.forEach(n=>n.pIds=n.pIds.filter(pid=>!st.sel.has(pid)));st.sel.clear();ren();}
-    function toggleLinkMode(){if(st.sel.size!==1&&!lnk.act){alert("親ノードを1つ選択してください");return;}lnk.act=!lnk.act;lnk.src=lnk.act?Array.from(st.sel)[0]:null;$('b-lnk').className=lnk.act?'lnk':'';ren();}
-    
-    function toggleConnection(tid,isAlt){
-        let src=lnk.src; if(isAlt){if(st.sel.size!==1)return;src=Array.from(st.sel)[0];}
-        if(!src||src===tid)return;
-        const t=st.nodes.find(n=>n.id===tid),idx=t.pIds.indexOf(src);
-        if(idx>=0) t.pIds.splice(idx,1); 
-        else {
-            t.pIds.push(src); const p=st.nodes.find(n=>n.id===src),pe=parseDate(getField(p,"予定終了"));
-            if(pe){
-                const ns=addDays(pe,1).toISOString().slice(0,10); setField(t,"予定開始",ns);
-                let dur=parseInt(getField(t,"期間")); if(isNaN(dur))dur=1;
-                setField(t,"予定終了",addDays(parseDate(ns),dur>0?dur-1:0).toISOString().slice(0,10));
-            }
-        }
-        ren();
+    function handleLinkDrop(e, toId) {
+        e.stopPropagation();
+        if(linkDrag.act && linkDrag.from && linkDrag.from !== toId) toggleConnection(toId, false, linkDrag.from);
+        linkDrag.act = false; linkDrag.from = null;
+        const svg = $('drag-line-svg'); if(svg) svg.style.display = 'none';
     }
 
-    // ==========================================
-    // 7. Modal & Forms
-    // ==========================================
-    function toggleModalUI() { 
-        const d = parseInt($('m-d').value)||0, isD=(d===0); 
-        $('m-decision-fields').style.display=isD?'block':'none'; 
-    }
-
-    function syncAgreeDept() { 
-        const a = $('m-app'); 
-        if (a && a.dataset.autoSync !== "false") a.value = $('m-dep').value; 
-    }
+    function toggleModalUI() { const d = parseInt($('m-d').value)||0, isD=(d===0); $('m-decision-fields').style.display=isD?'block':'none'; }
+    function syncAgreeDept() { const a = $('m-app'); if (a && a.dataset.autoSync !== "false") a.value = $('m-dep').value; }
 
     function addInputRow(n,p){
         const c=$('m-inputs-container'), r=document.createElement('div');
@@ -528,13 +467,9 @@ input[type="range"]{width:100%;}
     function openEditModal(id, isNewNode = false){
         if(isNewNode) newNodeId=id; curEd=id; const n=st.nodes.find(x=>x.id==id); if(!n)return;
         
-        $('m-tit').value=n.title;
-        $('m-dep').value=getField(n,"担当部署")||"";
-        
+        $('m-tit').value=n.title; $('m-dep').value=getField(n,"担当部署")||"";
         const appVal = getField(n,"承認者")||getField(n,"合意部署")||"";
-        $('m-app').value = appVal; 
-        $('m-app').dataset.autoSync = appVal ? "false" : "true";
-
+        $('m-app').value = appVal; $('m-app').dataset.autoSync = appVal ? "false" : "true";
         $('m-s').value=getField(n,"予定開始"); $('m-e').value=getField(n,"予定終了");
         let pd=parseInt(getField(n,"期間")); $('m-d').value=isNaN(pd)?1:pd;
         $('m-st').value=getField(n,"ステータス")||"todo";
@@ -542,12 +477,10 @@ input[type="range"]{width:100%;}
         $('m-as').value=getField(n,"実績開始")||''; $('m-ae').value=getField(n,"実績終了")||'';
         
         $('m-inputs-container').innerHTML = '';
-        if (n.inputs && n.inputs.length > 0) n.inputs.forEach(i => addInputRow(i.name, i.path));
-        else { const ln=getField(n,"Input"), lp=getField(n,"InputPath"); if(ln||lp) addInputRow(ln||'', lp||''); else addInputRow('',''); }
+        if (n.inputs && n.inputs.length > 0) n.inputs.forEach(i => addInputRow(i.name, i.path)); else { const ln=getField(n,"Input"), lp=getField(n,"InputPath"); if(ln||lp) addInputRow(ln||'', lp||''); else addInputRow('',''); }
 
         $('m-outputs-container').innerHTML = '';
-        if (n.outputs && n.outputs.length > 0) n.outputs.forEach(o => addOutputRow(o.name, o.path));
-        else { const ln=getField(n,"Output"), lp=getField(n,"OutputPath"); if(ln||lp) addOutputRow(ln||'', lp||''); else addOutputRow('',''); }
+        if (n.outputs && n.outputs.length > 0) n.outputs.forEach(o => addOutputRow(o.name, o.path)); else { const ln=getField(n,"Output"), lp=getField(n,"OutputPath"); if(ln||lp) addOutputRow(ln||'', lp||''); else addOutputRow('',''); }
 
         $('m-ctrl').value = getField(n, "Control") || "";
         const ll = $('m-log-list'); ll.innerHTML = '';
@@ -590,35 +523,93 @@ input[type="range"]{width:100%;}
         setField(n, "Control", $('m-ctrl').value);
         
         ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane(); if(mode==='doc'){renderDocPalette();if(excelWb)renderExcelTable();}
-        closeModal();
+        closeModal(); saveState(); 
     }
 
     function syncDate(k){
         const s=$('m-s').value, e=$('m-e').value, sd=parseDate(s), ed=parseDate(e);
         let d=parseInt($('m-d').value); if(isNaN(d))d=1;
-        if(k==='start'||k==='d'){
-            if(sd)$('m-e').value=addDays(sd,d>0?d-1:0).toISOString().slice(0,10);
-        } else if(k==='end'){
-            if(sd&&ed) {
-                let diff = diffDays(sd,ed);
-                if(diff === 1 && d === 0) diff = 0; 
-                $('m-d').value = Math.max(0, diff);
-            }
-        } 
+        if(k==='start'||k==='d'){ if(sd)$('m-e').value=addDays(sd,d>0?d-1:0).toISOString().slice(0,10); } 
+        else if(k==='end'){ if(sd&&ed) { let diff = diffDays(sd,ed); if(diff === 1 && d === 0) diff = 0; $('m-d').value = Math.max(0, diff); } } 
         toggleModalUI(); 
     }
 
+    function sel(id,mul){if(!mul)st.sel.clear();if(id)st.sel.has(id)?st.sel.delete(id):st.sel.add(id);if(lnk.act&&st.sel.size===1)lnk.src=Array.from(st.sel)[0];ren();}
+    
+    function addNode(type){
+        const selId = (type !== 'free' && st.sel.size > 0) ? Array.from(st.sel)[0] : null;
+        const p = selId ? st.nodes.find(n => n.id == selId) : null;
+        if (!p && type !== 'free') { alert("親となるノードを選択してください"); return; }
+        
+        const id = Date.now() + Math.floor(Math.random() * 1000);
+        const isC = type === 'child' && p; const pe = p ? parseDate(getField(p, "予定終了")) : null;
+        const cx = -(st.x || 0) / (st.sc || 1) - 120, cy = -(st.y || 0) / (st.sc || 1) - 80;
+        
+        const newNode = {
+            id, title: "Task",
+            f: [
+                { l: "予定開始", v: isC ? (pe ? addDays(pe, 1).toISOString().slice(0, 10) : todayStr) : (p ? getField(p, "予定開始") : todayStr) },
+                { l: "期間", v: "1" },
+                { l: "予定終了", v: isC ? (pe ? addDays(pe, 1).toISOString().slice(0, 10) : todayStr) : (p ? getField(p, "予定開始") : todayStr) },
+                { l: "担当部署", v: p ? getField(p, "担当部署") : "全体" }, { l: "承認者", v: "" }, { l: "ステータス", v: "todo" }, { l: "進捗", v: "0" }
+            ],
+            inputs: [], outputs: [], collapsed: false,
+            x: p ? (isC ? (p.x || 0) + 300 : (p.x || 0)) : cx + (Math.random() - 0.5) * 40,
+            y: p ? (isC ? (p.y || 0) : (p.y || 0) + 160) : cy + (Math.random() - 0.5) * 40,
+            pIds: isC ? [p.id] : (type === 'sibling' && p ? [...p.pIds] : [])
+        };
+
+        st.nodes.push(newNode); sel(id, false);
+        if (mode === 'map') { ren(); runPhy(); } else if (mode === 'gantt') renderGantt(); else if (mode === 'swim') renderSwimlane();
+        openEditModal(id, true); saveState();
+    }
+    
+    function addFreeNode(){ addNode('free'); }
+
+    function addContextNode(dateStr, dept) {
+        const id = Date.now() + Math.floor(Math.random() * 1000);
+        const sDate = dateStr || todayStr, dpt = dept || "全体";
+        const cx = -(st.x || 0) / (st.sc || 1) - 120, cy = -(st.y || 0) / (st.sc || 1) - 80;
+        const newNode = {
+            id, title: "New Task",
+            f: [ { l: "予定開始", v: sDate }, { l: "期間", v: "1" }, { l: "予定終了", v: sDate }, { l: "担当部署", v: dpt }, { l: "承認者", v: "" }, { l: "ステータス", v: "todo" }, { l: "進捗", v: "0" } ],
+            inputs: [], outputs: [], collapsed: false, x: cx + (Math.random() - 0.5) * 40, y: cy + (Math.random() - 0.5) * 40, pIds: [] 
+        };
+        st.nodes.push(newNode); sel(id, false);
+        if (mode === 'map') { ren(); runPhy(); } else if (mode === 'gantt') renderGantt(); else if (mode === 'swim') renderSwimlane();
+        openEditModal(id, true); saveState();
+    }
+
+    function deleteSelected(){
+        if(st.sel.size===0||!confirm("削除しますか？"))return;
+        st.nodes=st.nodes.filter(n=>!st.sel.has(n.id)); st.nodes.forEach(n=>n.pIds=n.pIds.filter(pid=>!st.sel.has(pid))); st.sel.clear();
+        ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane(); saveState(); 
+    }
+
+    function toggleLinkMode(){if(st.sel.size!==1&&!lnk.act){alert("親ノードを1つ選択してください");return;}lnk.act=!lnk.act;lnk.src=lnk.act?Array.from(st.sel)[0]:null;$('b-lnk').className=lnk.act?'lnk':'';ren();}
+    
+    function toggleConnection(tid, isAlt, explicitSrc) {
+        let src = explicitSrc || lnk.src; 
+        if(!explicitSrc && isAlt){if(st.sel.size!==1)return;src=Array.from(st.sel)[0];} if(!src||src===tid)return;
+        const t=st.nodes.find(n=>n.id===tid),idx=t.pIds.indexOf(src);
+        if(idx>=0) t.pIds.splice(idx,1); else t.pIds.push(src); 
+        if (!explicitSrc && lnk.act) { lnk.act = false; lnk.src = null; const btn = $('b-lnk'); if(btn) btn.className = ''; }
+        ren(); if(mode==='gantt')renderGantt(); if(mode==='swim')renderSwimlane(); saveState();
+    }
+
     // ==========================================
-    // 8. Render View: Map
+    // 4. Render Engine (Map, Gantt, Swimlane)
     // ==========================================
     function ren(){
         if(mode!=='map')return;
-        const an=ana(), c=$('canvas'), vp=$('viewport'); if(!c)return;
+        const an=ana(), cpSet = showCP ? getCriticalPath() : new Set(), c=$('canvas'), vp=$('viewport'); if(!c)return;
+        const visNodes = getVisibleNodes();
+        
         c.style.transform=`translate(${st.x+innerWidth/2}px,${st.y+innerHeight/2}px) scale(${st.sc})`;
         vp.style.backgroundSize=`${20*st.sc}px ${20*st.sc}px`; vp.style.backgroundPosition=`${st.x+innerWidth/2}px ${st.y+innerHeight/2}px`;
-        c.querySelectorAll('.node').forEach(e=>{if(!st.nodes.find(n=>n.id==e.dataset.id))e.remove();});
+        c.querySelectorAll('.node').forEach(e=>{if(!visNodes.find(n=>n.id==e.dataset.id))e.remove();});
         
-        st.nodes.forEach(d=>{
+        visNodes.forEach(d=>{
             let el=c.querySelector(`.node[data-id="${CSS.escape(d.id)}"]`);
             if(!el){
                 el=document.createElement('div'); el.dataset.id=d.id;
@@ -626,11 +617,19 @@ input[type="range"]{width:100%;}
                 el.querySelector('.nh').onmousedown=e=>{e.stopPropagation();if(!e.ctrlKey&&!e.metaKey&&!st.sel.has(d.id))sel(d.id,false);else if(e.ctrlKey||e.metaKey)sel(d.id,true);mapD={t:'node',x:e.clientX,y:e.clientY,ids:Array.from(st.sel)};};
                 el.onmousedown=e=>{e.stopPropagation();if(e.altKey){toggleConnection(d.id,true);return;}if(lnk.act){toggleConnection(d.id,false);return;}sel(d.id,e.ctrlKey||e.metaKey);};
                 el.ondblclick=e=>{e.stopPropagation();openEditModal(d.id);};
-                el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();};
+                el.querySelector('.n-add').onclick=e=>{e.stopPropagation();d.f.push({l:"項",v:""});ren();saveState();};
                 c.appendChild(el);
             }
+            
+            const hasChildren = st.nodes.some(n => n.pIds.includes(d.id));
+            let colBtn = el.querySelector('.n-col');
+            if (hasChildren) {
+                if (!colBtn) { colBtn = document.createElement('div'); colBtn.className = 'n-col'; el.appendChild(colBtn); }
+                colBtn.innerText = d.collapsed ? '▶' : '▼'; colBtn.onclick = e => toggleCollapse(e, d.id);
+            } else if (colBtn) { colBtn.remove(); }
+
             const isDec=(parseInt(getField(d,"期間"))||0)===0;
-            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'')+(isDec?' decision':'')+(mapD&&mapD.t==='node'?'':' phy');
+            el.className='node'+(st.sel.has(d.id)?' sel':'')+(qRes.includes(d.id)?' hit':'')+(an.err.has(d.id)?' err':'')+(lnk.src==d.id?' src':'')+(isDec?' decision':'')+(cpSet.has(d.id)?' cp':'')+(mapD&&mapD.t==='node'?'':' phy');            
             const stt=getField(d,"ステータス")||"todo"; el.querySelector('.nt').className=`nt h-${stt}`; el.querySelector('.nt').innerText=d.title;
             if(isDec&&stt==="done"){if(!el.querySelector('.stamp'))el.insertAdjacentHTML('beforeend','<div class="stamp">APPROVED</div>');}else{const s=el.querySelector('.stamp');if(s)s.remove();}
             el.querySelector('.np-bar').style.width=(getField(d,"進捗")||0)+'%';
@@ -649,59 +648,32 @@ input[type="range"]{width:100%;}
             });
             el.style.left=(d.x||0)+'px'; el.style.top=(d.y||0)+'px';
         });
-        
+
         const pg=$('p-grp'); pg.innerHTML=''; let h='';
-        st.nodes.forEach(n=>{
+        visNodes.forEach(n=>{
             n.pIds.forEach(pid=>{
-                const p=st.nodes.find(x=>x.id==pid);
+                const p=visNodes.find(x=>x.id==pid); 
                 if(p){
-                    const cr=an.crt.has(`${pid}-${n.id}`), er=an.err.has(n.id)&&an.err.has(pid);
+                    const cr=an.crt.has(`${pid}-${n.id}`), er=an.err.has(n.id)&&an.err.has(pid), isCpPath = cpSet.has(n.id) && cpSet.has(pid);
                     const sx=(p.x||0)+240, sy=(p.y||0)+30, ex=(n.x||0), ey=(n.y||0)+30, cd=Math.max(Math.abs(ex-sx)*0.5,80);
-                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="chart-arrow ${er?'err':(cr?'crit':'')}" marker-end="url(#ah)"/>`;
+                    const markerId = isCpPath ? 'ah-cp' : 'ah';
+                    h+=`<path d="M ${sx} ${sy} C ${sx+cd} ${sy}, ${ex-cd} ${ey}, ${ex} ${ey}" class="chart-arrow ${er?'err':(cr?'crit':(isCpPath?'cp':''))}" marker-end="url(#${markerId})"/>`;
                 }
             });
         });
         pg.innerHTML=h;
     }
 
-    // ==========================================
-    // 9. Render View: Gantt
-    // ==========================================
     function changeGanttScale(v){gSc=v;renderGantt();}
     function ganttZoomIn(){gZoom=Math.min(3,gZoom*1.2);applyGanttZoom();}
     function ganttZoomOut(){gZoom=Math.max(0.5,gZoom*0.8);applyGanttZoom();}
     function ganttFitToScreen(){const vb=$('g-cnt'),w=vb.querySelector('.g-wrap');if(!w)return;w.style.zoom=1;gZoom=Math.min((vb.clientWidth/w.scrollWidth)*0.95,(vb.clientHeight/w.scrollHeight)*0.95,1);applyGanttZoom();vb.scrollLeft=0;vb.scrollTop=0;}
     function applyGanttZoom(){const w=document.querySelector('.g-wrap');if(w){if(CSS.supports("zoom","1"))w.style.zoom=gZoom;else{w.style.transform=`scale(${gZoom})`;w.style.transformOrigin="top left";w.style.marginBottom=`${w.scrollHeight*(gZoom-1)}px`;w.style.marginRight=`${w.scrollWidth*(gZoom-1)}px`;}}}
 
-    function getOrd(t){
-        const isSwim=(t==='s'||t==='swim'), act=new Set(); 
-        st.nodes.forEach(n=>{
-            const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);
-            if(!isSwim){
-                if(ds.length<=1) act.add(ds[0]||"全体");
-                else act.add("全体");
-            }
-            else{
-                if(ds.length===0) act.add("未配属");
-                else ds.forEach(d=>{if(d!=="全体")act.add(d);});
-            }
-        });
-        let l=isSwim?st.sOrd:st.gOrd; if(!l)l=[];
-        act.forEach(d=>{if(!l.includes(d))l.push(d);}); l=l.filter(d=>act.has(d));
-        if(l.length===0) l.push("未配属");
-        if(isSwim)st.sOrd=l;else st.gOrd=l; return l;
-    }
-    
-    function mvD(t,d,dir){const isS=(t==='s'||t==='swim'),l=isS?st.sOrd:st.gOrd,i=l.indexOf(d);if(i>-1&&i+dir>=0&&i+dir<l.length){[l[i],l[i+dir]]=[l[i+dir],l[i]];if(isS)renderSwimlane();else renderGantt();}}
-    function onDragStartDept(e,t,d){dragDept=d;dragType=t;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',d);setTimeout(()=>{document.body.classList.add('is-dragging');(t==='s'?e.target.parentElement:e.target).style.opacity='0.6';},0);}
-    function onDragOverDept(e){e.preventDefault();e.dataTransfer.dropEffect='move';return false;}
-    function onDragEnterDept(e,d){e.preventDefault();if(d!==dragDept)e.currentTarget.classList.add('drag-over');}
-    function onDragLeaveDept(e){e.currentTarget.classList.remove('drag-over');}
-    function onDropDept(e,t,tgt){e.preventDefault();e.stopPropagation();e.currentTarget.classList.remove('drag-over');if(dragDept&&dragDept!==tgt&&dragType===t){let arr=getOrd(t),f=arr.indexOf(dragDept),to=arr.indexOf(tgt);if(f!==-1&&to!==-1){arr.splice(f,1);arr.splice(to,0,dragDept);if(t==='s'||t==='swim'){st.sOrd=arr;renderSwimlane();}else{st.gOrd=arr;renderGantt();}}}dragDept=null;dragType=null;document.body.classList.remove('is-dragging');}
-    function onDragEndDept(e){(dragType==='s'?e.target.parentElement:e.target).style.opacity='1';document.body.classList.remove('is-dragging');document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));dragDept=null;dragType=null;}
-
     function renderGantt(){
-        const c=$('g-cnt'); c.innerHTML=''; const ord=getOrd('g'), ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
+        const c=$('g-cnt'); c.innerHTML=''; const ts={}; let mn=new Date("2100-01-01"), mx=new Date("2000-01-01");
+        const visNodes = getVisibleNodes();
+        
         st.nodes.forEach(n=>{
             const s=parseDate(getField(n,"予定開始"))||new Date(todayStr), dur=parseInt(getField(n,"期間")||1), e=dur===0?s:addDays(s,dur-1), as=parseDate(getField(n,"実績開始")), ae=parseDate(getField(n,"実績終了"));
             ts[n.id]={n,s,e,as,ae,dur,st:getField(n,"ステータス")||"todo",pg:parseInt(getField(n,"進捗")||0)}; if(s<mn)mn=s; if(e>mx)mx=e; if(as&&as<mn)mn=as; if(ae&&ae>mx)mx=ae;
@@ -743,43 +715,57 @@ input[type="range"]{width:100%;}
         if(gSc===1){for(let i=0;i<=days;i++){const l=document.createElement('div');l.className='g-grid';l.style.left=`${i*px}px`;gb.appendChild(l);}}
         else if(gSc===30){let cM=-1,cY=-1;for(let i=0;i<=days;i++){const d=addDays(mn,i),m=d.getMonth(),y=d.getFullYear();if(m!==cM||y!==cY){const l=document.createElement('div');l.className='g-month-sep';l.style.left=`${i*px}px`;gb.appendChild(l);cM=m;cY=y;}}}
         else{const getQ=(d)=>{const m=d.getMonth();if(m>=3&&m<=5)return 1;if(m>=6&&m<=8)return 2;if(m>=9&&m<=11)return 3;return 4;};let sQ=new Set(),sM=new Set();for(let i=0;i<=days;i++){const d=addDays(mn,i),m=d.getMonth(),q=getQ(d),fY=m<3?d.getFullYear():d.getFullYear()+1,qK=`${fY}-FQ${q}`,mK=`${d.getFullYear()}-${m}`,isS=d.getDate()===1&&[3,6,9,0].includes(m);if(!sQ.has(qK)&&(i===0||isS)){const l=document.createElement('div');l.className='g-quarter-sep';l.style.left=`${i*px}px`;gb.appendChild(l);sQ.add(qK);}else if(!sM.has(mK)&&d.getDate()===1){const l=document.createElement('div');l.className='g-month-light';l.style.left=`${i*px}px`;gb.appendChild(l);sM.add(mK);}}}
+        
         wp.appendChild(gb);
+
+        gb.ondblclick = (e) => {
+            if(e.target !== gb && !e.target.className.includes('g-grid') && !e.target.className.includes('g-month-sep') && !e.target.className.includes('g-quarter-sep')) return;
+            const x = e.target === gb ? e.offsetX : e.target.offsetLeft;
+            const dayOffset = Math.floor(x / px);
+            const clickedDate = addDays(mn, dayOffset).toISOString().slice(0, 10);
+            addContextNode(clickedDate, null);
+        };
 
         const svg=document.createElementNS("http://www.w3.org/2000/svg","svg"); svg.id='gantt-svg'; svg.style.position='absolute';svg.style.top='0';svg.style.left='0';svg.style.width='100%';svg.style.height='100%';svg.style.zIndex='5';svg.style.pointerEvents='none';
         svg.innerHTML='<defs><marker id="ga" markerWidth="6" markerHeight="6" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#7f8c8d"/></marker></defs>';
-        let items=[]; st.nodes.forEach(n=>{const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);items.push({n,d:ds.length>1?"全体":(ds[0]||"未配属")});});
-        items.sort((a,b)=>{if(a.d==="全体")return -1;if(b.d==="全体")return 1;const ia=ord.indexOf(a.d),ib=ord.indexOf(b.d);if(ia!==ib)return (ia<0?999:ia)-(ib<0?999:ib);return ts[a.n.id].s-ts[b.n.id].s;});
         
-        let y=40, ld=null; 
+        let items=[]; visNodes.forEach(n=>{const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);items.push({n,d:ds.length>1?"複数":(ds[0]||"未配属")});});
+        items.sort((a,b)=>{ const diff = ts[a.n.id].s - ts[b.n.id].s; if(diff !== 0) return diff; if(b.n.pIds.includes(a.n.id)) return -1; if(a.n.pIds.includes(b.n.id)) return 1; return ts[a.n.id].e - ts[b.n.id].e; });
+        
+        let y=40; 
         items.forEach(it=>{
-            const t=ts[it.n.id];
-            if(it.d!==ld){
-                const gr=document.createElement('div'); gr.className='g-grp'+(it.d==='全体'?' all':'');
-                if(it.d!=='全体'){
-                    gr.draggable=true; gr.ondragstart=e=>onDragStartDept(e,'g',it.d); gr.ondragover=onDragOverDept; gr.ondragenter=e=>onDragEnterDept(e,it.d); gr.ondragleave=onDragLeaveDept; gr.ondrop=e=>onDropDept(e,'g',it.d); gr.ondragend=onDragEndDept;
-                    gr.innerHTML=`<div style="width:200px;padding-left:10px;"><span class="g-arr-btn" onclick="mvD('g','${it.d}',-1)">▲</span><span class="g-arr-btn" onclick="mvD('g','${it.d}',1)">▼</span><span style="opacity:0.4;margin-right:6px;cursor:grab;">⣿</span> 📂 ${it.d}</div>`;
-                }else gr.innerHTML=`<div style="width:200px;padding-left:10px;">📂 ${it.d}</div>`;
-                wp.appendChild(gr); y+=30; ld=it.d;
-            }
-            const row=document.createElement('div'); row.className='g-row'; const bad=it.n.pIds.some(pid=>ts[pid]&&ts[pid].e>t.s);
-            row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}">${it.n.title}</div>`;
+            const t=ts[it.n.id]; const row=document.createElement('div'); row.className='g-row'; const bad=it.n.pIds.some(pid=>ts[pid]&&ts[pid].e>t.s);
+            row.innerHTML=`<div class="g-lbl ${bad?'err':''}" title="${it.n.title}"><span style="font-size:9px;color:#fff;background:#95a5a6;padding:2px 4px;border-radius:3px;margin-right:6px;flex-shrink:0;">${it.d}</span><span style="overflow:hidden;text-overflow:ellipsis;">${it.n.title}</span></div>`;
             const area=document.createElement('div'); area.className='g-area';
             const off=Math.max(0,diffDays(mn,t.s)-1), mil=t.dur===0, minBW=gSc===1?px:gSc===30?px*2:px*7;
-            const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p'; p.style.left=`${off*px-(mil?7:0)}px`; if(!mil)p.style.width=`${Math.max(minBW,t.dur*px)}px`; area.appendChild(p); 
+            if (mil) { const mlLine = document.createElement('div'); mlLine.className = 'g-mil-line'; mlLine.style.left = `${off*px}px`; gb.appendChild(mlLine); }
+            
+            const p=document.createElement('div'); p.className=mil?'g-mil-p':'g-bar-p'; p.style.left=`${off*px-(mil?7:0)}px`; if(!mil)p.style.width=`${Math.max(minBW,t.dur*px)}px`; 
+            
+            const addConn = (bar) => {
+                const cOut = document.createElement('div'); cOut.className='connector out'; cOut.onmousedown = e => startLinkDrag(e, it.n.id); cOut.onclick = e => e.stopPropagation();
+                const cIn = document.createElement('div'); cIn.className='connector in'; cIn.onmouseup = e => handleLinkDrop(e, it.n.id); cIn.onclick = e => e.stopPropagation();
+                bar.appendChild(cIn); bar.appendChild(cOut);
+            };
+            addConn(p); area.appendChild(p);
+
             t.ui={sx:220+off*px, ex:220+(off+Math.max(t.dur,minBW/px))*px, y:y+20};
+            
             if(t.as){
                 const ao=Math.max(0,diffDays(mn,t.as)-1), a=document.createElement('div'); a.className=mil?'g-mil-a':'g-bar-a'; a.style.left=`${ao*px-(mil?8:0)}px`;
                 if(!mil)a.style.width=`${Math.max(minBW,(t.ae?diffDays(t.as,t.ae):Math.max(1,diffDays(t.as,new Date(todayStr))))*px)}px`;
-                a.style.background=mil?`var(--st-${t.st})`:`linear-gradient(to right, var(--st-${t.st}) ${t.pg}%, #bdc3c7 ${t.pg}%)`;
-                if(bad)a.classList.add('g-crit'); a.onclick=e=>{e.stopPropagation();openEditModal(it.n.id);}; area.appendChild(a);
+                a.style.background=mil?`var(--st-${t.st})`:`linear-gradient(to right, var(--st-${t.st}) ${t.pg}%, rgba(0,0,0,0.08) ${t.pg}%)`;
+                if(bad)a.classList.add('g-crit'); a.onclick=e=>{e.stopPropagation();openEditModal(it.n.id);}; addConn(a); area.appendChild(a);
             }
-            row.appendChild(area); row.onclick=()=>openEditModal(it.n.id); wp.appendChild(row); y+=40;
+            row.appendChild(area); row.onclick=()=>{sel(it.n.id, false);}; row.ondblclick=()=>openEditModal(it.n.id); row.onmouseup=e=>{ if(linkDrag.act) handleLinkDrop(e, it.n.id); }; 
+            wp.appendChild(row); y+=40;
         });
         
         if(gSc===1){
             const an=ana();
             items.forEach(it=>{
                 it.n.pIds.forEach(pid=>{
+                    if(!visNodes.find(v=>v.id==pid)) return; 
                     const p=ts[pid], ch=ts[it.n.id];
                     if(p&&ch&&p.ui&&ch.ui){
                         const sx=p.ui.ex, sy=p.ui.y, ex=ch.ui.sx, ey=ch.ui.y, d=(sx+15<ex-5)?`M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${ey} L ${ex} ${ey}`:`M ${sx} ${sy} L ${sx+15} ${sy} L ${sx+15} ${sy+(ey>sy?15:-15)} L ${ex-10} ${sy+(ey>sy?15:-15)} L ${ex-10} ${ey} L ${ex} ${ey}`;
@@ -793,18 +779,50 @@ input[type="range"]{width:100%;}
         wp.appendChild(svg); c.appendChild(wp); applyGanttZoom();
     }
 
-    // ==========================================
-    // 10. Render View: Swimlane
-    // ==========================================
     function swimZoomIn(){sZoom=Math.min(3,sZoom*1.2);renderSwimlane();}
     function swimZoomOut(){sZoom=Math.max(0.5,sZoom*0.8);renderSwimlane();}
     function fitSwimlane(){const vb=$('s-view').querySelector('.v-body'),con=vb.querySelector('.s-cont');if(!con)return;con.style.zoom=1;sZoom=Math.min((vb.clientWidth/con.scrollWidth)*0.9,(vb.clientHeight/con.scrollHeight)*0.9,1);renderSwimlane();vb.scrollLeft=0;vb.scrollTop=0;}
     function applySwimZoom(){const c=document.querySelector('.s-cont');if(c){if(CSS.supports("zoom","1"))c.style.zoom=sZoom;else{c.style.transform=`scale(${sZoom})`;c.style.transformOrigin="top left";c.style.marginBottom=`${c.scrollHeight*(sZoom-1)}px`;c.style.marginRight=`${c.scrollWidth*(sZoom-1)}px`;}}}
 
+    function getOrd(t){
+        const isSwim=(t==='s'||t==='swim'), act=new Set(); 
+        st.nodes.forEach(n=>{
+            const ds=(getDept(n)).split(/[,、]/).map(s=>s.trim()).filter(s=>s);
+            if(!isSwim){ if(ds.length<=1) act.add(ds[0]||"全体"); else act.add("全体"); }
+            else{ if(ds.length===0) act.add("未配属"); else ds.forEach(d=>{if(d!=="全体")act.add(d);}); }
+        });
+        let l=isSwim?st.sOrd:st.gOrd; if(!l)l=[]; act.forEach(d=>{if(!l.includes(d))l.push(d);}); l=l.filter(d=>act.has(d));
+        if(l.length===0) l.push("未配属"); if(isSwim)st.sOrd=l;else st.gOrd=l; return l;
+    }
+
+    function mvD(t,d,dir){const isS=(t==='s'||t==='swim'),l=isS?st.sOrd:st.gOrd,i=l.indexOf(d);if(i>-1&&i+dir>=0&&i+dir<l.length){[l[i],l[i+dir]]=[l[i+dir],l[i]];if(isS)renderSwimlane();else renderGantt(); saveState();}}
+    function onDragStartDept(e,t,d){dragDept=d;dragType=t;e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',d);setTimeout(()=>{document.body.classList.add('is-dragging');(t==='s'?e.target.parentElement:e.target).style.opacity='0.6';},0);}
+    function onDragOverDept(e){e.preventDefault();e.dataTransfer.dropEffect='move';return false;}
+    function onDragEnterDept(e,d){e.preventDefault();if(d!==dragDept)e.currentTarget.classList.add('drag-over');}
+    function onDragLeaveDept(e){e.currentTarget.classList.remove('drag-over');}
+    function onDropDept(e,t,tgt){e.preventDefault();e.stopPropagation();e.currentTarget.classList.remove('drag-over');if(dragDept&&dragDept!==tgt&&dragType===t){let arr=getOrd(t),f=arr.indexOf(dragDept),to=arr.indexOf(tgt);if(f!==-1&&to!==-1){arr.splice(f,1);arr.splice(to,0,dragDept);if(t==='s'||t==='swim'){st.sOrd=arr;renderSwimlane();}else{st.gOrd=arr;renderGantt();} saveState(); }}dragDept=null;dragType=null;document.body.classList.remove('is-dragging');}
+    function onDragEndDept(e){(dragType==='s'?e.target.parentElement:e.target).style.opacity='1';document.body.classList.remove('is-dragging');document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over'));dragDept=null;dragType=null;}
+
     function renderSwimlane(){
-        const c=$('s-cnt'); c.innerHTML=''; const ord=getOrd('s'), levels={}; st.nodes.forEach(n=>levels[n.id]=0);
-        let changed=true; for(let i=0;i<50&&changed;i++){changed=false;st.nodes.forEach(n=>{if(n.pIds.length>0){const ml=Math.max(...n.pIds.map(p=>levels[p]||0));if(levels[n.id]!==ml+1){levels[n.id]=ml+1;changed=true;}}});}
-        const maxLv=Math.max(...Object.values(levels),0), sN=[...st.nodes].sort((a,b)=>levels[a.id]-levels[b.id]), nS={}; 
+        const c=$('s-cnt'); c.innerHTML=''; const ord=getOrd('s'); const levels={}; const visNodes = getVisibleNodes(); 
+        let minDate = new Date("2100-01-01");
+        st.nodes.forEach(n => { const d = parseDate(getField(n, "予定開始")); if (d && d < minDate) minDate = d; });
+        if(minDate.getFullYear() === 2100) minDate = new Date();
+
+        st.nodes.forEach(n=>{ if (n.pIds.length === 0) { const sDate = parseDate(getField(n, "予定開始")) || minDate; levels[n.id] = Math.max(0, Math.floor((sDate - minDate) / (86400000 * 7))); } else { levels[n.id] = 0; } });
+
+        let changed=true; 
+        for(let i=0;i<50&&changed;i++){
+            changed=false;
+            st.nodes.forEach(n=>{
+                if(n.pIds.length>0){
+                    const ml=Math.max(...n.pIds.map(p=>levels[p]||0));
+                    if(levels[n.id]!==ml+1){ levels[n.id]=ml+1; changed=true; }
+                }
+            });
+        }
+
+        const maxLv=Math.max(...Object.values(levels),0), sN=[...visNodes].sort((a,b)=>levels[a.id]-levels[b.id]), nS={}; 
         sN.forEach(n=>{
             const raw=getDept(n); let dI=[];
             if (raw==="全体") {dI=ord.map((_,i)=>i);} else {dI=raw.split(/[,、]/).map(s=>s.trim()).filter(d=>d).map(d=>ord.indexOf(d)).filter(i=>i>=0).sort((a,b)=>a-b);}
@@ -828,16 +846,30 @@ input[type="range"]{width:100%;}
             h.innerHTML=`<span class="dept-arr" onclick="mvD('s','${d}',-1)">◀</span><span class="dept-arr" onclick="mvD('s','${d}',1)">▶</span> <span style="opacity:0.5;margin:0 6px;cursor:grab;">⣿</span> ${d}`;
             h.draggable=true;h.ondragstart=e=>onDragStartDept(e,'s',d);h.ondragend=onDragEndDept;
             col.appendChild(h);con.appendChild(col);cols.push(col);
+            
+            col.ondblclick = (e) => {
+                if (e.target === col) {
+                    const level = Math.max(0, Math.floor((e.offsetY - 80) / 120));
+                    const approxDate = addDays(minDate, level * 7).toISOString().slice(0, 10);
+                    addContextNode(approxDate, d);
+                }
+            };
         });
         
         const ui={}; 
         sN.forEach(n=>{
             const span=nS[n.id],lv=levels[n.id],fy=lS[lv]+span.yOff*160, el=document.createElement('div'), isDec=(parseInt(getField(n,"期間"))||0)===0;
-            el.className='node s-node'+(isDec?' decision':'');el.dataset.id=n.id; el.style.width=`${(span.mx-span.minI+1)*cw-40}px`;el.style.left=`${span.minI*cw+20}px`;el.style.top=`${fy}px`;
+            el.className='node s-node'+(st.sel.has(n.id)?' sel':'')+(isDec?' decision':'');el.dataset.id=n.id; el.style.width=`${(span.mx-span.minI+1)*cw-40}px`;el.style.left=`${span.minI*cw+20}px`;el.style.top=`${fy}px`;
             let dInd=''; if(span.dI.length>1&&(span.mx-span.minI+1)>span.dI.length){dInd='<div style="display:flex;gap:3px;padding:2px 5px;font-size:9px;">';for(let i=span.minI;i<=span.mx;i++)dInd+=`<span style="width:6px;height:6px;border-radius:50%;background:${span.dI.includes(i)?'#2c3e50':'#ddd'};"></span>`;dInd+='</div>';}
             el.innerHTML=`<div class="nt h-${getField(n,"ステータス")||"todo"}">${n.title}</div>${dInd}<div style="padding:5px;font-size:11px;">${getField(n,"期間")} 日</div>`;
             if(isDec&&getField(n,"ステータス")==="done")el.innerHTML+='<div class="stamp">APPROVED</div>';
-            el.onclick=()=>openEditModal(n.id);con.appendChild(el); ui[n.id]={l:span.minI*cw+20,r:(span.mx+1)*cw-20,t:fy,b:fy+100,minI:span.minI,mx:span.mx};
+            
+            const cOut = document.createElement('div'); cOut.className='connector out'; cOut.onmousedown = e => startLinkDrag(e, n.id); cOut.onclick = e => e.stopPropagation();
+            const cIn = document.createElement('div'); cIn.className='connector in'; cIn.onmouseup = e => handleLinkDrop(e, n.id); cIn.onclick = e => e.stopPropagation();
+            el.appendChild(cIn); el.appendChild(cOut);
+
+            el.onclick=()=>{sel(n.id, false);}; el.ondblclick=()=>openEditModal(n.id); el.onmouseup=e=>{ if(linkDrag.act) handleLinkDrop(e, n.id); };
+            con.appendChild(el); ui[n.id]={l:span.minI*cw+20,r:(span.mx+1)*cw-20,t:fy,b:fy+100,minI:span.minI,mx:span.mx};
         });
         
         setTimeout(()=>{
@@ -860,39 +892,27 @@ input[type="range"]{width:100%;}
         rawEdges.forEach(ed=>{const p=ui[ed.p],ch=ui[ed.c];ed.sx=p?(p.l+p.r)/2:0;ed.ex=ch?(ch.l+ch.r)/2:0;});
         
         const outC={},inC={}; rawEdges.forEach(ed=>{outC[ed.p]=(outC[ed.p]||0)+1;inC[ed.c]=(inC[ed.c]||0)+1;});
-        
-        // 💡 修正：矢印の交差を防ぐためのX座標ソート
         const outEdges=[...rawEdges].sort((a,b)=>a.ex-b.ex), outI_map=new Map();
         outEdges.forEach(ed=>{if(!outI_map.has(ed.p))outI_map.set(ed.p,1);ed.outI=outI_map.get(ed.p);outI_map.set(ed.p,ed.outI+1);});
-        
         const inEdges=[...rawEdges].sort((a,b)=>a.sx-b.sx), inI_map=new Map();
         inEdges.forEach(ed=>{if(!inI_map.has(ed.c))inI_map.set(ed.c,1);ed.inI=inI_map.get(ed.c);inI_map.set(ed.c,ed.inI+1);});
 
         const an=ana(),hC={},vC={};
         rawEdges.forEach((ed,idx)=>{
             const pid=ed.p,cid=ed.c,p=ui[pid],ch=ui[cid];
-            if(p&&ch){
+            if(p&&ch){ 
                 const sx=(p.l+p.r)/2+(ed.outI-(outC[pid]+1)/2)*20, sy=p.b, ex=(ch.l+ch.r)/2+(ed.inI-(inC[cid]+1)/2)*20, ey=ch.t;
                 const pLv=levels[pid],cLv=levels[cid]; let pts=[{x:sx,y:sy}];
                 
                 hC[pLv]=(hC[pLv]||0)+1; const oy=lMB[pLv]+15+(hC[pLv]%8)*8, tHLv=cLv>0?cLv-1:0; hC[tHLv]=(hC[tHLv]||0)+1; let iy=lS[cLv]-15-(hC[tHLv]%8)*8;
                 if(pLv===cLv)iy=oy; pts.push({x:sx,y:oy});
                 
-                // 💡 修正：階層が隣接している場合は迂回処理をスキップし、S字で直接結ぶ
                 const isAdj=(cLv-pLv<=1);
                 if(!isAdj && pLv!==cLv){
-                    let vCol; 
-                    // 💡 修正：左に戻る時に「X=0（画面外の壁）」に当たらないようMath.max(1, ...) で保護
-                    if(ex > sx + 10) vCol = Math.max(p.mx+1, ch.minI); 
-                    else if(ex < sx - 10) vCol = Math.max(1, Math.min(p.minI, ch.mx+1)); 
-                    else vCol = Math.max(1, p.mx+1);
-                    
+                    let vCol; if(ex > sx + 10) vCol = Math.max(p.mx+1, ch.minI); else if(ex < sx - 10) vCol = Math.max(1, Math.min(p.minI, ch.mx+1)); else vCol = Math.max(1, p.mx+1);
                     vC[vCol]=(vC[vCol]||0)+1; const vx=vCol*cw+((vC[vCol]%6)-2.5)*6; 
                     pts.push({x:vx,y:oy}); pts.push({x:vx,y:iy});
-                } else {
-                    if(Math.abs(sx-ex)>5){const my=(oy+iy)/2;pts.push({x:sx,y:my});pts.push({x:ex,y:my});}
-                }
-                
+                } else { if(Math.abs(sx-ex)>5){const my=(oy+iy)/2;pts.push({x:sx,y:my});pts.push({x:ex,y:my});} }
                 pts.push({x:ex,y:iy}); pts.push({x:ex,y:ey});
                 
                 const pt=document.createElementNS("http://www.w3.org/2000/svg","path"); pt.setAttribute('d',drawRoundedPath(pts,12)); pt.setAttribute('marker-end','url(#sa)');
@@ -901,9 +921,8 @@ input[type="range"]{width:100%;}
         });
         con.appendChild(svg);
     }
-
     // ==========================================
-    // 11. Doc Binding (Excel)
+    // 6. Excel Binding & Data Palette
     // ==========================================
     function clearHl() { document.querySelectorAll('.hl-match').forEach(el => el.classList.remove('hl-match')); }
 
@@ -928,16 +947,17 @@ input[type="range"]{width:100%;}
         const setCls = (id, c) => { const el = $(id); if(el) el.className = c; };
         const setDisp = (id, d) => { const el = $(id); if(el) el.style.display = d; };
         
-        setCls('b-map', m==='map'?'act':''); setCls('b-gantt', m==='gantt'?'act':''); setCls('b-swim', m==='swim'?'act':''); setCls('b-doc', m==='doc'?'act':'');
-        setDisp('map-con', m==='map'?'block':'none'); setDisp('g-view', m==='gantt'?'flex':'none'); setDisp('s-view', m==='swim'?'flex':'none'); setDisp('d-view', m==='doc'?'flex':'none');
+        setCls('b-map', m==='map'?'act':''); setCls('b-gantt', m==='gantt'?'act':''); setCls('b-swim', m==='swim'?'act':''); setCls('b-doc', m==='doc'?'act':''); setCls('b-ppt', m==='ppt'?'act':'');
+        setDisp('map-con', m==='map'?'block':'none'); setDisp('g-view', m==='gantt'?'flex':'none'); setDisp('s-view', m==='swim'?'flex':'none'); setDisp('d-view', m==='doc'?'flex':'none'); setDisp('p-view', m==='ppt'?'flex':'none');
         setDisp('pres', m==='map'?'flex':'none'); setDisp('g-scale', m==='gantt'?'flex':'none'); setDisp('s-fit', m==='swim'?'flex':'none');
         
-        if(m==='map') ren(); else if(m==='gantt') changeGanttScale(gSc); else if(m==='swim') renderSwimlane(); else if(m==='doc'){ renderDocPalette(); if(excelWb)renderExcelTable(); }
+        if(m==='map') ren(); else if(m==='gantt') changeGanttScale(gSc); else if(m==='swim') renderSwimlane(); else if(m==='doc'){ renderDocPalette(); if(excelWb)renderExcelTable(); } else if(m==='ppt'){ renderDocPalette('ppt-palette'); if(pptZip) renderPptPreview(); }
         if(pre.act && m!=='map') stopPresentation();
     }
 
-    function renderDocPalette() {
-        const pal = $('doc-palette'); let html = '<h4 style="margin-top:0; color:#2c3e50;">データパレット</h4><p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">項目をセルにドラッグ＆ドロップ</p>';
+    function renderDocPalette(targetId = 'doc-palette') {
+        const pal = $(targetId); if(!pal) return;
+        let html = `<h4 style="margin-top:0; color:#2c3e50;">データパレット</h4><p style="font-size:11px; color:#7f8c8d; margin-bottom:15px;">項目を${targetId==='doc-palette'?'セル':'図形'}にドラッグ＆ドロップ</p>`;
         st.nodes.forEach(n => {
             const isDec = (parseInt(getField(n,"期間")) || 0) === 0; const tc = isDec ? '#8e44ad' : '#3498db';
             html += `<div style="margin-bottom:12px; background:white; padding:8px; border-radius:6px; border:1px solid #ddd; box-shadow:0 2px 4px rgba(0,0,0,0.05);"><div style="font-weight:bold; font-size:13px; margin-bottom:6px; color:${tc}; border-bottom:1px solid #eee; padding-bottom:4px;">${n.title} ${isDec?'(合意)':'(作業)'}</div>`;
@@ -1001,15 +1021,116 @@ input[type="range"]{width:100%;}
     }
 
     function dropToCell(e, cR) { e.preventDefault(); const dS = e.dataTransfer.getData("text/plain"); if(!dS) return; try { const m = JSON.parse(dS); if (!st.cellMappings) st.cellMappings = {}; if (!st.cellMappings[currentSheetName]) st.cellMappings[currentSheetName] = {}; st.cellMappings[currentSheetName][cR] = m; renderExcelTable(); hlFromCell(cR); } catch(err) { console.error("Drop Parse Error", err); } }
-    function clearMapping(cR) { if(st.cellMappings && st.cellMappings[currentSheetName]) { delete st.cellMappings[currentSheetName][cR]; clearHl(); renderExcelTable(); } }
-    
+    function clearMapping(cR) { if(st.cellMappings && st.cellMappings[currentSheetName]) { delete st.cellMappings[currentSheetName][cR]; clearHl(); renderExcelTable(); saveState();} }
+
     // ==========================================
-    // 12. Save & Load (Excel Integration)
+    // 7. PowerPoint Binding Engine
+    // ==========================================
+    async function handlePptUpload(e) {
+        const f = e.target.files[0]; if(!f) return;
+        $('ppt-f-name').innerText = f.name;
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            pptZip = await JSZip.loadAsync(evt.target.result);
+            const slideXmlText = await pptZip.file("ppt/slides/slide1.xml").async("string");
+            parsePptSlide(slideXmlText);
+            renderPptPreview();
+        };
+        reader.readAsArrayBuffer(f);
+    }
+
+    function parsePptSlide(xmlString) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+        const shapes = xmlDoc.getElementsByTagName("p:sp");
+        pptShapes = [];
+
+        for (let sp of shapes) {
+            const nvSpPr = sp.getElementsByTagName("p:nvSpPr")[0];
+            if(!nvSpPr) continue;
+            const cNvPr = nvSpPr.getElementsByTagName("p:cNvPr")[0];
+            const id = cNvPr.getAttribute("id");
+
+            const xfrm = sp.getElementsByTagName("a:xfrm")[0];
+            if (!xfrm) continue;
+            const off = xfrm.getElementsByTagName("a:off")[0];
+            const ext = xfrm.getElementsByTagName("a:ext")[0];
+            
+            const x = parseInt(off.getAttribute("x")) / 12700; 
+            const y = parseInt(off.getAttribute("y")) / 12700;
+            const w = parseInt(ext.getAttribute("cx")) / 12700;
+            const h = parseInt(ext.getAttribute("cy")) / 12700;
+
+            const tEls = sp.getElementsByTagName("a:t");
+            let text = "";
+            for (let t of tEls) { text += t.textContent; }
+
+            pptShapes.push({ id, x, y, w, h, originalText: text });
+        }
+    }
+
+    function renderPptPreview() {
+        const surface = $('ppt-slide-surface'); surface.innerHTML = '';
+        pptShapes.forEach(sh => {
+            const el = document.createElement('div');
+            el.style.position = 'absolute'; el.style.left = sh.x + 'px'; el.style.top = sh.y + 'px';
+            el.style.width = sh.w + 'px'; el.style.height = sh.h + 'px';
+            el.style.border = '1px dashed #ccc'; el.style.fontSize = '12px';
+            el.style.overflow = 'hidden'; el.style.padding = '4px';
+            el.style.background = 'rgba(255,255,255,0.7)'; el.style.cursor = 'crosshair';
+
+            const mapping = st.pptMappings[sh.id];
+            if (mapping) {
+                el.style.background = '#e8f8f5'; el.style.border = '2px solid #16a085';
+                el.innerText = getDynamicValue(mapping);
+                el.innerHTML += `<span onclick="event.stopPropagation(); clearPptMapping('${sh.id}')" style="position:absolute; top:0; right:0; background:red; color:white; cursor:pointer; padding:0 4px; font-size:10px;">×</span>`;
+            } else {
+                el.innerText = sh.originalText || `(空のテキストボックス)`;
+            }
+
+            el.ondragover = e => { e.preventDefault(); el.style.background = '#d6eaf8'; };
+            el.ondragleave = e => { el.style.background = mapping ? '#e8f8f5' : 'rgba(255,255,255,0.7)'; };
+            el.ondrop = e => {
+                e.preventDefault();
+                const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+                st.pptMappings[sh.id] = data;
+                renderPptPreview(); saveState();
+            };
+
+            surface.appendChild(el);
+        });
+    }
+
+    function clearPptMapping(shapeId) { delete st.pptMappings[shapeId]; renderPptPreview(); saveState(); }
+
+    async function exportPptx() {
+        if (!pptZip) { alert("テンプレートとなるPPTXを先に読み込んでください"); return; }
+        try {
+            let slideXmlText = await pptZip.file("ppt/slides/slide1.xml").async("string");
+            for (let shapeId in st.pptMappings) {
+                const mapping = st.pptMappings[shapeId];
+                const newValue = getDynamicValue(mapping);
+                const shapeRegex = new RegExp(`(<p:sp>.*?<p:cNvPr id="${shapeId}".*?<a:t>)(.*?)(</a:t>.*?/p:sp>)`, 's');
+                if (slideXmlText.match(shapeRegex)) {
+                    slideXmlText = slideXmlText.replace(shapeRegex, `$1${newValue}$3`);
+                }
+            }
+            pptZip.file("ppt/slides/slide1.xml", slideXmlText);
+            const content = await pptZip.generateAsync({type: "blob"});
+            const a = document.createElement("a");
+            a.href = URL.createObjectURL(content);
+            a.download = `Project_Report_${todayStr}.pptx`;
+            a.click();
+            const t=$('toast'); if(t){t.innerText = "PowerPointを出力しました"; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2000);}
+        } catch (err) { alert("出力に失敗しました: " + err.message); console.error(err); }
+    }
+
+    // ==========================================
+    // 8. Save & Load (Excel Integration)
     // ==========================================
     function saveToExcelWb() {
         let wb = excelWb;
         if (!wb) { wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[]]), "Sheet1"); }
-
         if (st.cellMappings) {
             Object.keys(st.cellMappings).forEach(sN => {
                 const sh = wb.Sheets[sN];
@@ -1021,13 +1142,10 @@ input[type="range"]{width:100%;}
                 }
             });
         }
-
         const stClone = JSON.parse(JSON.stringify(st)); stClone.docTemplate = null; 
         const jsonStr = JSON.stringify(stClone), chunks = jsonStr.match(/.{1,30000}/g) || [], aoa = chunks.map(chunk => [chunk]);
-        
         if (wb.SheetNames.includes("__ProMapData__")) wb.Sheets["__ProMapData__"] = XLSX.utils.aoa_to_sheet(aoa);
         else XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "__ProMapData__");
-
         return wb;
     }
 
@@ -1042,7 +1160,6 @@ input[type="range"]{width:100%;}
     async function saveAs(){ 
         const wb = saveToExcelWb(), buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         const defaultName = st.docTemplateName ? (st.docTemplateName.endsWith('.xlsx') ? st.docTemplateName : st.docTemplateName + '.xlsx') : `map_${todayStr}.xlsx`;
-        
         if(window.showSaveFilePicker){ 
             try{ 
                 fH = await window.showSaveFilePicker({types:[{description:'Excel File',accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx']}}], suggestedName: defaultName}); 
@@ -1071,7 +1188,6 @@ input[type="range"]{width:100%;}
     function loadFromBuffer(buf, fileName) {
         try {
             if (fileName.endsWith('.json')) { const decoder = new TextDecoder('utf-8'); loadJsonText(decoder.decode(buf)); return; }
-
             const wb = XLSX.read(buf, { type: 'array' });
             if (wb.SheetNames.includes("__ProMapData__")) {
                 const sh = wb.Sheets["__ProMapData__"], aoa = XLSX.utils.sheet_to_json(sh, { header: 1 });
@@ -1079,12 +1195,11 @@ input[type="range"]{width:100%;}
             } else {
                 if(confirm("このExcelを新しいテンプレートとして読み込みますか？")) { st.docTemplateName = fileName; st.cellMappings = {}; } else return;
             }
-            
             excelWb = wb; const sel = $('sheet-select'); sel.innerHTML = '';
             excelWb.SheetNames.forEach(name => { if (name !== "__ProMapData__") { const opt = document.createElement('option'); opt.value = name; opt.innerText = name; sel.appendChild(opt); } });
             currentSheetName = sel.options.length > 0 ? sel.options[0].value : null;
-            
             fitToScreen(); ren(); if(mode==='doc') { renderDocPalette(); renderExcelTable(); }
+            saveState();
         } catch(e) { alert("読込エラー: " + e.message); console.error(e); }
     }
 
@@ -1092,6 +1207,7 @@ input[type="range"]{width:100%;}
         applyState(JSON.parse(t));
         if(st.docTemplate) loadExcelFromBase64(st.docTemplate); else { excelWb = null; $('excel-table-container').innerHTML = '<div style="color:#999; text-align:center; padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>'; }
         fitToScreen(); ren(); if(mode==='doc') { renderDocPalette(); if(excelWb) renderExcelTable(); }
+        saveState();
     }
 
     function applyState(j) {
@@ -1105,16 +1221,105 @@ input[type="range"]{width:100%;}
         }
     }
 
-    function newFile(){ if(confirm("新規作成しますか？")){ st={sc:1,x:0,y:0,sOrd:[],gOrd:[],nodes:[{id:Date.now(),title:"開始",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l: "承認者", v: ""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],x:0,y:0,pIds:[]}],sel:new Set(),docTemplate:null,docTemplateName:"",cellMappings:{}}; fH=null; $('f-name').innerText='(未保存)'; excelWb=null; $('excel-table-container').innerHTML='<div style="color:#999;text-align:center;padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>'; fitToScreen(); if(mode==='doc')renderDocPalette(); } }
+    function newFile(){ if(confirm("新規作成しますか？")){ st={sc:1,x:-120,y:-80,sOrd:[],gOrd:[],nodes:[{id:Date.now(),title:"開始",f:[{l:"予定開始",v:todayStr},{l:"期間",v:"1"},{l:"予定終了",v:todayStr},{l:"担当部署",v:"全体"},{l: "承認者", v: ""},{l:"ステータス",v:"todo"},{l:"進捗",v:"0"}],inputs:[],outputs:[],collapsed:false,x:0,y:0,pIds:[]}],sel:new Set(),docTemplate:null,docTemplateName:"",cellMappings:{}}; fH=null; $('f-name').innerText='(未保存)'; excelWb=null; $('excel-table-container').innerHTML='<div style="color:#999;text-align:center;padding-top:50px;">上部からテンプレート(xlsx/xls)を読み込んでください</div>'; fitToScreen(); if(mode==='doc')renderDocPalette(); saveState();} }
 
     function startPresentation(){pre.act=true;pre.idx=0;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='flex'; if(n)n.style.display='flex'; focusP();}
     function stopPresentation(){pre.act=false;const p=$('pres-ind'), n=$('p-nav'); if(p)p.style.display='none'; if(n)n.style.display='none'; fitToScreen();}
-    function nextSlide(){if(st.nodes.length){pre.idx=(pre.idx+1)%st.nodes.length;focusP();}}
-    function prevSlide(){if(st.nodes.length){pre.idx=(pre.idx-1+st.nodes.length)%st.nodes.length;focusP();}}
-    function focusP(){const n=st.nodes[pre.idx];sel(n.id,false);const s=$('s-num'); if(s)s.innerText=`${pre.idx+1}/${st.nodes.length}`;st.sc=1.5;st.x=-(n.x||0)*st.sc;st.y=-(n.y||0)*st.sc;ren();}
+    function nextSlide(){const visNodes = getVisibleNodes(); if(visNodes.length){pre.idx=(pre.idx+1)%visNodes.length;focusP(visNodes);}}
+    function prevSlide(){const visNodes = getVisibleNodes(); if(visNodes.length){pre.idx=(pre.idx-1+visNodes.length)%visNodes.length;focusP(visNodes);}}
+    function focusP(visNodes = getVisibleNodes()){const n=visNodes[pre.idx];sel(n.id,false);const s=$('s-num'); if(s)s.innerText=`${pre.idx+1}/${visNodes.length}`;st.sc=1.5;st.x=-(n.x||0)*st.sc;st.y=-(n.y||0)*st.sc;ren();}
 
-    // --- Boot ---
-    init();
+    // ==========================================
+    // 9. Init & Listeners
+    // ==========================================
+    function init() {
+        document.querySelectorAll('.pnl').forEach(p => {
+            const start = (e, cx, cy) => {
+                if(['BUTTON','INPUT','SELECT','TEXTAREA'].includes(e.target.tagName))return;
+                const rect = p.getBoundingClientRect();
+                panD = { act:true, el:p, ox:cx-rect.left, oy:cy-rect.top };
+                p.style.left = rect.left + 'px'; p.style.top = rect.top + 'px'; p.style.right = 'auto'; p.style.bottom = 'auto';
+            };
+            p.onmousedown = e => start(e, e.clientX, e.clientY);
+            p.ontouchstart = e => start(e, e.touches[0].clientX, e.touches[0].clientY);
+        });
+        
+        window.onmousemove = e => {
+            if(linkDrag.act) {
+                const path = $('drag-line');
+                if(path) {
+                    const dx = e.clientX - linkDrag.x, dy = e.clientY - linkDrag.y, cp = Math.max(Math.abs(dx)*0.5, 40);
+                    path.setAttribute('d', `M ${linkDrag.x} ${linkDrag.y} C ${linkDrag.x + cp} ${linkDrag.y}, ${e.clientX - cp} ${e.clientY}, ${e.clientX} ${e.clientY}`);
+                }
+                return;
+            }
+
+            if(panD.act && panD.el){ panD.el.style.left=(e.clientX-panD.ox)+'px'; panD.el.style.top=(e.clientY-panD.oy)+'px'; return; }
+            if(mapD){
+                if(mapD.t==='pan'){ st.x+=e.clientX-mapD.x; st.y+=e.clientY-mapD.y; }
+                else { mapD.ids.forEach(id=>{ const n=st.nodes.find(x=>x.id==id); if(n){n.x+=(e.clientX-mapD.x)/st.sc; n.y+=(e.clientY-mapD.y)/st.sc;} }); }
+                mapD.x=e.clientX; mapD.y=e.clientY; ren(); return;
+            }
+            if(mode==='map' && e.shiftKey){
+                const lp=$('loupe'), lc=$('loupe-content');
+                if(lp){
+                    lp.style.display='block'; lp.style.left=(e.clientX-125)+'px'; lp.style.top=(e.clientY-125)+'px';
+                    const zoom=3, wX=(e.clientX-st.x-innerWidth/2)/st.sc, wY=(e.clientY-st.y-innerHeight/2)/st.sc;
+                    lc.innerHTML=$('canvas').innerHTML; lc.style.transform=`translate(${125-wX*zoom*st.sc}px, ${125-wY*zoom*st.sc}px) scale(${zoom*st.sc})`;
+                    document.body.classList.add('magnify-cursor');
+                }
+            } else { const lp=$('loupe'); if(lp)lp.style.display='none'; document.body.classList.remove('magnify-cursor'); }
+        };
+        
+        window.onmouseup = () => { 
+            if(linkDrag.act) {
+                linkDrag.act = false; linkDrag.from = null;
+                const svg = $('drag-line-svg'); if (svg) svg.style.display = 'none';
+            }
+            panD.act=false; const vp=$('viewport'); if(vp)vp.style.willChange='auto'; 
+            if(mapD&&mapD.t==='node'){phy.act=true;runPhy();saveState();} 
+            mapD=null; 
+        };
+        
+        const vp = $('viewport');
+        if(vp) {
+            vp.onmousedown = e => { 
+                if(e.target.id==='viewport'||e.target.id==='canvas'){ 
+                    mapD={t:'pan',x:e.clientX,y:e.clientY}; 
+                    vp.style.willChange='background-position'; 
+                    if(pre.act)stopPresentation(); 
+                    if(st.sel.size > 0 && !lnk.act) { st.sel.clear(); ren(); }
+                }
+            };
+            vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/f; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/f; ren(); };
+        }
+        
+        document.onkeydown = e => {
+            const act=document.activeElement; if(e.isComposing)return;
+            const md = $('modal');
+            if(md && md.style.display!=='none'){ if(e.key==='Enter'&&act.tagName!=='TEXTAREA'&&act.tagName!=='BUTTON'){e.preventDefault();saveModal();return;} if(e.key==='Escape'){e.preventDefault();closeModal();return;} }
+            if(['INPUT','SELECT','TEXTAREA'].includes(act.tagName))return;
+            
+            if(e.ctrlKey||e.metaKey){
+                if(e.key==='z' || e.key==='Z') { e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
+                if(e.key==='y' || e.key==='Y') { e.preventDefault(); redo(); return; }
+                if(e.key==='c'){e.preventDefault();clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));}
+                if(e.key==='v'&&clip){st.sel.clear();clip.forEach(n=>{n.id=Date.now()+Math.floor(Math.random()*1000);n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);});ren();runPhy();saveState();}
+                if(e.key==='s'){e.preventDefault();saveOver();} if(e.key==='o'){e.preventDefault();openFile();}
+            }
+            if(st.sel.size>0){if(e.key==='Tab'){e.preventDefault();addNode('child');} if(e.key==='Enter'){e.preventDefault();addNode('sibling');} if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}}
+        };
+        
+        const qIn = $('q-in'); 
+        if(qIn) {
+            qIn.oninput = e => { if(e.isComposing)return; const v=e.target.value.toLowerCase(); if(!v){qRes=[];qIdx=-1;const qc=$('q-cnt');if(qc)qc.innerText="";ren();return;} qRes=st.nodes.filter(n=>n.title.toLowerCase().includes(v)).map(n=>n.id); qIdx=0; jumpToNextMatch(false); }; 
+            qIn.onkeydown = e => { if(e.key==='Enter') jumpToNextMatch(); };
+        }
+        ren(); setTimeout(fitToScreen,100);
+        saveState(); 
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
 </script>
 </body>
 </html>
