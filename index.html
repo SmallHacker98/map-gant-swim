@@ -497,9 +497,6 @@ input[type="range"]{width:100%;}
         $('modal').dataset.openedAt = Date.now(); // ★モーダルが開いた時刻を記録
         setTimeout(() => { $('m-tit').focus(); }, 10); // ★フォーカスをわずかに遅らせてTabキーの干渉を回避
     }
-
-        
-        toggleModalUI(); $('modal').style.display='flex'; $('m-tit').focus();
     }
 
     function addDeptFromList(tId, lId){
