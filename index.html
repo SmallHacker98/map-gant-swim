@@ -490,7 +490,14 @@ input[type="range"]{width:100%;}
         dlD.innerHTML='<option value="">-- 履歴から担当へ追加 --</option>'; dlA.innerHTML='<option value="">-- 履歴から承認者へ追加 --</option>';
         const ds=new Set(); 
         st.nodes.forEach(no=>{ (getField(no,"担当部署")||"").split(/[,、]/).forEach(d=>{ if(d.trim()) ds.add(d.trim()); }); (getField(no,"承認者")||getField(no,"合意部署")||"").split(/[,、]/).forEach(d=>{ if(d.trim()) ds.add(d.trim()); }); });
-        ds.forEach(d=>{ const o1=document.createElement('option'), o2=document.createElement('option'); o1.value=o2.value=d; o1.innerText=o2.innerText=d; dlD.appendChild(o1); dlA.appendChild(o2); });
+                ds.forEach(d=>{ const o1=document.createElement('option'), o2=document.createElement('option'); o1.value=o2.value=d; o1.innerText=o2.innerText=d; dlD.appendChild(o1); dlA.appendChild(o2); });
+        
+        toggleModalUI(); 
+        $('modal').style.display='flex'; 
+        $('modal').dataset.openedAt = Date.now(); // ★モーダルが開いた時刻を記録
+        setTimeout(() => { $('m-tit').focus(); }, 10); // ★フォーカスをわずかに遅らせてTabキーの干渉を回避
+    }
+
         
         toggleModalUI(); $('modal').style.display='flex'; $('m-tit').focus();
     }
@@ -1294,21 +1301,37 @@ input[type="range"]{width:100%;}
             vp.onwheel = e => { e.preventDefault(); const f=Math.exp(-e.deltaY*0.001); st.sc=Math.min(5,Math.max(0.1,st.sc*f)); st.x=(e.clientX-innerWidth/2)-(e.clientX-innerWidth/2-st.x)/f; st.y=(e.clientY-innerHeight/2)-(e.clientY-innerHeight/2-st.y)/f; ren(); };
         }
         
-        document.onkeydown = e => {
-            const act=document.activeElement; if(e.isComposing)return;
-            const md = $('modal');
-            if(md && md.style.display!=='none'){ if(e.key==='Enter'&&act.tagName!=='TEXTAREA'&&act.tagName!=='BUTTON'){e.preventDefault();saveModal();return;} if(e.key==='Escape'){e.preventDefault();closeModal();return;} }
-            if(['INPUT','SELECT','TEXTAREA'].includes(act.tagName))return;
-            
-            if(e.ctrlKey||e.metaKey){
-                if(e.key==='z' || e.key==='Z') { e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
-                if(e.key==='y' || e.key==='Y') { e.preventDefault(); redo(); return; }
-                if(e.key==='c'){e.preventDefault();clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));}
-                if(e.key==='v'&&clip){st.sel.clear();clip.forEach(n=>{n.id=Date.now()+Math.floor(Math.random()*1000);n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);});ren();runPhy();saveState();}
-                if(e.key==='s'){e.preventDefault();saveOver();} if(e.key==='o'){e.preventDefault();openFile();}
-            }
-            if(st.sel.size>0){if(e.key==='Tab'){e.preventDefault();addNode('child');} if(e.key==='Enter'){e.preventDefault();addNode('sibling');} if(e.key==='Delete'||e.key==='Backspace'){deleteSelected();}}
-        };
+            document.onkeydown = e => {
+        const act=document.activeElement; if(e.isComposing)return;
+        const md = $('modal');
+        if(md && md.style.display!=='none'){ 
+            if(e.key==='Enter'&&act.tagName!=='TEXTAREA'&&act.tagName!=='BUTTON'){
+                e.preventDefault();
+                // ★開いた直後（300ミリ秒以内）のEnter長押し・連打による誤爆クローズを完全に防ぐ
+                if(Date.now() - (md.dataset.openedAt || 0) > 300) {
+                    saveModal();
+                }
+                return;
+            } 
+            if(e.key==='Escape'){e.preventDefault();closeModal();return;} 
+        }
+        if(['INPUT','SELECT','TEXTAREA'].includes(act.tagName))return;
+        
+        if(e.ctrlKey||e.metaKey){
+            if(e.key==='z' || e.key==='Z') { e.preventDefault(); if(e.shiftKey) redo(); else undo(); return; }
+            if(e.key==='y' || e.key==='Y') { e.preventDefault(); redo(); return; }
+            if(e.key==='c'){e.preventDefault();clip=st.nodes.filter(n=>st.sel.has(n.id)).map(n=>JSON.parse(JSON.stringify(n)));}
+            if(e.key==='v'&&clip){st.sel.clear();clip.forEach(n=>{n.id=Date.now()+Math.floor(Math.random()*1000);n.x+=40;n.y+=40;st.nodes.push(n);st.sel.add(n.id);});ren();runPhy();saveState();}
+            if(e.key==='s'){e.preventDefault();saveOver();} if(e.key==='o'){e.preventDefault();openFile();}
+        }
+        if(st.sel.size>0){
+            // ★TabやEnter時に非同期で実行し、キーイベントの連鎖を断ち切る
+            if(e.key==='Tab'){e.preventDefault(); setTimeout(() => addNode('child'), 10); return;} 
+            if(e.key==='Enter'){e.preventDefault(); setTimeout(() => addNode('sibling'), 10); return;} 
+            if(e.key==='Delete'||e.key==='Backspace'){deleteSelected(); return;}
+        }
+    };
+
         
         const qIn = $('q-in'); 
         if(qIn) {
@@ -1318,6 +1341,90 @@ input[type="range"]{width:100%;}
         ren(); setTimeout(fitToScreen,100);
         saveState(); 
     }
+
+  // ==========================================
+// ★ 抜け落ちていたズーム・整列・物理演算エンジン ★
+// ==========================================
+function fitToScreen(){
+    const visNodes = getVisibleNodes();
+    if(!visNodes.length)return;
+    let mx=-1e9,my=-1e9,Mx=1e9,My=1e9;
+    visNodes.forEach(n=>{
+        const nx=n.x||0, ny=n.y||0;
+        if(nx<Mx)Mx=nx; if(ny<My)My=ny; if(nx+240>mx)mx=nx+240; if(ny+160>my)my=ny+160;
+    });
+    const sc=Math.min(innerWidth/(mx-Mx+100), innerHeight/(my-My+100), 1);
+    const c = $('canvas');
+    if(c) c.classList.add('smooth');
+    st.sc=Math.max(0.1,sc); st.x=-(Mx+(mx-Mx)/2)*st.sc; st.y=-(My+(my-My)/2)*st.sc; 
+    ren();
+    setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400);
+}
+
+function zoomIn(){ const c = $('canvas'); if(c) c.classList.add('smooth'); st.sc*=1.2; ren(); setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400); }
+function zoomOut(){ const c = $('canvas'); if(c) c.classList.add('smooth'); st.sc = Math.max(0.1, st.sc * 0.8); ren(); setTimeout(() => { if(c) c.classList.remove('smooth'); }, 400); }
+
+function autoAlign(){
+    const visNodes = getVisibleNodes();
+    const comp = []; const visited = new Set(); const adj = {};
+    visNodes.forEach(n => adj[n.id] = []);
+    visNodes.forEach(n => { n.pIds.forEach(pid => { if(adj[pid]) adj[pid].push(n.id); if(adj[n.id]) adj[n.id].push(pid); }); });
+    visNodes.forEach(n => {
+        if(!visited.has(n.id)){
+            const c = []; const q = [n.id]; visited.add(n.id);
+            while(q.length > 0){ const cur = q.shift(); c.push(cur); adj[cur].forEach(nei => { if(!visited.has(nei)){ visited.add(nei); q.push(nei); } }); }
+            comp.push(c);
+        }
+    });
+    let currentYOffset = 0;
+    comp.forEach(cIds => {
+        const cNodes = visNodes.filter(n => cIds.includes(n.id));
+        const levels = {}; cNodes.forEach(n => levels[n.id] = 0);
+        let changed = true;
+        for(let iter=0; iter<50 && changed; iter++){
+            changed = false;
+            cNodes.forEach(n => {
+                if(n.pIds.length > 0){
+                    const pLv = n.pIds.map(pid => levels[pid]).filter(l => l !== undefined);
+                    if(pLv.length > 0) { const maxParentLevel = Math.max(...pLv); if(levels[n.id] !== maxParentLevel + 1){ levels[n.id] = maxParentLevel + 1; changed = true; } }
+                }
+            });
+        }
+        const groups = {};
+        cNodes.forEach(n => { const lv = levels[n.id]; if(!groups[lv]) groups[lv] = []; groups[lv].push(n); });
+        let maxNodesInLevel = 0;
+        Object.values(groups).forEach(g => { if(g.length > maxNodesInLevel) maxNodesInLevel = g.length; });
+        const compHeight = maxNodesInLevel * 200;
+        Object.keys(groups).forEach(lv => {
+            const nodes = groups[lv]; const spacing = 200;
+            const startY = currentYOffset - (nodes.length - 1) * spacing / 2;
+            nodes.forEach((n, i) => { n.x = parseInt(lv) * 350; n.y = startY + i * spacing; });
+        });
+        currentYOffset += compHeight + 100; 
+    });
+    const c = $('canvas'); if(c) c.classList.add('smooth'); ren();
+    setTimeout(() => { if(c) c.classList.remove('smooth'); fitToScreen(); }, 400);
+}
+
+function runPhy(){
+    let i=0; 
+    const visNodes = getVisibleNodes();
+    const tick=()=>{
+        if(!phy.act || i>100){ phy.act=false; ren(); return; }
+        let mv=false;
+        for(let a of visNodes){
+            for(let b of visNodes){
+                if(a===b)continue;
+                const dx=(a.x||0)-(b.x||0), dy=(a.y||0)-(b.y||0), d=Math.sqrt(dx*dx+dy*dy);
+                if(d<280 && d>0.1){ const f=(280-d)*0.15; const ang=Math.atan2(dy,dx); a.x=(a.x||0)+Math.cos(ang)*f; a.y=(a.y||0)+Math.sin(ang)*f; mv=true; }
+            }
+        }
+        if(mv)ren(); i++; if(!mv && i>15){ phy.act=false; ren(); return; }
+        requestAnimationFrame(tick);
+    }; 
+    tick();
+}
+
 
     window.addEventListener('DOMContentLoaded', init);
 </script>
